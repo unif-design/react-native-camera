@@ -60,8 +60,10 @@ export function Container({ config, onSettle }: Props) {
   const cameraRef = useRef<CameraHandle>(null);
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
+  const [recording, setRecording] = useState(false);
   const currentMode = config.cameraMode[0];
   const isContinuous = currentMode?.mode === 'continuous';
+  const isVideo = currentMode?.mode === 'video';
 
   if (state === 'denied') {
     return (
@@ -126,6 +128,22 @@ export function Container({ config, onSettle }: Props) {
         <TouchableOpacity
           testID="shutter-btn"
           onPress={async () => {
+            if (isVideo) {
+              if (!recording) {
+                await cameraRef.current?.startVideo();
+                setRecording(true);
+              } else {
+                const f = await cameraRef.current?.stopVideo();
+                setRecording(false);
+                if (f) {
+                  setPhotos([f]);
+                  setPreviewing(true);
+                } else {
+                  onSettle({ code: 503, data: [], message: 'video_failed' });
+                }
+              }
+              return;
+            }
             const f = await cameraRef.current?.capture();
             if (!f) {
               onSettle({
@@ -140,7 +158,7 @@ export function Container({ config, onSettle }: Props) {
               setPreviewing(true);
             }
           }}
-          style={styles.shutter}
+          style={[styles.shutter, recording && styles.shutterRecording]}
         />
         {isContinuous && photos.length > 0 && (
           <TouchableOpacity
@@ -186,6 +204,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 4,
     borderColor: '#ddd',
+  },
+  shutterRecording: {
+    backgroundColor: 'red',
   },
   text: {
     color: 'white',
