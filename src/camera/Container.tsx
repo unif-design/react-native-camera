@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Linking,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import {
   useCameraDevice,
   useCameraPermission,
@@ -16,6 +10,7 @@ import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
 import { PreViewContainer } from './preview';
+import { Footer } from './footer';
 
 type Props = {
   config: OpenConfig;
@@ -61,9 +56,36 @@ export function Container({ config, onSettle }: Props) {
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
   const [recording, setRecording] = useState(false);
-  const currentMode = config.cameraMode[0];
-  const isContinuous = currentMode?.mode === 'continuous';
-  const isVideo = currentMode?.mode === 'video';
+  const [modeIndex, setModeIndex] = useState(0);
+  const currentMode = config.cameraMode[modeIndex];
+
+  const onShutter = async () => {
+    if (currentMode?.mode === 'video') {
+      if (!recording) {
+        await cameraRef.current?.startVideo();
+        setRecording(true);
+      } else {
+        const f = await cameraRef.current?.stopVideo();
+        setRecording(false);
+        if (f) {
+          setPhotos([f]);
+          setPreviewing(true);
+        } else {
+          onSettle({ code: 503, data: [], message: 'video_failed' });
+        }
+      }
+      return;
+    }
+    const f = await cameraRef.current?.capture();
+    if (!f) {
+      onSettle({ code: 500, data: photos, message: 'capture_failed' });
+      return;
+    }
+    setPhotos((prev) => [...prev, f]);
+    if (currentMode?.mode !== 'continuous') {
+      setPreviewing(true);
+    }
+  };
 
   if (state === 'denied') {
     return (
@@ -118,65 +140,25 @@ export function Container({ config, onSettle }: Props) {
   return (
     <View style={styles.root} testID="device-ready">
       <Camera ref={cameraRef} device={device} currentMode={currentMode} />
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          testID="cancel-btn"
-          onPress={() => onSettle({ code: 0, data: [], message: 'cancelled' })}
-        >
-          <Text style={styles.text}>取消</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          testID="shutter-btn"
-          onPress={async () => {
-            if (isVideo) {
-              if (!recording) {
-                await cameraRef.current?.startVideo();
-                setRecording(true);
-              } else {
-                const f = await cameraRef.current?.stopVideo();
-                setRecording(false);
-                if (f) {
-                  setPhotos([f]);
-                  setPreviewing(true);
-                } else {
-                  onSettle({ code: 503, data: [], message: 'video_failed' });
-                }
-              }
-              return;
-            }
-            const f = await cameraRef.current?.capture();
-            if (!f) {
-              onSettle({
-                code: 500,
-                data: photos,
-                message: 'capture_failed',
-              });
-              return;
-            }
-            setPhotos((prev) => [...prev, f]);
-            if (!isContinuous) {
-              setPreviewing(true);
-            }
-          }}
-          style={[styles.shutter, recording && styles.shutterRecording]}
-        />
-        {isContinuous && photos.length > 0 && (
-          <TouchableOpacity
-            testID="finish-burst"
-            onPress={() => setPreviewing(true)}
-          >
-            <Text style={styles.text}>完成 ({photos.length})</Text>
-          </TouchableOpacity>
-        )}
-        {!isContinuous && (
-          <TouchableOpacity
-            testID="done-btn"
-            onPress={() => onSettle({ code: 200, data: photos, message: 'ok' })}
-          >
-            <Text style={styles.text}>完成</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <Footer
+        modes={config.cameraMode}
+        currentIndex={modeIndex}
+        recording={recording}
+        onShutter={onShutter}
+        onSelectMode={(i) => {
+          if (config.dataRetainedMode === 'clear') setPhotos([]);
+          setModeIndex(i);
+        }}
+        onCancel={() => onSettle({ code: 0, data: [], message: 'cancelled' })}
+        onFinishBurst={
+          currentMode?.mode === 'continuous'
+            ? () => setPreviewing(true)
+            : undefined
+        }
+        burstCount={
+          currentMode?.mode === 'continuous' ? photos.length : undefined
+        }
+      />
     </View>
   );
 }
@@ -187,29 +169,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  shutter: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'white',
-    borderWidth: 4,
-    borderColor: '#ddd',
-  },
-  shutterRecording: {
-    backgroundColor: 'red',
-  },
-  text: {
-    color: 'white',
-    fontSize: 16,
   },
 });

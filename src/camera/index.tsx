@@ -8,3 +8,4 @@ export {
   capturePhotoToFile,
   type CapturedPhotoRaw,
 } from './capturePhotoHelper';
+export { Footer } from './footer';
