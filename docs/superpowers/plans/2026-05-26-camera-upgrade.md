@@ -705,6 +705,7 @@ export const VERSION = '2.0.0';
 
 ```tsx
 import React from 'react';
+import { View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 import { useCamera } from '../hooks';
 import type { CameraResult } from '../utils';
@@ -717,13 +718,18 @@ function Harness({ onResult }: { onResult: (r: CameraResult) => void }) {
     // close right away to test cancel path
     queueMicrotask(() => api.close());
   }, [api, onResult]);
-  return <>{holder}</>;
+  return (
+    <>
+      <View testID="harness-sentinel" />
+      {holder}
+    </>
+  );
 }
 
 it('resolves with code 0 when close() is called', async () => {
   const onResult = jest.fn();
+  render(<Harness onResult={onResult} />);
   await act(async () => {
-    render(<Harness onResult={onResult} />);
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -732,6 +738,8 @@ it('resolves with code 0 when close() is called', async () => {
   );
 });
 ```
+
+注：`<View testID="harness-sentinel" />` 是为了让 fragment 至少有一个 always-rendered 节点。`@react-native/jest-preset` 的 Modal mock 在 `visible=false` 时返回 null，导致仅含 holder 的 fragment 在 settle 后 0 host children，触发 `react-test-renderer` 的 root 访问错误。同时 `render()` 必须放在 `await act(async () => { ... })` 外面：RTL 内部已经包了 sync act，再嵌套外层 async act 会让 Modal mock 的 commit 把 root fiber 标记为 unmounted，`buildRenderResult` 同步访问 `renderer.root` 即抛 `Can't access .root on unmounted test renderer`。
 
 - [ ] **Step 5: 跑测试 + 类型检查**
 
