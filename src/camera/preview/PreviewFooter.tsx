@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Button, r } from '@unif/react-native-design';
 
 type Props = {
   onRetake: () => void;
@@ -8,12 +9,18 @@ type Props = {
 export function PreviewFooter({ onRetake, onConfirm }: Props) {
   return (
     <View style={styles.root}>
-      <TouchableOpacity onPress={onRetake} testID="retake-btn">
-        <Text style={styles.text}>重拍</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onConfirm} testID="confirm-btn">
-        <Text style={styles.text}>使用照片</Text>
-      </TouchableOpacity>
+      <Button
+        variant="ghost"
+        label="重拍"
+        onPress={onRetake}
+        testID="retake-btn"
+      />
+      <Button
+        variant="primary"
+        label="使用照片"
+        onPress={onConfirm}
+        testID="confirm-btn"
+      />
     </View>
   );
 }
@@ -21,12 +28,11 @@ export function PreviewFooter({ onRetake, onConfirm }: Props) {
 const styles = StyleSheet.create({
   root: {
     position: 'absolute',
-    bottom: 40,
+    bottom: r(40),
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
   },
-  text: { color: 'white', fontSize: 16 },
 });

@@ -14,5 +14,7 @@ export function SlideItem({ file }: { file: CustomPhotoFile }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'black' },
+  // 相机 slide 固定黑底:与 SinglePre / PreView 一致,
+  // 让照片在纯黑上凸显的 UX 惯例,不走 c.background token.
+  root: { flex: 1, backgroundColor: '#000' },
 });

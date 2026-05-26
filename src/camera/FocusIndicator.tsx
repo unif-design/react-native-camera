@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet } from 'react-native';
+import { r } from '@unif/react-native-design';
 import type { Point } from '../utils';
 
 type Props = { point: Point; onAnimationEnd: () => void };
 
-const SIZE = 80;
+const SIZE = r(80);
 
 export function FocusIndicator({ point, onAnimationEnd }: Props) {
   const scale = useRef(new Animated.Value(1.6)).current;
@@ -51,7 +52,9 @@ const styles = StyleSheet.create({
     width: SIZE,
     height: SIZE,
     borderWidth: 1.5,
+    // 对焦黄框:相机 UX 惯例(iOS / Android 系统相机统一用饱和黄高对比度),
+    // 不走主题 token —— 任何主题下都需要在镜头预览(黑底为主)上一眼可见.
     borderColor: 'yellow',
-    borderRadius: 6,
+    borderRadius: r(6),
   },
 });

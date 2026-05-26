@@ -1,19 +1,27 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import {
+  Empty,
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 
 export function ErrorView({ message }: { message: string }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.root} testID="error-view">
-      <Text style={styles.text}>{message}</Text>
+      <Empty title={message} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  text: { color: 'white', fontSize: 14 },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: r(24),
+      backgroundColor: c.background,
+    },
+  });

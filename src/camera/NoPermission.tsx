@@ -1,42 +1,47 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import {
+  Button,
+  Empty,
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 
 type Props = { onCancel: () => void; onOpenSettings?: () => void };
 
 export function NoPermission({ onCancel, onOpenSettings }: Props) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.root} testID="no-permission">
-      <Text style={styles.title}>相机权限被拒</Text>
-      <Text style={styles.message}>请前往系统设置开启权限</Text>
+      <Empty title="相机权限被拒" desc="请前往系统设置开启权限" />
       <View style={styles.row}>
-        <TouchableOpacity onPress={onCancel} style={styles.btn}>
-          <Text style={styles.btnText}>取消</Text>
-        </TouchableOpacity>
+        <Button
+          variant="ghost"
+          label="取消"
+          onPress={onCancel}
+          testID="cancel-btn"
+        />
         {onOpenSettings && (
-          <TouchableOpacity onPress={onOpenSettings} style={styles.btn}>
-            <Text style={styles.btnText}>去设置</Text>
-          </TouchableOpacity>
+          <Button
+            variant="primary"
+            label="去设置"
+            onPress={onOpenSettings}
+            testID="open-settings-btn"
+          />
         )}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: { color: 'white', fontSize: 18, marginBottom: 8 },
-  message: { color: '#bbb', fontSize: 14, marginBottom: 24 },
-  row: { flexDirection: 'row', gap: 16 },
-  btn: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'white',
-    borderRadius: 6,
-  },
-  btnText: { color: 'white' },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: r(24),
+      backgroundColor: c.background,
+    },
+    row: { flexDirection: 'row', gap: r(16), marginTop: r(16) },
+  });

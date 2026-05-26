@@ -1,22 +1,26 @@
 import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+  Button,
+  ThemeProvider,
+  r,
+  rf,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 import { useCamera, type CameraResult } from '@unif/react-native-camera';
 
-export default function App() {
+function AppInner() {
   const [api, holder] = useCamera();
   const [lastResult, setLastResult] = useState<CameraResult | null>(null);
+  const styles = useThemedStyles(makeStyles);
 
   const open = async (
     cameraMode: Parameters<typeof api.open>[0]['cameraMode']
   ) => {
-    const r = await api.open({ cameraMode, dataRetainedMode: 'clear' });
-    setLastResult(r);
+    const result = await api.open({ cameraMode, dataRetainedMode: 'clear' });
+    setLastResult(result);
   };
 
   return (
@@ -31,53 +35,59 @@ export default function App() {
         </Text>
       </ScrollView>
       <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={styles.btn}
+        <Button
+          variant="primary"
+          label="单拍"
           onPress={() =>
             open([{ mode: 'single', photoQuality: 'speed', jpegQuality: 0.9 }])
           }
-        >
-          <Text style={styles.btnText}>单拍</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.btn}
+        />
+        <Button
+          variant="primary"
+          label="连拍"
           onPress={() =>
             open([
               { mode: 'continuous', photoQuality: 'speed', jpegQuality: 0.9 },
             ])
           }
-        >
-          <Text style={styles.btnText}>连拍</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.btn}
+        />
+        <Button
+          variant="primary"
+          label="视频"
           onPress={() => open([{ mode: 'video' }])}
-        >
-          <Text style={styles.btnText}>视频</Text>
-        </TouchableOpacity>
+        />
       </View>
       {holder}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#222' },
-  results: { flex: 1 },
-  resultsContent: { padding: 16 },
-  h: { color: 'white', fontSize: 14, marginBottom: 8 },
-  code: { color: '#9c9', fontFamily: 'Menlo', fontSize: 11 },
-  btnRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-    backgroundColor: '#111',
-  },
-  btn: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    backgroundColor: '#3a3',
-    borderRadius: 6,
-  },
-  btnText: { color: 'white', fontWeight: '600' },
-});
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppInner />
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    results: { flex: 1 },
+    resultsContent: { padding: r(16) },
+    h: { color: c.foreground, fontSize: rf(14), marginBottom: r(8) },
+    code: {
+      color: c.foregroundMuted,
+      fontFamily: 'Menlo',
+      fontSize: rf(11),
+    },
+    btnRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: r(16),
+      backgroundColor: c.surfaceContainer,
+      gap: r(8),
+    },
+  });

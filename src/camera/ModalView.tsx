@@ -28,5 +28,6 @@ export function ModalView({ visible, onClose, children }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'black' },
+  // 相机 Modal 根视图固定黑底:相机 UX 惯例,与 Container / 预览系列一致.
+  root: { flex: 1, backgroundColor: '#000' },
 });

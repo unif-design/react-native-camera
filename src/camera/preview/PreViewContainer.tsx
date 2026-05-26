@@ -25,5 +25,6 @@ export function PreViewContainer({ files, onRetake, onConfirm }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'black' },
+  // 预览容器固定黑底:相机 UX 惯例,与 SinglePre / PreView / SlideItem 一致.
+  root: { flex: 1, backgroundColor: '#000' },
 });

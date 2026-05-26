@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Chip, r } from '@unif/react-native-design';
 
 export type FlashMode = 'off' | 'on' | 'auto';
 export type AspectRatio = '4:3' | '16:9';
@@ -34,20 +35,20 @@ export function SetUp({
   };
   return (
     <View style={styles.root}>
-      <TouchableOpacity onPress={nextFlash} testID="flash-btn">
-        <Text style={styles.text}>{flashLabel[flash]}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
+      <Chip
+        label={flashLabel[flash]}
+        onPress={nextFlash}
+        selected={flash !== 'off'}
+        testID="flash-btn"
+      />
+      <Chip
+        label={aspectRatio}
         onPress={() =>
           onChangeAspectRatio(aspectRatio === '4:3' ? '16:9' : '4:3')
         }
         testID="aspect-btn"
-      >
-        <Text style={styles.text}>{aspectRatio}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onToggleLens} testID="lens-btn">
-        <Text style={styles.text}>{lensLabel}</Text>
-      </TouchableOpacity>
+      />
+      <Chip label={lensLabel} onPress={onToggleLens} testID="lens-btn" />
     </View>
   );
 }
@@ -55,18 +56,10 @@ export function SetUp({
 const styles = StyleSheet.create({
   root: {
     position: 'absolute',
-    top: 60,
-    left: 16,
-    right: 16,
+    top: r(60),
+    left: r(16),
+    right: r(16),
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  text: {
-    color: 'white',
-    fontSize: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 14,
   },
 });

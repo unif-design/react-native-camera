@@ -225,7 +225,9 @@ export function Container({ config, onSettle }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: 'black',
+    // 相机主容器固定黑底:相机 UX 惯例(预览 / 拍照取景需要黑底凸显),
+    // 不走 c.background token.
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },

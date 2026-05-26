@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { r } from '@unif/react-native-design';
 import type { CustomPhotoFile } from '../../utils';
 import { Carousel } from '../../components/Carousel';
 import { PreviewThumbnail } from '../../components/PreviewThumbnail';
@@ -19,10 +20,11 @@ export function PreView({ files }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'black' },
+  // 多图预览容器固定黑底:相机 UX 惯例,与 SinglePre / PreViewContainer 一致.
+  root: { flex: 1, backgroundColor: '#000' },
   thumbWrap: {
     position: 'absolute',
-    bottom: 100,
+    bottom: r(100),
     left: 0,
     right: 0,
     alignItems: 'center',

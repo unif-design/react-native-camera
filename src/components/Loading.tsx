@@ -1,9 +1,10 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Spinner, r } from '@unif/react-native-design';
 
 export function Loading() {
   return (
     <View style={styles.root} testID="loading">
-      <ActivityIndicator color="white" size="large" />
+      <Spinner size={r(32)} />
     </View>
   );
 }
