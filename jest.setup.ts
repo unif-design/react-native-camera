@@ -39,12 +39,17 @@ jest.mock('react-native-nitro-image', () => ({ NitroImage: () => null }), {
 });
 
 // Mock reanimated（gesture handler 也需要）
-jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
-  // useAnimatedProps 在 mock 中不存在 默认返回值
-  Reanimated.default.call = () => {};
-  return Reanimated;
-});
+jest.mock('react-native-reanimated', () => ({
+  useSharedValue: (init: unknown) => ({ value: init }),
+  useAnimatedStyle: (fn: () => unknown) => fn(),
+  useAnimatedProps: (fn: () => unknown) => fn(),
+  useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
+  runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
+  runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
+  withTiming: (v: unknown) => v,
+  withSpring: (v: unknown) => v,
+  default: {},
+}));
 
 // Mock gesture handler
 jest.mock('react-native-gesture-handler', () => {

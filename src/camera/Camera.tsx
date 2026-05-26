@@ -10,9 +10,13 @@ import {
   type CameraProps,
   type Recorder,
 } from 'react-native-vision-camera';
+import { useSharedValue } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, PhotoQuality } from '../utils';
 import { buildPhotoFile } from '../utils';
 import { capturePhotoToFile } from './capturePhotoHelper';
+
+const NEUTRAL_ZOOM = 1;
 
 export type CameraHandle = {
   capture: () => Promise<CustomPhotoFile | null>;
@@ -47,6 +51,20 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const finishResolverRef = useRef<
     ((file: CustomPhotoFile | null) => void) | null
   >(null);
+
+  const zoom = useSharedValue(NEUTRAL_ZOOM);
+  const zoomOffset = useSharedValue(0);
+
+  const pinchGesture = Gesture.Pinch()
+    .onBegin(() => {
+      'worklet';
+      zoomOffset.value = zoom.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      const z = zoomOffset.value * e.scale;
+      zoom.value = Math.min(Math.max(z, device.minZoom), device.maxZoom);
+    });
 
   useImperativeHandle(
     ref,
@@ -139,14 +157,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const outputs = currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
 
   return (
-    <VisionCamera
-      ref={cameraRef}
-      style={StyleSheet.absoluteFill}
-      device={device}
-      isActive={isActive}
-      outputs={outputs as CameraProps['outputs']}
-      constraints={[{ photoHDR: false }]}
-      nativeID="vision-camera"
-    />
+    <GestureDetector gesture={pinchGesture}>
+      <VisionCamera
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={isActive}
+        outputs={outputs as CameraProps['outputs']}
+        constraints={[{ photoHDR: false }]}
+        zoom={zoom}
+        nativeID="vision-camera"
+      />
+    </GestureDetector>
   );
 });
