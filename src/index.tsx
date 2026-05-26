@@ -1,1 +1,1 @@
-export { multiply } from './multiply';
+export const VERSION = '2.0.0';

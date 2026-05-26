@@ -1,20 +1,14 @@
 import { Text, View, StyleSheet } from 'react-native';
-import { multiply } from '@unif/react-native-camera';
-
-const result = multiply(3, 7);
+import { VERSION } from '@unif/react-native-camera';
 
 export default function App() {
   return (
     <View style={styles.container}>
-      <Text>Result: {result}</Text>
+      <Text>v{VERSION}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,3 +1,5 @@
-import { it } from '@jest/globals';
+import { VERSION } from '../index';
 
-it.todo('write a test');
+it('exposes version constant', () => {
+  expect(VERSION).toBe('2.0.0');
+});
