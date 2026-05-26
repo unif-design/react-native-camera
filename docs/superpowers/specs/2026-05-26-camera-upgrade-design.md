@@ -5,6 +5,7 @@
 - 参考来源：`tongyizixun/unif-react-native-camera` v1.2.5（本地副本：`~/Downloads/react-native-camera-main/`）
 - 消费方：`retail-pecportal/src/pages/camera/NewCamera.tsx`
 - 设计协作记录：会话日期 2026-05-26
+- **API 权威来源**：`docs/superpowers/research/2026-05-26-vision-camera-5x-deep-dive.md`（vision-camera 5.0.10 源码 + 文档逐字核对，本 spec 所有 5.x API 写法以该报告为准）
 
 ---
 
@@ -71,12 +72,19 @@
 | react | `>=19.0.0` | 跟随 RN 0.85+ |
 | react-native | `>=0.85.0` | 脚手架默认目标 |
 | react-native-vision-camera | `^5.0.0` | 核心相机能力（Nitro Modules） |
-| react-native-nitro-modules | `^0.x` | vision-camera 5.x 的新底座 |
-| react-native-reanimated | `>=4.0.0` | zoom 共享值 + 动画 |
+| react-native-nitro-modules | `*` | vision-camera 5.x 的 Nitro 运行时底座 |
+| react-native-nitro-image | `*` | **vision-camera 5.x peer（必装）**：`Photo.toImage()` / `<NitroImage>` 渲染拍摄结果 |
+| react-native-reanimated | `>=4.0.0` | zoom SharedValue 直接传给 `<Camera zoom>`（5.x 原生支持） |
+| react-native-worklets | `*` | **reanimated 4 peer（必装）**：reanimated 4 不再自带 worklets runtime，需单独安装 |
 | react-native-reanimated-carousel | `>=4.0.0` | 预览轮播 |
 | react-native-gesture-handler | `>=2.21.0` | 捏合变焦 + 点击对焦手势 |
 | react-native-safe-area-context | `>=5.0.0` | 替代旧仓库的自定义 `getSafeAreaInsets()` 原生方法 |
 | react-native-webview | `*` | 保留原有依赖 |
+
+> 实际版本号执行时通过 `npm view <pkg> version` 取最新 stable。截至 2026-05-26：
+> - `react-native-vision-camera@5.0.10`
+> - `react-native-nitro-modules@0.35.7`、`react-native-nitro-image@0.14.0`
+> - `react-native-reanimated@4.3.1`、`react-native-worklets@0.8.3`
 
 **移除依赖**：`react-native-view-shot`、`react-native-canvas`（仅用于水印，v2.0.0 不含水印）。v2.1.x 重新加入水印时再恢复。
 
@@ -106,7 +114,8 @@ src/
 │   ├── index.tsx                      # 桶导出
 │   ├── ModalView.tsx                  # Modal 包装层
 │   ├── Container.tsx                  # 编排：device / format / output / 当前 mode
-│   ├── Camera.tsx                     # ReanimatedCamera + GestureDetector + 输出绑定
+│   ├── Camera.tsx                     # <Camera> + GestureDetector + zoom SharedValue（5.x 原生支持）
+│   ├── capturePhotoHelper.ts          # capturePhoto → saveToTemporaryFileAsync → dispose 序列封装
 │   ├── FocusIndicator.tsx             # 点击对焦圈动画
 │   ├── NoCamera.tsx                   # 设备不可用提示
 │   ├── NoPermission.tsx               # 权限被拒提示
@@ -156,7 +165,7 @@ src/
 | 移除 `src/utils/watermark.ts` | 同上 |
 | 移除 `src/NativeReactNativeCamera.ts` | library 模板无需 TurboModule spec |
 | 新增 `FocusIndicator` 集成 | 点击对焦能力首次落地 |
-| `setup/SetUp.tsx` 重构 | "鱼眼按钮"重新定位为镜头切换（minZoom ↔ neutralZoom） |
+| `setup/SetUp.tsx` 重构 | "鱼眼按钮"重新定位为镜头切换（`minZoom` ↔ `1`；5.x 已无 `device.neutralZoom`，用 hardcode `1` 代表"自然 1x"） |
 | `Camera.tsx` 重写 | 完全基于 vision-camera 5.x outputs API |
 | `src/index.tsx` 顶层导出全部类型 | 消除原 deep import 路径 |
 
@@ -184,6 +193,25 @@ function App() {
   return holder;
 }
 ```
+
+> 内部实现需要从 `react-native-vision-camera` 顶层导入（不在本库 public API 内，但写代码时需要类型）：
+> ```ts
+> import type {
+>   CameraRef,          // useRef<CameraRef>(null)
+>   CameraDevice,
+>   CameraProps,
+>   FocusOptions,
+>   CapturePhotoSettings,
+>   CapturePhotoCallbacks,
+>   CameraPhotoOutput,
+>   CameraVideoOutput,
+>   Recorder,
+>   Photo,
+>   PhotoFile,
+>   CameraOrientation,
+>   Constraint,
+> } from 'react-native-vision-camera';
+> ```
 
 ### 4.2 类型定义（`src/utils/interface.ts`）
 
@@ -278,136 +306,182 @@ export type Point = { x: number; y: number };
 2. <ModalView visible> 挂载
 
 3. useCameraPermission() → 检查权限
-   ├─ 未授权 → requestPermission()
+   ├─ 未授权 → requestPermission().catch(() => {})   // catch 兜底防 Android #3834 leak
    ├─ 拒绝 → 显示 <NoPermission/> + resolve({ code: 403, data: [], message: 'permission_denied' })
    └─ 同意 → 继续
 
-4. useCameraDevice('back', { physicalDevices: ['ultra-wide-angle-camera', 'wide-angle-camera'] })
+4. useCameraDevice('back', { physicalDevices: ['wide-angle'] })
+   ├─ 注意 1：5.x 类型字符串不带 `-camera` 后缀（合法值仅 'wide-angle' / 'ultra-wide-angle' / 'telephoto'）
+   ├─ 注意 2：单 wide-angle 启动以规避 iOS multi-camera race crash #3773
    └─ device == null → <NoCamera/> + resolve({ code: 404, data: [], message: 'no_device' })
 
-5. useCameraFormat(device, [
-      { photoAspectRatio: 当前选择的 4/3 或 16/9 },
-      { photoHdr: false }
-   ]) → format
-
-6. usePhotoOutput({
+5. usePhotoOutput({
       qualityPrioritization: 当前 mode 的 photoQuality,
       quality: 当前 mode 的 jpegQuality,
+      targetResolution: { width: 1080, height: 1440 } // 4:3 时；16:9 时换 1080x1920
    }) → photoOutput
+
+   useVideoOutput()（仅当 cameraMode 包含 'video'）
 
    useMicrophonePermission()（仅当 cameraMode 包含 'video'）
 
-7. <ReanimatedCamera
-      ref={camera}
+   注意：5.x 已无 useCameraFormat hook。宽高比通过 photoOutput 的 targetResolution 控制；
+   其它软约束（如关 HDR）通过 <Camera constraints={[{ photoHDR: false }]} /> 传入。
+
+6. <Camera
+      ref={camera}                                      // useRef<CameraRef>(null)
+      style={StyleSheet.absoluteFill}                   // 防 Android #3897 layout 错位
       device={device}
-      format={format}
-      isActive
+      isActive={true}
       outputs={[photoOutput, /* videoOutput when video mode */]}
-      animatedProps={{ zoom }}
+      constraints={[{ photoHDR: false }]}
+      zoom={zoomShared}                                 // SharedValue<number> 原生支持，无需 createAnimatedComponent
+      torchMode={flash === 'on' ? 'on' : 'off'}         // 视频补光走 torch
    />
    ▾ 包裹在 <GestureDetector gesture={Simultaneous(pinchGesture, tapGesture)} />
 
-8. 用户交互：
-   - 捏合 → pinchGesture 更新 zoom SharedValue
-   - 点击预览区 → tapGesture → camera.current.focusTo({x,y}) + 显示 <FocusIndicator/>
-   - 切换 setup 镜头按钮 → zoom.value = device.minZoom 或 device.neutralZoom
+7. 用户交互：
+   - 捏合 → pinchGesture 在 worklet 内更新 zoomShared.value（clamp 到 device.minZoom/maxZoom）
+   - 点击预览区 → tapGesture → camera.current.focusTo({x,y}, options) + 显示 <FocusIndicator/>
+   - 切换 setup 镜头按钮 → zoom.value = device.minZoom 或 1（hardcode；5.x 无 device.neutralZoom）
    - 按快门：
-     * single → photoOutput.capturePhoto({ flash, enableShutterSound }) → CustomPhotoFile
+     * single → photoOutput.capturePhoto({ flashMode, enableShutterSound }, {}) 返回 Photo HybridObject
+                → photo.saveToTemporaryFileAsync() 拿文件路径
+                → 读取 photo.width/height/orientation
+                → photo.dispose() 释放内存
+                → buildPhotoFile → CustomPhotoFile
      * continuous → 连续 capturePhoto → CustomPhotoFile[] 入栈
-     * video → videoOutput.startRecording() / stopRecording()
+     * video → const recorder = await videoOutput.createRecorder({})
+              await recorder.startRecording(onFinished, onError, onPaused, onResumed)
+              停止：await recorder.stopRecording()（不返回值；路径由 onFinished 回调送出）
+              单 recorder 只能录一次，下一段需重新 createRecorder
    - 切换 cameraMode（在多模式配置时）→ 重建 photoOutput 用新 photoQuality/jpegQuality
 
-9. 完成拍摄 → 进入 Preview（轮播或单图）
+8. 完成拍摄 → 进入 Preview（轮播或单图）
 
-10. 用户确认 → resolve({ code: 200, data: CustomPhotoFile[], message: 'ok' })
-    用户取消 → resolve({ code: 0, data: [], message: 'cancelled' })
+9. 用户确认 → resolve({ code: 200, data: CustomPhotoFile[], message: 'ok' })
+   用户取消 → resolve({ code: 0, data: [], message: 'cancelled' })
 
-11. Modal 关闭，holder 卸载，photoOutput 销毁
+10. Modal 关闭，holder 卸载，photoOutput / recorder 自动销毁
+    （注意：未 dispose 的 Photo HybridObject 必须显式 photo.dispose()，否则内存泄漏）
 ```
 
 ---
 
 ## 6. 关键实现要点
 
-### 6.1 Camera 组件包装
+### 6.1 Camera 组件包装（5.x：无需 createAnimatedComponent）
 
-```ts
+```tsx
 // src/camera/Camera.tsx 关键骨架
-import Reanimated, {
-  useAnimatedProps,
-  useSharedValue,
-  interpolate,
-  Extrapolation,
-  runOnJS,
-} from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { Camera as VisionCamera } from 'react-native-vision-camera';
+import {
+  Camera,
+  type CameraRef,
+  type CameraDevice,
+  type FocusOptions,
+  type Point,
+} from 'react-native-vision-camera';
 
-Reanimated.addWhitelistedNativeProps({ zoom: true });
-const ReanimatedCamera = Reanimated.createAnimatedComponent(VisionCamera);
+// 5.x 注意：
+//   - <Camera> 已原生支持 zoom={SharedValue<number>}，**不再需要** Reanimated.createAnimatedComponent
+//   - Reanimated 4 的 addWhitelistedNativeProps 是 no-op，**不要调用**
+//   - useAnimatedProps + animatedProps={{zoom}} 写法已过时
+//   - Camera ref 类型是 CameraRef（interface），不是 VisionCamera（class）
 ```
 
 ### 6.2 Zoom（替代原"鱼眼"按钮组）
 
-```ts
+```tsx
 const device = useCameraDevice('back', {
-  physicalDevices: ['ultra-wide-angle-camera', 'wide-angle-camera'],
+  physicalDevices: ['wide-angle'], // 5.x 不带 -camera 后缀；单镜头规避 #3773 crash
 });
 
-const zoom = useSharedValue(device?.neutralZoom ?? 1);
+// 5.x 没有 device.neutralZoom；用 hardcode 1 作"自然 1x"
+const NEUTRAL_ZOOM = 1;
+
+const zoom = useSharedValue(NEUTRAL_ZOOM);
 const zoomOffset = useSharedValue(0);
 
 const pinchGesture = Gesture.Pinch()
-  .onBegin(() => { zoomOffset.value = zoom.value; })
-  .onUpdate(e => {
+  .onBegin(() => {
+    'worklet';
+    zoomOffset.value = zoom.value;
+  })
+  .onUpdate((e) => {
+    'worklet';
     const z = zoomOffset.value * e.scale;
-    zoom.value = interpolate(
-      z, [1, 10],
-      [device?.minZoom ?? 1, device?.maxZoom ?? 10],
-      Extrapolation.CLAMP,
-    );
+    // 直接 clamp 到 device.minZoom..maxZoom；example 应用就这么做（更直观，不用 interpolate）
+    zoom.value = Math.min(Math.max(z, device.minZoom), device.maxZoom);
   });
-
-const animatedProps = useAnimatedProps(() => ({ zoom: zoom.value }), [zoom]);
 
 // 镜头切换按钮
 const onToggleLens = () => {
-  zoom.value = zoom.value === device.neutralZoom ? device.minZoom : device.neutralZoom;
+  zoom.value = zoom.value === device.minZoom ? NEUTRAL_ZOOM : device.minZoom;
 };
+
+// 渲染：直接把 SharedValue 传给 <Camera zoom={zoom} />，原生 controller 接管
+<Camera
+  ref={cameraRef}
+  device={device}
+  isActive
+  outputs={[photoOutput]}
+  zoom={zoom}
+/>
 ```
 
 ### 6.3 Tap-to-Focus（新增能力）
 
-```ts
-const camera = useRef<VisionCamera>(null);
+```tsx
+import { runOnJS } from 'react-native-reanimated';
+import { type CameraRef, type FocusOptions } from 'react-native-vision-camera';
+
+const cameraRef = useRef<CameraRef>(null);   // 5.x 是 CameraRef 不是 VisionCamera
 const [focusPoint, setFocusPoint] = useState<Point | null>(null);
 
 const handleFocus = useCallback(async (x: number, y: number) => {
-  if (!device?.supportsFocus) return;
+  // 5.x 字段名是 supportsFocusMetering，不是 supportsFocus
+  if (!device?.supportsFocusMetering) return;
   setFocusPoint({ x, y });
   try {
-    await camera.current?.focusTo({ x, y });
+    // 5.x 方法名是 focusTo（自动做 view→camera 坐标转换），不是 focus
+    await cameraRef.current?.focusTo(
+      { x, y },
+      {
+        responsiveness: 'snappy',       // 默认
+        adaptiveness: 'continuous',     // 默认
+        autoResetAfter: 3,              // 3 秒后自动 resetFocus
+      } satisfies FocusOptions,
+    );
   } catch {}
 }, [device]);
 
 const tapGesture = Gesture.Tap()
-  .onEnd(({ x, y }) => { runOnJS(handleFocus)(x, y); });
+  .onEnd(({ x, y }) => {
+    runOnJS(handleFocus)(x, y);
+  });
 
 return (
   <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, tapGesture)}>
-    <ReanimatedCamera
-      ref={camera}
-      device={device}
-      isActive
-      outputs={[photoOutput]}
-      animatedProps={animatedProps}
-    />
-    {focusPoint && (
-      <FocusIndicator
-        point={focusPoint}
-        onAnimationEnd={() => setFocusPoint(null)}
+    <View style={StyleSheet.absoluteFill}>
+      <Camera
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive
+        outputs={[photoOutput]}
+        zoom={zoom}
+        constraints={[{ photoHDR: false }]}
+        onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
       />
-    )}
+      {focusPoint && (
+        <FocusIndicator
+          point={focusPoint}
+          onAnimationEnd={() => setFocusPoint(null)}
+        />
+      )}
+    </View>
   </GestureDetector>
 );
 ```
@@ -425,23 +499,122 @@ const photoOutput = usePhotoOutput({
 // 依赖 currentIndex 变化时 hook 自然重建
 ```
 
-### 6.5 capturePhoto 调用
+### 6.5 capturePhoto 调用（5.x：两参数 + saveToTemporaryFileAsync + dispose）
 
 ```ts
-const photo = await photoOutput.capturePhoto({
-  flash: flashMode,                  // 'on' | 'off' | 'auto'
+// 推荐封装到 src/camera/capturePhotoHelper.ts
+import type {
+  CameraPhotoOutput,
+  CapturePhotoSettings,
+  CameraOrientation,
+} from 'react-native-vision-camera';
+
+export async function capturePhotoToFile(
+  photoOutput: CameraPhotoOutput,
+  settings: CapturePhotoSettings,
+): Promise<{ path: string; width: number; height: number; orientation: CameraOrientation }> {
+  // 5.x 关键变化：
+  //   - capturePhoto(settings, callbacks) 两个参数都必填；callbacks 可空对象 {}
+  //   - settings 字段名是 flashMode（不是 flash）
+  //   - 返回 Photo HybridObject，**没有 .path 属性**
+  //   - 要拿路径必须 await photo.saveToTemporaryFileAsync()
+  //   - 该路径**不带 file:// 前缀**，外层用时自行拼
+  //   - 拿完数据必须 photo.dispose() 释放内存
+  const photo = await photoOutput.capturePhoto(settings, {});
+  try {
+    const path = await photo.saveToTemporaryFileAsync();
+    return {
+      path,
+      width: photo.width,
+      height: photo.height,
+      orientation: photo.orientation,
+    };
+  } finally {
+    photo.dispose();
+  }
+}
+
+// 调用方：
+const raw = await capturePhotoToFile(photoOutput, {
+  flashMode,                   // 'on' | 'off' | 'auto'，5.x 字段名
   enableShutterSound: true,
 });
 
-const file: CustomPhotoFile = {
-  path: photo.path,
-  uri: `file://${photo.path}`,
-  width: photo.width,
-  height: photo.height,
-  mime: 'image/jpeg',
-  mode: currentMode.mode,
-};
+const file: CustomPhotoFile = buildPhotoFile(
+  { path: raw.path, width: raw.width, height: raw.height },
+  currentMode.mode,
+);
+// buildPhotoFile 内部把裸 path 拼成 file://path 写到 uri 字段
 ```
+
+### 6.6 视频录制（5.x：两阶段 createRecorder + startRecording 回调）
+
+```ts
+import type { CameraVideoOutput, Recorder } from 'react-native-vision-camera';
+
+// Container 维护 ref 防止并发
+const activeRecorderRef = useRef<Recorder | null>(null);
+const preparedRecorderRef = useRef<Recorder | null>(null);
+
+const startVideo = useCallback(async () => {
+  // 单 recorder 只能录一次；从 prepared 池里拿，没有就 createRecorder
+  let recorder = preparedRecorderRef.current;
+  if (recorder == null) {
+    recorder = await videoOutput.createRecorder({});
+  }
+  preparedRecorderRef.current = null;
+  if (activeRecorderRef.current != null) return; // 已经在录
+  activeRecorderRef.current = recorder;
+
+  // 5.x 关键：startRecording 接 4 个 callback（不是 options object）
+  //   - 无 flash 字段；视频补光通过 <Camera torchMode="on"> 控制
+  //   - stopRecording 不返回结果，结果通过 onFinished(filePath, reason) 回调
+  await recorder.startRecording(
+    (filePath, reason) => {
+      // filePath 不带 file:// 前缀；reason: 'stopped' | 'max-duration-reached' | 'max-file-size-reached'
+      const file = buildPhotoFile({ path: filePath, width: 0, height: 0 }, 'video', true);
+      onVideoFinished(file);
+      activeRecorderRef.current = null;
+    },
+    (error) => {
+      activeRecorderRef.current = null;
+      onVideoError(error);
+    },
+    () => { /* paused */ },
+    () => { /* resumed */ },
+  );
+
+  // 立即创建下一个 recorder 备用（example 应用的预热模式）
+  preparedRecorderRef.current = await videoOutput.createRecorder({});
+}, [videoOutput, onVideoFinished, onVideoError]);
+
+const stopVideo = useCallback(async () => {
+  // 5.x：stopRecording 没有返回值；文件路径由上面的 onFinished 回调送出
+  await activeRecorderRef.current?.stopRecording();
+}, []);
+```
+
+> ⚠️ 5.x 录像 API 与 4.x **完全不同**：4.x 是 `videoOutput.startRecording({onRecordingFinished, onRecordingError, flash})` + `stopRecording()`；5.x 必须先 `createRecorder()` 拿到 `Recorder` 实例，再 `recorder.startRecording(...)`，且 callback 是位置参数。
+
+### 6.7 拍摄结果显示（推荐 NitroImage，可选 file:// + RN Image）
+
+```tsx
+// 方案 A（推荐，与 vision-camera 5.x 体系一致）：
+import { NitroImage, type Image } from 'react-native-nitro-image';
+import type { Photo } from 'react-native-vision-camera';
+
+// 在 capturePhoto 后不立即 saveToTemporaryFileAsync，而是把 Photo 直接交给预览：
+const photo = await photoOutput.capturePhoto(settings, {});
+const image = await photo.toImageAsync();
+// 用完同样要 photo.dispose() 或在 unmount 时 dispose
+<NitroImage style={...} resizeMode="contain" image={image} />
+
+// 方案 B（保留 RN 原生 <Image>）：
+// 必须 await photo.saveToTemporaryFileAsync() 拿路径，再拼 file://
+<Image source={{ uri: `file://${path}` }} />
+```
+
+本仓库 v2.0.0 采用**方案 B**（保留 file:// 路径返回给消费方，消费方业务多用 `cacheCopyfiles` 接路径而非 `Image` 对象）。`<SinglePre>` / `<SlideItem>` 内部仍用 RN 原生 `<Image>` 渲染。
 
 ---
 
@@ -487,11 +660,19 @@ vision-camera / reanimated / gesture-handler 在 jest 环境通过 `@react-nativ
 
 `example/ios/.../Info.plist` 添加：
 
+```xml
+<key>NSCameraUsageDescription</key>
+<string>App 需要访问相机以拍照</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>App 需要访问麦克风以录制视频</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>保存照片到相册</string>
+<!-- 启用 New Architecture（vision-camera 5.x Nitro Modules 推荐路径） -->
+<key>RCTNewArchEnabled</key>
+<true/>
 ```
-NSCameraUsageDescription = "App 需要访问相机以拍照"
-NSMicrophoneUsageDescription = "App 需要访问麦克风以录制视频"
-NSPhotoLibraryAddUsageDescription = "保存照片到相册"
-```
+
+iOS Podfile 必须 `platform :ios, '15.5'`（vision-camera 5.x 最低部署版本）。
 
 `example/android/app/src/main/AndroidManifest.xml` 添加：
 
@@ -500,6 +681,10 @@ NSPhotoLibraryAddUsageDescription = "保存照片到相册"
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 ```
+
+> 注意：不建议加 `<uses-feature android:name="android.hardware.camera" android:required="true"/>`。required=true 会导致 Play Store 上没相机的设备不能装；vision-camera 也允许外接相机。example 应用未声明。
+
+Android minSdk 必须 23+（vision-camera 5.x 最低要求）。
 
 验证流程（真机）：
 
@@ -566,13 +751,21 @@ NSPhotoLibraryAddUsageDescription = "保存照片到相册"
 
 ## 11. 风险与缓解
 
-| 风险 | 缓解 |
-|---|---|
-| vision-camera 5.x 稳定性（较新） | example 应用真机验证；如阻塞，降级到 4.7.3（保留分支） |
-| 消费方 `retail-pecportal` 用了 deep import 类型路径 | 提供顶层导出后清晰的迁移 diff，PR 改 3-5 行 |
-| RN 0.85 + New Arch + Nitro Modules 在 Android 老机型上可能性能差 | 在 example 应用测试 Android 7/8 老设备 |
-| Yarn 4 与 corepack 配置不当导致拉取失败 | README 注明 `corepack enable` |
-| iOS Privacy Manifest（PrivacyInfo.xcprivacy）未覆盖相机访问 | 脚手架已生成模板，按 Apple 要求补齐 NSPrivacyAccessedAPI |
+| 风险 | 影响版本 | 缓解 |
+|---|---|---|
+| vision-camera 5.x 稳定性（较新） | 5.0.x | example 应用真机验证；如阻塞，降级到 4.7.3（保留分支） |
+| 消费方 `retail-pecportal` 用了 deep import 类型路径 | — | 提供顶层导出后清晰的迁移 diff，PR 改 3-5 行 |
+| RN 0.85 + New Arch + Nitro Modules 在 Android 老机型上性能差 | — | 在 example 应用测试 Android 7/8 老设备；minSdk 23 (Android 6.0)+ |
+| Yarn 4 与 corepack 配置不当导致拉取失败 | — | README 注明 `corepack enable` |
+| iOS Privacy Manifest（PrivacyInfo.xcprivacy）未覆盖相机访问 | — | 脚手架已生成模板，按 Apple 要求补齐 NSPrivacyAccessedAPI |
+| **iOS multi-camera race condition crash（issue #3773）** | 5.0.4+ 未修复 | 单 `physicalDevices: ['wide-angle']` 启动；切镜头改走 zoom |
+| **Android Camera 首次布局错位（issue #3897）** | 5.0.9 未修复 | `<Camera style={StyleSheet.absoluteFill}>`；`onPreviewStarted` 触发 forceLayout |
+| **Android requestPermission promise 泄漏（issue #3834）** | 5.x | 所有 `requestPermission()` 加 `.catch(() => {})`；以 `hasPermission` 为 source of truth |
+| **Android Recorder 生成 mp4 文件名缺扩展名（issue #3912）** | 5.0.1+ | 在 `onFinished` 回调拿到 filePath 后手动 rename 加 `.mp4`，或显式传 `RecorderSettings.filePath` |
+| **单 Recorder 只能录一次** | 5.x | 每次 startRecording 后立刻 createRecorder 备用；activeRecorderRef + preparedRecorderRef 维护 |
+| **iOS 启动横屏时预览 90° 旋转（PR #3899 review 中）** | 5.0.10 | 升级到 5.0.11+ 时跟进；或锁定竖屏 |
+| **Photo HybridObject 内存泄漏** | 5.x 设计 | 严格 try/finally 调 `photo.dispose()`；Modal unmount 前清空残留 |
+| **iOS 部署版本 < 15.5** | — | iOS 15.5+（vision-camera 5.x podspec 跟随 RN 0.85 默认） |
 
 ---
 
@@ -580,7 +773,7 @@ NSPhotoLibraryAddUsageDescription = "保存照片到相册"
 
 1. **基础打通**：example 应用空跑能起来（iOS / Android）
 2. **基础 API 骨架**：useCamera + Modal + 空白 Camera 页 → resolve `{code: 0}`
-3. **设备/格式/权限**：useCameraPermission + useCameraDevice + useCameraFormat
+3. **设备/约束/权限**：useCameraPermission + useCameraDevice (`{physicalDevices:['wide-angle']}`) + `<Camera constraints={[{photoHDR:false}]}>`
 4. **核心拍照**：usePhotoOutput + capturePhoto + single mode
 5. **预览页**：拍完后进 SinglePre / PreView 轮播 + 确认返回
 6. **连拍 / 视频**：扩展 cameraMode
