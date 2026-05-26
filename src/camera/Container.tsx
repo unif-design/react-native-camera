@@ -15,6 +15,7 @@ import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
+import { PreViewContainer } from './preview';
 
 type Props = {
   config: OpenConfig;
@@ -58,6 +59,7 @@ export function Container({ config, onSettle }: Props) {
 
   const cameraRef = useRef<CameraHandle>(null);
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
+  const [previewing, setPreviewing] = useState(false);
   const currentMode = config.cameraMode[0];
 
   if (state === 'denied') {
@@ -97,6 +99,19 @@ export function Container({ config, onSettle }: Props) {
     );
   }
 
+  if (previewing) {
+    return (
+      <PreViewContainer
+        files={photos}
+        onRetake={() => {
+          setPhotos([]);
+          setPreviewing(false);
+        }}
+        onConfirm={() => onSettle({ code: 200, data: photos, message: 'ok' })}
+      />
+    );
+  }
+
   return (
     <View style={styles.root} testID="device-ready">
       <Camera ref={cameraRef} device={device} currentMode={currentMode} />
@@ -112,9 +127,8 @@ export function Container({ config, onSettle }: Props) {
           onPress={async () => {
             const f = await cameraRef.current?.capture();
             if (f) {
-              const next = [...photos, f];
-              setPhotos(next);
-              onSettle({ code: 200, data: next, message: 'ok' });
+              setPhotos((prev) => [...prev, f]);
+              setPreviewing(true);
             } else {
               onSettle({
                 code: 500,
