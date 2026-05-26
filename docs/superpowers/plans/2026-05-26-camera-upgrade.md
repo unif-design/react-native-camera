@@ -225,7 +225,7 @@ Expected: 无 error，lockfile 更新
 
 - [ ] **Step 4: iOS Pod 安装**
 
-Run: `cd example/ios && bundle install && bundle exec pod install && cd ../..`
+Run: `cd example && bundle install && cd ios && bundle exec pod install && cd ../..`
 Expected: 所有 Pods 安装成功（vision-camera 会触发原生集成）
 
 如果 `bundle install` 提示 Ruby 版本不对，先 `rbenv install` 或 `chruby` 切到 `.ruby-version` 指定版本。
