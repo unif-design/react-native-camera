@@ -1,5 +1,11 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
+import { StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -8,13 +14,20 @@ import {
   type CameraRef,
   type CameraDevice,
   type CameraProps,
+  type FocusOptions,
   type Recorder,
 } from 'react-native-vision-camera';
-import { useSharedValue } from 'react-native-reanimated';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import type { CameraMode, CustomPhotoFile, PhotoQuality } from '../utils';
+import type {
+  CameraMode,
+  CustomPhotoFile,
+  PhotoQuality,
+  Point,
+} from '../utils';
 import { buildPhotoFile } from '../utils';
 import { capturePhotoToFile } from './capturePhotoHelper';
+import { FocusIndicator } from './FocusIndicator';
 
 const NEUTRAL_ZOOM = 1;
 
@@ -65,6 +78,32 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       const z = zoomOffset.value * e.scale;
       zoom.value = Math.min(Math.max(z, device.minZoom), device.maxZoom);
     });
+
+  const [focusPoint, setFocusPoint] = useState<Point | null>(null);
+
+  const handleFocus = useCallback(
+    async (x: number, y: number) => {
+      if (!device.supportsFocusMetering) return;
+      setFocusPoint({ x, y });
+      try {
+        await cameraRef.current?.focusTo({ x, y }, {
+          responsiveness: 'snappy',
+          adaptiveness: 'continuous',
+          autoResetAfter: 3,
+        } satisfies FocusOptions);
+      } catch (e) {
+        console.warn('focusTo failed', e);
+      }
+    },
+    [device.supportsFocusMetering]
+  );
+
+  const tapGesture = Gesture.Tap().onEnd(({ x, y }) => {
+    'worklet';
+    runOnJS(handleFocus)(x, y);
+  });
+
+  const composed = Gesture.Simultaneous(pinchGesture, tapGesture);
 
   useImperativeHandle(
     ref,
@@ -157,17 +196,26 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const outputs = currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
 
   return (
-    <GestureDetector gesture={pinchGesture}>
-      <VisionCamera
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={isActive}
-        outputs={outputs as CameraProps['outputs']}
-        constraints={[{ photoHDR: false }]}
-        zoom={zoom}
-        nativeID="vision-camera"
-      />
+    <GestureDetector gesture={composed}>
+      <View style={StyleSheet.absoluteFill}>
+        <VisionCamera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={isActive}
+          outputs={outputs as CameraProps['outputs']}
+          constraints={[{ photoHDR: false }]}
+          zoom={zoom}
+          onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+          nativeID="vision-camera"
+        />
+        {focusPoint && (
+          <FocusIndicator
+            point={focusPoint}
+            onAnimationEnd={() => setFocusPoint(null)}
+          />
+        )}
+      </View>
     </GestureDetector>
   );
 });
