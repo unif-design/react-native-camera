@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from '@unif/react-native-design';
 
 type Props = {
   visible: boolean;
@@ -18,7 +19,9 @@ export function ModalView({ visible, onClose, children }: Props) {
       testID="camera-modal"
     >
       <SafeAreaProvider>
-        <View style={styles.root}>{children}</View>
+        <ThemeProvider>
+          <View style={styles.root}>{children}</View>
+        </ThemeProvider>
       </SafeAreaProvider>
     </Modal>
   );

@@ -10,14 +10,18 @@
     "build:ios": "react-native build-ios --mode Debug"
   },
   "dependencies": {
+    "@gorhom/bottom-sheet": "^5.2.14",
+    "@sbaiahmed1/react-native-blur": "^4.6.2",
+    "@unif/react-native-design": "portal:../../react-native-design",
     "react": "19.2.3",
     "react-native": "0.85.0",
     "react-native-gesture-handler": "^2.21.0",
     "react-native-nitro-image": "*",
     "react-native-nitro-modules": "*",
     "react-native-reanimated": "^4.0.0",
-    "react-native-reanimated-carousel": "^4.0.0",
+    "react-native-reanimated-carousel": "^5.0.0-beta.5",
     "react-native-safe-area-context": "^5.0.0",
+    "react-native-svg": "^15.15.5",
     "react-native-vision-camera": "^5.0.0",
     "react-native-worklets": "*"
   },
