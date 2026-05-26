@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Modal, View } from 'react-native';
 import type { CameraApi, CameraResult, OpenConfig } from '../utils';
+import { Container, ModalView } from '../camera';
 
 export function useCamera(): [CameraApi, React.ReactElement] {
   const [visible, setVisible] = useState(false);
@@ -30,20 +30,13 @@ export function useCamera(): [CameraApi, React.ReactElement] {
   );
 
   const holder = (
-    <Modal
+    <ModalView
       visible={visible}
-      animationType="slide"
-      onRequestClose={() => settle({ code: 0, data: [], message: 'cancelled' })}
-      testID="camera-modal"
+      onClose={() => settle({ code: 0, data: [], message: 'cancelled' })}
     >
-      <View testID="camera-host" style={{ flex: 1 }}>
-        {/* 后续 Task 接入 Container */}
-      </View>
-    </Modal>
+      {config && <Container config={config} onSettle={settle} />}
+    </ModalView>
   );
-
-  // 在 config 上消除 unused 警告（后续 Task 用）
-  void config;
 
   return [api, holder];
 }
