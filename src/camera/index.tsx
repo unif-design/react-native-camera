@@ -3,3 +3,8 @@ export { Container } from './Container';
 export { NoPermission } from './NoPermission';
 export { NoCamera } from './NoCamera';
 export { ErrorView } from './Error';
+export { Camera, type CameraHandle } from './Camera';
+export {
+  capturePhotoToFile,
+  type CapturedPhotoRaw,
+} from './capturePhotoHelper';

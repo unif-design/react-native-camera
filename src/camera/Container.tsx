@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {
   useCameraDevice,
   useCameraPermission,
 } from 'react-native-vision-camera';
-import type { CameraResult, OpenConfig } from '../utils';
+import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
+import { Camera, type CameraHandle } from './Camera';
 
 type Props = {
   config: OpenConfig;
@@ -49,7 +56,9 @@ export function Container({ config, onSettle }: Props) {
     physicalDevices: ['wide-angle'],
   });
 
-  void config;
+  const cameraRef = useRef<CameraHandle>(null);
+  const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
+  const currentMode = config.cameraMode[0];
 
   if (state === 'denied') {
     return (
@@ -78,7 +87,53 @@ export function Container({ config, onSettle }: Props) {
     );
   }
 
-  return <View style={styles.root} testID="device-ready" />;
+  if (currentMode == null) {
+    return (
+      <NoCamera
+        onCancel={() =>
+          onSettle({ code: 500, data: [], message: 'invalid_config' })
+        }
+      />
+    );
+  }
+
+  return (
+    <View style={styles.root} testID="device-ready">
+      <Camera ref={cameraRef} device={device} currentMode={currentMode} />
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          testID="cancel-btn"
+          onPress={() => onSettle({ code: 0, data: [], message: 'cancelled' })}
+        >
+          <Text style={styles.text}>取消</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="shutter-btn"
+          onPress={async () => {
+            const f = await cameraRef.current?.capture();
+            if (f) {
+              const next = [...photos, f];
+              setPhotos(next);
+              onSettle({ code: 200, data: next, message: 'ok' });
+            } else {
+              onSettle({
+                code: 500,
+                data: photos,
+                message: 'capture_failed',
+              });
+            }
+          }}
+          style={styles.shutter}
+        />
+        <TouchableOpacity
+          testID="done-btn"
+          onPress={() => onSettle({ code: 200, data: photos, message: 'ok' })}
+        >
+          <Text style={styles.text}>完成</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -87,5 +142,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  shutter: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'white',
+    borderWidth: 4,
+    borderColor: '#ddd',
+  },
+  text: {
+    color: 'white',
+    fontSize: 16,
   },
 });
