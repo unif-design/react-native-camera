@@ -81,6 +81,19 @@ export function Container({ config, onSettle }: Props) {
     );
   }
 
+  if (previewing) {
+    return (
+      <PreViewContainer
+        files={photos}
+        onRetake={() => {
+          setPhotos([]);
+          setPreviewing(false);
+        }}
+        onConfirm={() => onSettle({ code: 200, data: photos, message: 'ok' })}
+      />
+    );
+  }
+
   if (device == null) {
     return (
       <NoCamera
@@ -95,19 +108,6 @@ export function Container({ config, onSettle }: Props) {
         onCancel={() =>
           onSettle({ code: 500, data: [], message: 'invalid_config' })
         }
-      />
-    );
-  }
-
-  if (previewing) {
-    return (
-      <PreViewContainer
-        files={photos}
-        onRetake={() => {
-          setPhotos([]);
-          setPreviewing(false);
-        }}
-        onConfirm={() => onSettle({ code: 200, data: photos, message: 'ok' })}
       />
     );
   }
