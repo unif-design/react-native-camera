@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import type { CustomPhotoFile } from '../../utils';
 import { SinglePre } from './SinglePre';
+import { PreView } from './PreView';
 import { PreviewFooter } from './PreviewFooter';
 
 type Props = {
@@ -13,11 +14,11 @@ export function PreViewContainer({ files, onRetake, onConfirm }: Props) {
   const first = files[0];
   return (
     <View style={styles.root}>
-      {
-        files.length === 1 && first != null ? (
-          <SinglePre file={first} />
-        ) : null /* 多图轮播在 Task 12 实现 */
-      }
+      {files.length === 1 && first != null ? (
+        <SinglePre file={first} />
+      ) : files.length > 1 ? (
+        <PreView files={files} />
+      ) : null}
       <PreviewFooter onRetake={onRetake} onConfirm={onConfirm} />
     </View>
   );

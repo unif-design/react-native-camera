@@ -61,6 +61,7 @@ export function Container({ config, onSettle }: Props) {
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
   const currentMode = config.cameraMode[0];
+  const isContinuous = currentMode?.mode === 'continuous';
 
   if (state === 'denied') {
     return (
@@ -126,19 +127,29 @@ export function Container({ config, onSettle }: Props) {
           testID="shutter-btn"
           onPress={async () => {
             const f = await cameraRef.current?.capture();
-            if (f) {
-              setPhotos((prev) => [...prev, f]);
-              setPreviewing(true);
-            } else {
+            if (!f) {
               onSettle({
                 code: 500,
                 data: photos,
                 message: 'capture_failed',
               });
+              return;
+            }
+            setPhotos((prev) => [...prev, f]);
+            if (!isContinuous) {
+              setPreviewing(true);
             }
           }}
           style={styles.shutter}
         />
+        {isContinuous && photos.length > 0 && (
+          <TouchableOpacity
+            testID="finish-burst"
+            onPress={() => setPreviewing(true)}
+          >
+            <Text style={styles.text}>完成 ({photos.length})</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           testID="done-btn"
           onPress={() => onSettle({ code: 200, data: photos, message: 'ok' })}
