@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
-import { useCameraPermission } from 'react-native-vision-camera';
+import {
+  useCameraDevice,
+  useCameraPermission,
+} from 'react-native-vision-camera';
 import type { CameraResult, OpenConfig } from '../utils';
+import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 
@@ -40,6 +44,11 @@ export function Container({ config, onSettle }: Props) {
     };
   }, [hasPermission, requestPermission]);
 
+  // 5.x：physicalDevices 字符串不带 -camera；单 'wide-angle' 规避 iOS #3773
+  const device = useCameraDevice('back', {
+    physicalDevices: ['wide-angle'],
+  });
+
   void config;
 
   if (state === 'denied') {
@@ -61,7 +70,15 @@ export function Container({ config, onSettle }: Props) {
     );
   }
 
-  return <View style={styles.root} testID="permission-granted" />;
+  if (device == null) {
+    return (
+      <NoCamera
+        onCancel={() => onSettle({ code: 404, data: [], message: 'no_device' })}
+      />
+    );
+  }
+
+  return <View style={styles.root} testID="device-ready" />;
 }
 
 const styles = StyleSheet.create({
