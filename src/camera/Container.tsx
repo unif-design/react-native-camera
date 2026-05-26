@@ -150,12 +150,14 @@ export function Container({ config, onSettle }: Props) {
             <Text style={styles.text}>完成 ({photos.length})</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity
-          testID="done-btn"
-          onPress={() => onSettle({ code: 200, data: photos, message: 'ok' })}
-        >
-          <Text style={styles.text}>完成</Text>
-        </TouchableOpacity>
+        {!isContinuous && (
+          <TouchableOpacity
+            testID="done-btn"
+            onPress={() => onSettle({ code: 200, data: photos, message: 'ok' })}
+          >
+            <Text style={styles.text}>完成</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

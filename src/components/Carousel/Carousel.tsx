@@ -1,4 +1,4 @@
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import RNCarousel from 'react-native-reanimated-carousel';
 import type { CustomPhotoFile } from '../../utils';
 import { SlideItem } from './SlideItem';
@@ -9,7 +9,7 @@ type Props = {
 };
 
 export function Carousel({ data, onIndexChange }: Props) {
-  const { width, height } = Dimensions.get('window');
+  const { width, height } = useWindowDimensions();
   return (
     <View style={styles.root}>
       <RNCarousel
