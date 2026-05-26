@@ -4,6 +4,7 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from 'react-native-vision-camera';
+import { useSharedValue } from 'react-native-reanimated';
 import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
@@ -11,6 +12,9 @@ import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
 import { PreViewContainer } from './preview';
 import { Footer } from './footer';
+import { SetUp, type AspectRatio, type FlashMode } from './setup';
+
+const NEUTRAL_ZOOM = 1;
 
 type Props = {
   config: OpenConfig;
@@ -58,6 +62,11 @@ export function Container({ config, onSettle }: Props) {
   const [recording, setRecording] = useState(false);
   const [modeIndex, setModeIndex] = useState(0);
   const currentMode = config.cameraMode[modeIndex];
+
+  const [flash, setFlash] = useState<FlashMode>('off');
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('4:3');
+  const zoomShared = useSharedValue(NEUTRAL_ZOOM);
+  const [lensLabel, setLensLabel] = useState(`${NEUTRAL_ZOOM.toFixed(1)}x`);
 
   const onShutter = async () => {
     if (currentMode?.mode === 'video') {
@@ -137,9 +146,36 @@ export function Container({ config, onSettle }: Props) {
     );
   }
 
+  const onToggleLens = () => {
+    if (lensLabel.startsWith(device.minZoom.toFixed(1))) {
+      zoomShared.value = NEUTRAL_ZOOM;
+      setLensLabel(`${NEUTRAL_ZOOM.toFixed(1)}x`);
+    } else {
+      zoomShared.value = device.minZoom;
+      setLensLabel(`${device.minZoom.toFixed(1)}x`);
+    }
+  };
+
   return (
     <View style={styles.root} testID="device-ready">
-      <Camera ref={cameraRef} device={device} currentMode={currentMode} />
+      <Camera
+        ref={cameraRef}
+        device={device}
+        currentMode={currentMode}
+        flash={flash}
+        aspectRatio={aspectRatio}
+        zoomShared={zoomShared}
+      />
+      {!previewing && (
+        <SetUp
+          flash={flash}
+          aspectRatio={aspectRatio}
+          onChangeFlash={setFlash}
+          onChangeAspectRatio={setAspectRatio}
+          onToggleLens={onToggleLens}
+          lensLabel={lensLabel}
+        />
+      )}
       <Footer
         modes={config.cameraMode}
         currentIndex={modeIndex}

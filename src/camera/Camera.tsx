@@ -18,6 +18,7 @@ import {
   type Recorder,
 } from 'react-native-vision-camera';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type {
   CameraMode,
@@ -28,6 +29,7 @@ import type {
 import { buildPhotoFile } from '../utils';
 import { capturePhotoToFile } from './capturePhotoHelper';
 import { FocusIndicator } from './FocusIndicator';
+import type { AspectRatio, FlashMode } from './setup';
 
 const NEUTRAL_ZOOM = 1;
 
@@ -41,18 +43,27 @@ type Props = {
   device: CameraDevice;
   currentMode: CameraMode;
   isActive?: boolean;
+  flash?: FlashMode;
+  aspectRatio?: AspectRatio;
+  zoomShared?: SharedValue<number>;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
-  { device, currentMode, isActive = true },
+  { device, currentMode, isActive = true, flash, aspectRatio, zoomShared },
   ref
 ) {
   const cameraRef = useRef<CameraRef>(null);
+
+  const targetResolution =
+    (aspectRatio ?? '4:3') === '4:3'
+      ? { width: 1080, height: 1440 }
+      : { width: 1080, height: 1920 };
 
   const photoOutput = usePhotoOutput({
     qualityPrioritization: (currentMode.photoQuality ??
       'speed') as PhotoQuality,
     quality: currentMode.jpegQuality ?? 0.9,
+    targetResolution,
   });
 
   const videoOutput = useVideoOutput();
@@ -65,7 +76,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     ((file: CustomPhotoFile | null) => void) | null
   >(null);
 
-  const zoom = useSharedValue(NEUTRAL_ZOOM);
+  const internalZoom = useSharedValue(NEUTRAL_ZOOM);
+  const zoom = zoomShared ?? internalZoom;
   const zoomOffset = useSharedValue(0);
 
   const pinchGesture = Gesture.Pinch()
@@ -111,7 +123,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       capture: async () => {
         try {
           const raw = await capturePhotoToFile(photoOutput, {
-            flashMode: 'off',
+            flashMode: flash ?? 'off',
             enableShutterSound: true,
           });
           return buildPhotoFile(
@@ -190,7 +202,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         }
       },
     }),
-    [photoOutput, videoOutput, currentMode.mode, hasMic, requestMic]
+    [photoOutput, videoOutput, currentMode.mode, hasMic, requestMic, flash]
   );
 
   const outputs = currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
@@ -206,6 +218,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
           outputs={outputs as CameraProps['outputs']}
           constraints={[{ photoHDR: false }]}
           zoom={zoom}
+          torchMode={
+            currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
+          }
           onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
           nativeID="vision-camera"
         />
