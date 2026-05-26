@@ -211,6 +211,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         />
         {focusPoint && (
           <FocusIndicator
+            key={`${focusPoint.x}-${focusPoint.y}`}
             point={focusPoint}
             onAnimationEnd={() => setFocusPoint(null)}
           />
