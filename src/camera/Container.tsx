@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import {
   useCameraDevice,
@@ -24,6 +24,27 @@ type Props = {
 type PermissionState = 'pending' | 'granted' | 'denied';
 
 export function Container({ config, onSettle }: Props) {
+  const settledRef = useRef(false);
+
+  const settle = useCallback(
+    (r: CameraResult) => {
+      if (settledRef.current) return;
+      settledRef.current = true;
+      onSettle(r);
+    },
+    [onSettle]
+  );
+
+  useEffect(
+    () => () => {
+      if (!settledRef.current) {
+        onSettle({ code: 0, data: [], message: 'cancelled' });
+        settledRef.current = true;
+      }
+    },
+    [onSettle]
+  );
+
   const { hasPermission, requestPermission } = useCameraPermission();
   const [state, setState] = useState<PermissionState>(
     hasPermission ? 'granted' : 'pending'
@@ -80,14 +101,14 @@ export function Container({ config, onSettle }: Props) {
           setPhotos([f]);
           setPreviewing(true);
         } else {
-          onSettle({ code: 503, data: [], message: 'video_failed' });
+          settle({ code: 503, data: [], message: 'video_failed' });
         }
       }
       return;
     }
     const f = await cameraRef.current?.capture();
     if (!f) {
-      onSettle({ code: 500, data: photos, message: 'capture_failed' });
+      settle({ code: 500, data: photos, message: 'capture_failed' });
       return;
     }
     setPhotos((prev) => [...prev, f]);
@@ -100,7 +121,7 @@ export function Container({ config, onSettle }: Props) {
     return (
       <NoPermission
         onCancel={() =>
-          onSettle({ code: 403, data: [], message: 'permission_denied' })
+          settle({ code: 403, data: [], message: 'permission_denied' })
         }
         onOpenSettings={() => Linking.openSettings()}
       />
@@ -123,7 +144,7 @@ export function Container({ config, onSettle }: Props) {
           setPhotos([]);
           setPreviewing(false);
         }}
-        onConfirm={() => onSettle({ code: 200, data: photos, message: 'ok' })}
+        onConfirm={() => settle({ code: 200, data: photos, message: 'ok' })}
       />
     );
   }
@@ -131,7 +152,7 @@ export function Container({ config, onSettle }: Props) {
   if (device == null) {
     return (
       <NoCamera
-        onCancel={() => onSettle({ code: 404, data: [], message: 'no_device' })}
+        onCancel={() => settle({ code: 404, data: [], message: 'no_device' })}
       />
     );
   }
@@ -140,7 +161,7 @@ export function Container({ config, onSettle }: Props) {
     return (
       <NoCamera
         onCancel={() =>
-          onSettle({ code: 500, data: [], message: 'invalid_config' })
+          settle({ code: 500, data: [], message: 'invalid_config' })
         }
       />
     );
@@ -182,10 +203,12 @@ export function Container({ config, onSettle }: Props) {
         recording={recording}
         onShutter={onShutter}
         onSelectMode={(i) => {
-          if (config.dataRetainedMode === 'clear') setPhotos([]);
+          if (config.dataRetainedMode === 'clear' && i !== modeIndex) {
+            setPhotos([]);
+          }
           setModeIndex(i);
         }}
-        onCancel={() => onSettle({ code: 0, data: [], message: 'cancelled' })}
+        onCancel={() => settle({ code: 0, data: [], message: 'cancelled' })}
         onFinishBurst={
           currentMode?.mode === 'continuous'
             ? () => setPreviewing(true)
