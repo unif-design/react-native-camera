@@ -1,6 +1,6 @@
 {
   "name": "@unif/react-native-camera",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "基于 react-native-vision-camera 的相机库（单拍/连拍/视频+水印+预览）",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -43,7 +43,11 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "camera",
+    "vision-camera",
+    "photo",
+    "video"
   ],
   "repository": {
     "type": "git",
@@ -86,8 +90,17 @@
     "typescript": "^6.0.2"
   },
   "peerDependencies": {
-    "react": "*",
-    "react-native": "*"
+    "react": ">=19.0.0",
+    "react-native": ">=0.85.0",
+    "react-native-gesture-handler": ">=2.21.0",
+    "react-native-nitro-image": "*",
+    "react-native-nitro-modules": "*",
+    "react-native-reanimated": ">=4.0.0",
+    "react-native-reanimated-carousel": ">=4.0.0",
+    "react-native-safe-area-context": ">=5.0.0",
+    "react-native-vision-camera": "^5.0.0",
+    "react-native-webview": "*",
+    "react-native-worklets": "*"
   },
   "workspaces": [
     "example"
