@@ -1,0 +1,35 @@
+[pr_reviewer]
+extra_instructions = """
+用中文 code review。除了 org 级通用规则,本仓库特有规则:
+- vision-camera 5.x 的 API 必须用对:
+  · 拍照用 photoOutput.capturePhoto(settings, callbacks) 两参数,settings.flashMode(不是 flash)
+  · Photo 是 in-memory HybridObject,无 .path 字段,必须 await photo.saveToTemporaryFileAsync()
+    + try / finally { photo.dispose() } 释放内存
+  · Camera ref 类型是 CameraRef(interface)不是 VisionCamera class
+  · 对焦用 camera.focusTo(viewPoint, FocusOptions),不是 focus(point)
+  · device.supportsFocusMetering(不是 supportsFocus)
+  · 录像用 videoOutput.createRecorder({}) → recorder.startRecording(onFinished, onError, onPaused, onResumed)
+    4 个位置 callback;recorder.stopRecording() 不返回值,结果走 onFinished 回调
+  · 单 Recorder 只能录一次,需预热下一个
+- physicalDevices 字符串不带 -camera 后缀(正确:'wide-angle' / 'ultra-wide-angle' / 'telephoto')
+- device.neutralZoom 不存在,用 hardcode 1 或 device.zoomLensSwitchFactors[0]
+- 5.x 没有 useCameraFormat,宽高比通过 usePhotoOutput({targetResolution}) 控制
+- Reanimated 4 + vision-camera 5.x:不要 addWhitelistedNativeProps / createAnimatedComponent /
+  useAnimatedProps,<Camera zoom={sharedValue}> 原生支持
+- @react-native/no-deep-imports:不要从 react-native/Libraries/* deep import
+- noUncheckedIndexedAccess: true,数组下标访问要先收窄 undefined
+- jsx-runtime + noUnusedLocals:不要 import React 除非用了 React.* 命名空间
+- 颜色/尺寸用 useColors() 主题 token + r() / rf() 缩放(同 design 规则),不要硬编码
+  例外:'#000' 相机黑底 + 'yellow' 对焦框 UX 惯例(必须注释说明)
+- useThemedStyles(maker) maker 必须模块顶层定义,不能 inline(同 design 规则)
+- 所有 vision-camera 调用必须包 try / catch,失败返 null 或 console.warn(不让 reject 逃出
+  imperative handle)
+- Container 所有非 200 路径都走 settle(code:0/403/404/500/503),不要直接 onSettle
+- 必须 conventional commits 前缀(feat / fix / chore / docs / test / refactor / ci)
+"""
+
+[pr_code_suggestions]
+extra_instructions = "用中文,引用具体行号,给可落地的代码改进(不要给\"考虑重构\"这种空泛建议)。"
+
+[pr_description]
+extra_instructions = "用中文,1-2 句概括 + 列变更点。如果有 BREAKING CHANGE 必须在 body 显式标注。"
