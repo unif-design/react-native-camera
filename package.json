@@ -78,7 +78,7 @@
     "@types/jest": "^29.5.0",
     "@types/react": "^19.2.0",
     "@types/react-test-renderer": "^19",
-    "@unif/react-native-design": "^0.2.0",
+    "@unif/react-native-design": "^0.3.0",
     "commitlint": "^20.5.0",
     "del-cli": "^7.0.0",
     "eslint": "^9.39.4",
@@ -109,7 +109,7 @@
   "peerDependencies": {
     "@gorhom/bottom-sheet": ">=5",
     "@sbaiahmed1/react-native-blur": ">=4",
-    "@unif/react-native-design": ">=0.2.0",
+    "@unif/react-native-design": ">=0.3.0",
     "react": ">=19.0.0",
     "react-native": ">=0.85.0",
     "react-native-gesture-handler": ">=2.21.0",
@@ -156,7 +156,8 @@
       "tagName": "v${version}"
     },
     "npm": {
-      "publish": true
+      "publish": true,
+      "skipChecks": true
     },
     "github": {
       "release": true
@@ -165,7 +166,8 @@
       "@release-it/conventional-changelog": {
         "preset": {
           "name": "angular"
-        }
+        },
+        "infile": "CHANGELOG.md"
       }
     }
   },

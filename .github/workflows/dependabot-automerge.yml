@@ -1,0 +1,49 @@
+name: Dependabot Auto-Merge
+
+# 只对 dependabot 提的 PR 起作用,根据 update-type 决定是否自动 merge:
+#   - patch / minor: 自动 approve + 启用 auto-merge(待 CI 通过后 squash merge)
+#   - major: 不动,需要人工 review
+#
+# 依赖 repo 设置 "Allow auto-merge"(已配)+ branch protection "Require status checks to pass"(已配)。
+# 没 CI 通过的 PR 即使被 auto-merge 标记也不会真的 merge —— 安全。
+
+on:
+  pull_request:
+    # dependabot 提的 PR 是从 fork-like 分支来,target 主仓库
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    # 只处理 dependabot[bot] 的 PR
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7 # v2.3.0
+        with:
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
+
+      - name: Auto-approve patch / minor
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch / minor
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
