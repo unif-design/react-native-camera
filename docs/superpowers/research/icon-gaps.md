@@ -17,7 +17,7 @@
 
 ## 后续清理
 
-camera 仓库已在 commit `<待填写>` 中：
+camera 仓库已在 commit `ecc6048` 中：
 1. 升级 `@unif/react-native-design` 从 `portal:` 切到 `^0.2.0`
 2. NoPermission/NoCamera/Error 三个 Empty 加专属 icon
 3. SetUp 三个 Chip 加 leading Icon
