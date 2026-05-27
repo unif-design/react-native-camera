@@ -1,0 +1,65 @@
+version: 2
+updates:
+  # npm 依赖周更 —— 分组减少 PR 噪音
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # 顺序敏感:dependabot 按声明顺序匹配,vision-camera / design 必须在 react-native 前,
+      # 否则被 `react-native-*` 通配吃掉。
+      vision-camera:
+        patterns:
+          - 'react-native-vision-camera'
+          - 'react-native-nitro-*'
+      design:
+        patterns:
+          - '@unif/react-native-design'
+      types:
+        patterns:
+          - '@types/*'
+      react-native:
+        patterns:
+          - 'react-native'
+          - 'react-native-*'
+          - '@react-native/*'
+          - '@react-native-community/*'
+      eslint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - '@eslint-*'
+      jest:
+        patterns:
+          - 'jest'
+          - 'jest-*'
+          - '@jest/*'
+      commitlint:
+        patterns:
+          - 'commitlint'
+          - '@commitlint/*'
+      release-it:
+        patterns:
+          - 'release-it'
+          - '@release-it/*'
+
+  # GitHub Actions 月更 —— 升级频率低,month 即可
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
