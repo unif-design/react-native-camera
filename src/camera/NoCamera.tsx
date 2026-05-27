@@ -13,7 +13,7 @@ export function NoCamera({ onCancel }: Props) {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.root} testID="no-camera">
-      <Empty title="未检测到可用相机" />
+      <Empty icon="camera-off" title="未检测到可用相机" />
       <View style={styles.row}>
         <Button
           variant="primary"

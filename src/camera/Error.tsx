@@ -10,7 +10,7 @@ export function ErrorView({ message }: { message: string }) {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.root} testID="error-view">
-      <Empty title={message} />
+      <Empty icon="error-alert" title={message} />
     </View>
   );
 }

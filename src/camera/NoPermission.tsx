@@ -13,7 +13,11 @@ export function NoPermission({ onCancel, onOpenSettings }: Props) {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.root} testID="no-permission">
-      <Empty title="相机权限被拒" desc="请前往系统设置开启权限" />
+      <Empty
+        icon="permission-denied"
+        title="相机权限被拒"
+        desc="请前往系统设置开启权限"
+      />
       <View style={styles.row}>
         <Button
           variant="ghost"

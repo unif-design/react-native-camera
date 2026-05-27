@@ -1,5 +1,11 @@
 import { StyleSheet, View } from 'react-native';
-import { Chip, r } from '@unif/react-native-design';
+import {
+  Chip,
+  Icon,
+  r,
+  useColors,
+  type IconName,
+} from '@unif/react-native-design';
 
 export type FlashMode = 'off' | 'on' | 'auto';
 export type AspectRatio = '4:3' | '16:9';
@@ -20,6 +26,12 @@ const flashLabel: Record<FlashMode, string> = {
 };
 const flashOrder: FlashMode[] = ['off', 'auto', 'on'];
 
+const flashIconMap: Record<FlashMode, IconName> = {
+  off: 'flash-off',
+  on: 'flash-on',
+  auto: 'flash-auto',
+};
+
 export function SetUp({
   flash,
   aspectRatio,
@@ -28,6 +40,7 @@ export function SetUp({
   onToggleLens,
   lensLabel,
 }: Props) {
+  const c = useColors();
   const nextFlash = () => {
     const i = flashOrder.indexOf(flash);
     const next = flashOrder[(i + 1) % flashOrder.length] as FlashMode;
@@ -37,18 +50,33 @@ export function SetUp({
     <View style={styles.root}>
       <Chip
         label={flashLabel[flash]}
+        leading={
+          <Icon name={flashIconMap[flash]} size={r(14)} color={c.foreground} />
+        }
         onPress={nextFlash}
         selected={flash !== 'off'}
         testID="flash-btn"
       />
       <Chip
         label={aspectRatio}
+        leading={
+          <Icon
+            name={aspectRatio === '4:3' ? 'aspect-4-3' : 'aspect-16-9'}
+            size={r(14)}
+            color={c.foreground}
+          />
+        }
         onPress={() =>
           onChangeAspectRatio(aspectRatio === '4:3' ? '16:9' : '4:3')
         }
         testID="aspect-btn"
       />
-      <Chip label={lensLabel} onPress={onToggleLens} testID="lens-btn" />
+      <Chip
+        label={lensLabel}
+        leading={<Icon name="lens-flip" size={r(14)} color={c.foreground} />}
+        onPress={onToggleLens}
+        testID="lens-btn"
+      />
     </View>
   );
 }
