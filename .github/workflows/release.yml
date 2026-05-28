@@ -52,7 +52,7 @@ jobs:
     # 兜底防自触发循环:push 上来的若是 release-it 自己推的 "chore: release" commit 直接 skip。
     # 主防线是该 commit 带 [skip ci](push 会被 Actions 跳过);这里是第二道,防 [skip ci] 失效。
     # workflow_dispatch 无 head_commit,前半条件 true 短路 → 手动发版照常,不受影响。
-    if: ${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}
+    if: "${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}"
     runs-on: ubuntu-latest
 
     steps:
