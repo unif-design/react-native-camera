@@ -1,0 +1,36 @@
+name: Dependabot Auto-Merge
+
+# Dependabot PR 自动启用 GitHub auto-merge。
+# 条件:
+#   - PR 由 dependabot[bot] 创建
+#   - 升级类型是 patch 或 minor(major 留给人审)
+# 启用后 GitHub 等满足 branch protection 所有条件(CI 5 个 check 全绿等)
+# 自动 squash merge。major 升级不触发,留给人工审 + commit changelog。
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  automerge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch / minor
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --squash "$PR_URL"
