@@ -33,15 +33,21 @@ on:
   workflow_dispatch:
     inputs:
       increment:
-        description: '强制版本类型(留空走 conventional commits 自动推断)'
+        description: '版本类型(auto = 走 conventional commits 自动推断)'
         required: false
-        default: ''
+        default: auto
         type: choice
         options:
-          - ''
+          - auto
           - patch
           - minor
           - major
+
+concurrency:
+  # 同一时间只允许一个发版 run —— 防并发 release-it 互撞 tag/push,
+  # 兼作死循环的第三道防线。cancel-in-progress: false —— 发版跑到一半不能打断。
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write       # 兜底;实际 push 走下面的 App token(GITHUB_TOKEN 进不了受保护 main)
@@ -110,9 +116,9 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          INCREMENT: ${{ inputs.increment || '' }}
+          INCREMENT: ${{ inputs.increment || 'auto' }}
         run: |
-          if [ -n "$INCREMENT" ]; then
+          if [ "$INCREMENT" != "auto" ]; then
             npx release-it "$INCREMENT" --ci
           else
             npx release-it --ci
