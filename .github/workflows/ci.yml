@@ -14,7 +14,24 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read    # CI 只读代码;无任何写需求,最小权限
+
 jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run actionlint
+        # 下载 pinned binary 校验所有 workflow 的 YAML / 表达式 / run 里的 shell(集成 shellcheck)。
+        # release.yml 那次 YAML 引号 bug 当初就是缺这道 lint 才漏到 main 的。
+        run: |
+          ACTIONLINT_VERSION=1.7.12
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | tar -xz actionlint
+          ./actionlint -color
+        shell: bash
+
   lint:
     runs-on: ubuntu-latest
 
@@ -83,7 +100,7 @@ jobs:
           TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}" --dry=json)).tasks.find(t => t.task === 'build:android').cache.status")
 
           if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
-            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+            echo "turbo_cache_hit=1" >> "$GITHUB_ENV"
           fi
 
       - name: Install JDK
@@ -145,7 +162,7 @@ jobs:
           TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}" --dry=json)).tasks.find(t => t.task === 'build:ios').cache.status")
 
           if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
-            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+            echo "turbo_cache_hit=1" >> "$GITHUB_ENV"
           fi
 
       - name: Use appropriate Xcode version
@@ -155,7 +172,7 @@ jobs:
           xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Install cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
+        if: env.turbo_cache_hit != 1
         run: |
           cd example
           bundle install
