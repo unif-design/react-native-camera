@@ -99,6 +99,29 @@ const App = () => {
 | `data` | `CustomPhotoFile[]` | 拍摄的文件列表 |
 | `message` | `string` | 描述信息 |
 
+## 测试 (Mock)
+
+本库依赖 `react-native-vision-camera` 等 native 模块，jest 环境无法直接加载。消费者在测试里 mock 本库：
+
+```js
+jest.mock('@unif/react-native-camera', () =>
+  require('@unif/react-native-camera/mock')
+);
+```
+
+mock 后 `useCamera()` 返回 `[api, null]`，`api.open` / `api.close` 是 `jest.fn`，`open` 默认 resolve `{ code: 0, data: [], message: 'cancelled' }`。按需覆盖单次返回：
+
+```ts
+const [api] = useCamera();
+(api.open as jest.Mock).mockResolvedValueOnce({
+  code: 200,
+  data: [{ path: '/x.jpg', uri: 'file:///x.jpg', width: 1, height: 1, mime: 'image/jpeg', mode: 'single' }],
+  message: 'ok',
+});
+```
+
+工具函数（`toFileUri` / `buildPhotoFile` 等）与所有类型在 mock 中保留真实实现。
+
 ## 从 v1.x 升级
 
 `v2.0.0` 的破坏性变更：
