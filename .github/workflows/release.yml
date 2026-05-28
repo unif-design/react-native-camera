@@ -4,12 +4,20 @@ name: Release
 # 内部跑 `release-it --ci`:bump 版本号 → 生成 changelog → git commit + tag →
 # `npm publish`(走 npm Trusted Publishing / OIDC)→ 创建 GitHub Release。
 #
-# 前置条件 —— 在 npmjs.com 包 Settings → Publishing access → Trusted Publishers 配置:
-#   Publisher: GitHub Actions
-#   Org / Repo: unif-design / react-native-camera
-#   Workflow filename: release.yml
-# 配置后,GitHub Actions 通过 OIDC 拿临时 id-token 换 publish 权限,
-# 不需要 long-lived NPM_TOKEN —— 没有静态凭据可泄露。
+# 两套凭据,各管一段:
+#   1. npm publish —— Trusted Publishing / OIDC(id-token: write),无 long-lived token。
+#      前置:npmjs.com 包 Settings → Trusted Publishers 绑 unif-design/react-native-camera 的 release.yml。
+#   2. git push commit + tag 回 main —— 自建 App bot 的临时 token。
+#      main 受 `protect main` ruleset 保护(必须走 PR),而 github-actions[bot] 加不进 ruleset
+#      bypass(它不是"安装的 App")。所以用 GitHub App `unif-release-bot` 生成 ~1h 过期的
+#      installation token 替代 GITHUB_TOKEN,该 App 加进 ruleset bypass list → release-it 的
+#      `chore: release X.Y.Z` commit 能合法推回受保护的 main。
+#      前置:repo variable RELEASE_APP_ID + secret RELEASE_APP_PRIVATE_KEY + App 进 bypass list。
+#
+# 防自触发死循环(关键):release-it 推回 main 的 release commit 改了 package.json,会命中下面
+# 的 paths 再次触发本工作流 → 无限发版。两道防线:
+#   1. release commit message 带 [skip ci](见 package.json#release-it.git.commitMessage)→ push 被 Actions 跳过。
+#   2. 下面 job 级 if 兜底:push 上来的若是 "chore: release" commit 直接 skip(防 [skip ci] 万一失效)。
 
 on:
   push:
@@ -36,18 +44,32 @@ on:
           - major
 
 permissions:
-  contents: write       # release-it 要 push commit / tag、创建 GitHub Release
+  contents: write       # 兜底;实际 push 走下面的 App token(GITHUB_TOKEN 进不了受保护 main)
   id-token: write       # npm Trusted Publishing(OIDC)+ provenance attestations
 
 jobs:
   release:
+    # 兜底防自触发循环:push 上来的若是 release-it 自己推的 "chore: release" commit 直接 skip。
+    # 主防线是该 commit 带 [skip ci](push 会被 Actions 跳过);这里是第二道,防 [skip ci] 失效。
+    # workflow_dispatch 无 head_commit,前半条件 true 短路 → 手动发版照常,不受影响。
+    if: "${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}"
     runs-on: ubuntu-latest
 
     steps:
+      # 生成 App bot 临时 token —— 替代 GITHUB_TOKEN,使后续 git push 能 bypass `protect main`。
+      # token scope 自动限定到本 repo,权限继承 App(Contents: write),~1h 过期。
+      - name: Generate App token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0  # release-it 要全历史算 conventional-changelog
+          fetch-depth: 0                                # release-it 要全历史算 conventional-changelog
+          token: ${{ steps.app-token.outputs.token }}   # 用 App token,后续 git push 才能 bypass ruleset
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -62,18 +84,32 @@ jobs:
           yarn typecheck
           yarn test --maxWorkers=2
 
+      # commit author 用 App bot 身份(release commit 显示 verified + 归属 unif-release-bot[bot])。
+      # bot 的 numeric user id 用 app-slug 反查,拼成 GitHub no-reply 邮箱。
+      - name: Resolve App bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # 走 env 注入,不把 ${{ }} 直接插值进 run 脚本 —— 杜绝 shell 注入(GitHub 安全最佳实践)。
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          uid=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          echo "name=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${uid}+${APP_SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+
       - name: Configure git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "${{ steps.bot.outputs.name }}"
+          git config user.email "${{ steps.bot.outputs.email }}"
 
       # npm CLI 在 GitHub Actions OIDC 环境下(id-token: write + 包配过 Trusted Publisher)
       # 自动用临时 token publish,不需要写 ~/.npmrc。
+      # GITHUB_TOKEN 这里换成 App token —— release-it 的 git push(commit + tag)和建 GitHub Release 都走它。
       # INCREMENT 空 → release-it 根据 conventional-changelog 插件推断 bump;
       # 非空 → 走 workflow_dispatch 强制指定的 patch / minor / major。
       - name: Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           INCREMENT: ${{ inputs.increment || '' }}
         run: |
           if [ -n "$INCREMENT" ]; then
