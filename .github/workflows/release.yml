@@ -13,6 +13,11 @@ name: Release
 #      installation token 替代 GITHUB_TOKEN,该 App 加进 ruleset bypass list → release-it 的
 #      `chore: release X.Y.Z` commit 能合法推回受保护的 main。
 #      前置:repo variable RELEASE_APP_ID + secret RELEASE_APP_PRIVATE_KEY + App 进 bypass list。
+#
+# 防自触发死循环(关键):release-it 推回 main 的 release commit 改了 package.json,会命中下面
+# 的 paths 再次触发本工作流 → 无限发版。两道防线:
+#   1. release commit message 带 [skip ci](见 package.json#release-it.git.commitMessage)→ push 被 Actions 跳过。
+#   2. 下面 job 级 if 兜底:push 上来的若是 "chore: release" commit 直接 skip(防 [skip ci] 万一失效)。
 
 on:
   push:
@@ -44,6 +49,10 @@ permissions:
 
 jobs:
   release:
+    # 兜底防自触发循环:push 上来的若是 release-it 自己推的 "chore: release" commit 直接 skip。
+    # 主防线是该 commit 带 [skip ci](push 会被 Actions 跳过);这里是第二道,防 [skip ci] 失效。
+    # workflow_dispatch 无 head_commit,前半条件 true 短路 → 手动发版照常,不受影响。
+    if: ${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}
     runs-on: ubuntu-latest
 
     steps:
