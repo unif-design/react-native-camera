@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -50,6 +50,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const cameraRef = useRef<CameraRef>(null);
 
   const cameraType = device.position === 'front' ? 'front' : 'back';
+
+  const { width: screenW } = useWindowDimensions();
+  // 取景框比例 = 输出照片比例(targetResolution):4:3→竖屏 高/宽=4/3, 16:9→16/9。
+  // 框比例 = 画面比例后,cover 不再裁两侧 → 预览 = 拍照(WYSIWYG)。
+  const frameRatio = (aspectRatio ?? '4:3') === '4:3' ? 4 / 3 : 16 / 9;
+  const frameW = screenW;
+  const frameH = screenW * frameRatio;
 
   const targetResolution =
     (aspectRatio ?? '4:3') === '4:3'
@@ -215,30 +222,45 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const outputs = currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
 
   return (
-    <GestureDetector gesture={composed}>
-      <View style={StyleSheet.absoluteFill}>
-        <VisionCamera
-          ref={cameraRef}
-          style={StyleSheet.absoluteFill}
-          device={device}
-          isActive={isActive}
-          outputs={outputs as CameraProps['outputs']}
-          constraints={[{ photoHDR: false }]}
-          zoom={zoom}
-          torchMode={
-            currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
-          }
-          onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
-          nativeID="vision-camera"
-        />
-        {focusPoint && (
-          <FocusIndicator
-            key={`${focusPoint.x}-${focusPoint.y}`}
-            point={focusPoint}
-            onAnimationEnd={() => setFocusPoint(null)}
+    <View style={styles.root}>
+      <GestureDetector gesture={composed}>
+        <View style={[styles.frame, { width: frameW, height: frameH }]}>
+          <VisionCamera
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            device={device}
+            isActive={isActive}
+            outputs={outputs as CameraProps['outputs']}
+            constraints={[{ photoHDR: false }]}
+            zoom={zoom}
+            torchMode={
+              currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
+            }
+            onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+            nativeID="vision-camera"
           />
-        )}
-      </View>
-    </GestureDetector>
+          {focusPoint && (
+            <FocusIndicator
+              key={`${focusPoint.x}-${focusPoint.y}`}
+              point={focusPoint}
+              onAnimationEnd={() => setFocusPoint(null)}
+            />
+          )}
+        </View>
+      </GestureDetector>
+    </View>
   );
+});
+
+const styles = StyleSheet.create({
+  // 全屏黑底,把取景框居中 → 框外区域是黑边(letterbox)。
+  root: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // overflow:hidden 裁掉 cover 溢出部分,框内只显示输出比例的画面。
+  frame: { overflow: 'hidden' },
 });
