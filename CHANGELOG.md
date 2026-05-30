@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.6.0](https://github.com/unif-design/react-native-camera/compare/v2.4.0...v2.6.0) (2026-05-30)
+
+
+### Features
+
+* align public API with original v1.2.5 + fix WYSIWYG preview (2.5.0) ([#18](https://github.com/unif-design/react-native-camera/issues/18)) ([fbb4e04](https://github.com/unif-design/react-native-camera/commit/fbb4e04f57b25c7b9be1ae2047f660cec75f190c))
+
 # [2.4.0](https://github.com/unif-design/react-native-camera/compare/v2.3.0...v2.4.0) (2026-05-28)
 
 
