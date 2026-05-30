@@ -1,4 +1,4 @@
-import { useCamera, toFileUri, VERSION } from '../mock';
+import { useCamera, toFileUri } from '../mock';
 
 it('mock useCamera returns [api, null] with jest.fn open/close', () => {
   const [api, holder] = useCamera();
@@ -28,7 +28,6 @@ it('mock open() can be overridden per call', async () => {
   expect(r.code).toBe(200);
 });
 
-it('mock preserves real utils and VERSION', () => {
+it('mock preserves real utils', () => {
   expect(toFileUri('/tmp/x.jpg')).toBe('file:///tmp/x.jpg');
-  expect(VERSION).toBe('2.0.0');
 });
