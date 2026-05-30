@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -20,12 +20,7 @@ import {
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import type {
-  CameraMode,
-  CustomPhotoFile,
-  PhotoQuality,
-  Point,
-} from '../utils';
+import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
 import { capturePhotoToFile } from './capturePhotoHelper';
 import { FocusIndicator } from './FocusIndicator';
@@ -54,15 +49,24 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 ) {
   const cameraRef = useRef<CameraRef>(null);
 
+  const cameraType = device.position === 'front' ? 'front' : 'back';
+
+  const { width: screenW } = useWindowDimensions();
+  // 取景框比例 = 输出照片比例(targetResolution):4:3→竖屏 高/宽=4/3, 16:9→16/9。
+  // 框比例 = 画面比例后,cover 不再裁两侧 → 预览 = 拍照(WYSIWYG)。
+  const frameRatio = (aspectRatio ?? '4:3') === '4:3' ? 4 / 3 : 16 / 9;
+  const frameW = screenW;
+  const frameH = screenW * frameRatio;
+
   const targetResolution =
     (aspectRatio ?? '4:3') === '4:3'
       ? { width: 1080, height: 1440 }
       : { width: 1080, height: 1920 };
 
   const photoOutput = usePhotoOutput({
-    qualityPrioritization: (currentMode.photoQuality ??
-      'speed') as PhotoQuality,
-    quality: currentMode.jpegQuality ?? 0.9,
+    // 速度优先级对齐原版 4.x photoQualityBalance='speed'(写死);quality 用回原版字段
+    qualityPrioritization: 'speed',
+    quality: currentMode.quality ?? 0.9,
     targetResolution,
   });
 
@@ -128,7 +132,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
           });
           return buildPhotoFile(
             { path: raw.path, width: raw.width, height: raw.height },
-            currentMode.mode
+            currentMode.mode,
+            cameraType
           );
         } catch (e) {
           console.warn('capturePhoto failed', e);
@@ -154,6 +159,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               const file = buildPhotoFile(
                 { path: filePath, width: 0, height: 0 },
                 'video',
+                cameraType,
                 true
               );
               activeRecorderRef.current = null;
@@ -202,36 +208,59 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         }
       },
     }),
-    [photoOutput, videoOutput, currentMode.mode, hasMic, requestMic, flash]
+    [
+      photoOutput,
+      videoOutput,
+      currentMode.mode,
+      hasMic,
+      requestMic,
+      flash,
+      cameraType,
+    ]
   );
 
   const outputs = currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
 
   return (
-    <GestureDetector gesture={composed}>
-      <View style={StyleSheet.absoluteFill}>
-        <VisionCamera
-          ref={cameraRef}
-          style={StyleSheet.absoluteFill}
-          device={device}
-          isActive={isActive}
-          outputs={outputs as CameraProps['outputs']}
-          constraints={[{ photoHDR: false }]}
-          zoom={zoom}
-          torchMode={
-            currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
-          }
-          onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
-          nativeID="vision-camera"
-        />
-        {focusPoint && (
-          <FocusIndicator
-            key={`${focusPoint.x}-${focusPoint.y}`}
-            point={focusPoint}
-            onAnimationEnd={() => setFocusPoint(null)}
+    <View style={styles.root}>
+      <GestureDetector gesture={composed}>
+        <View style={[styles.frame, { width: frameW, height: frameH }]}>
+          <VisionCamera
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            device={device}
+            isActive={isActive}
+            outputs={outputs as CameraProps['outputs']}
+            constraints={[{ photoHDR: false }]}
+            zoom={zoom}
+            torchMode={
+              currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
+            }
+            onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+            nativeID="vision-camera"
           />
-        )}
-      </View>
-    </GestureDetector>
+          {focusPoint && (
+            <FocusIndicator
+              key={`${focusPoint.x}-${focusPoint.y}`}
+              point={focusPoint}
+              onAnimationEnd={() => setFocusPoint(null)}
+            />
+          )}
+        </View>
+      </GestureDetector>
+    </View>
   );
+});
+
+const styles = StyleSheet.create({
+  // 全屏黑底,把取景框居中 → 框外区域是黑边(letterbox)。
+  root: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // overflow:hidden 裁掉 cover 溢出部分,框内只显示输出比例的画面。
+  frame: { overflow: 'hidden' },
 });

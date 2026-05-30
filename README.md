@@ -52,7 +52,7 @@ const App = () => {
       <Text onPress={async () => {
         const res = await api.open({
           cameraMode: [
-            { mode: 'single', photoQuality: 'speed', jpegQuality: 0.9 },
+            { mode: 'single', quality: 0.9 },
             { mode: 'continuous' },
           ],
           dataRetainedMode: 'clear',
@@ -87,9 +87,11 @@ const App = () => {
 
 | 字段 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `mode` | `'single' \| 'continuous' \| 'video'` | — | 模式 |
-| `photoQuality` | `'speed' \| 'balanced' \| 'quality'` | `'speed'` | 相机管线模式，影响拍摄延迟 |
-| `jpegQuality` | `number (0~1)` | `0.9` | JPEG 压缩率 |
+| `type` | `'back' \| 'front'` | `back` | 初始前/后摄 |
+| `flashMode` | `'auto' \| 'on' \| 'off'` | — | 初始闪光（保留作兼容；闪光实际由相机内 UI 控制） |
+| `mode` | `'single' \| 'continuous' \| 'video'` | — | 拍摄模式 |
+| `quality` | `number` | `0.9` | JPEG 压缩 0~1 |
+| `recTime` | `number` | — | 录制时长上限（秒，video） |
 
 ### `CameraResult`
 
@@ -98,6 +100,21 @@ const App = () => {
 | `code` | `0 \| 200 \| 403 \| 404 \| 500 \| 503` | 状态码 |
 | `data` | `CustomPhotoFile[]` | 拍摄的文件列表 |
 | `message` | `string` | 描述信息 |
+
+### `CustomPhotoFile`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | `string` | 唯一 id |
+| `cameraType` | `'back' \| 'front'` | 拍摄时的前/后摄 |
+| `cameraMode` | `'single' \| 'continuous' \| 'video'` | 模式（原版字段名，= `mode`） |
+| `path` | `string` | 本地文件路径 |
+| `uri` | `string` | 文件 uri（`file://`） |
+| `width` | `number` | 宽（px） |
+| `height` | `number` | 高（px） |
+| `mime` | `'image/jpeg' \| 'video/mp4'` | MIME 类型 |
+| `mode` | `'single' \| 'continuous' \| 'video'` | 模式（2.x 字段名，= `cameraMode`） |
+| `duration?` | `number` | 时长（秒，video） |
 
 ## 测试 (Mock)
 
@@ -115,7 +132,7 @@ mock 后 `useCamera()` 返回 `[api, null]`，`api.open` / `api.close` 是 `jest
 const [api] = useCamera();
 (api.open as jest.Mock).mockResolvedValueOnce({
   code: 200,
-  data: [{ path: '/x.jpg', uri: 'file:///x.jpg', width: 1, height: 1, mime: 'image/jpeg', mode: 'single' }],
+  data: [{ id: '1700000000000-0', cameraType: 'back', cameraMode: 'single', path: '/x.jpg', uri: 'file:///x.jpg', width: 1, height: 1, mime: 'image/jpeg', mode: 'single' }],
   message: 'ok',
 });
 ```
@@ -126,7 +143,7 @@ const [api] = useCamera();
 
 `v2.0.0` 的破坏性变更：
 
-- 移除 `cameraMode[i].photoResolution` / `videoResolution` → 改用 `photoQuality` 控制速度 / `jpegQuality` 控制文件大小
+- 移除 `cameraMode[i].photoResolution` / `videoResolution` → 改用 `quality`（0~1）控制 JPEG 压缩
 - 移除 `watermark` 配置项（将在 v2.1.x 重新加入）
 - 从顶层 `@unif/react-native-camera` 直接导入类型（不再走 `/lib/typescript/src/utils` deep path）
 

@@ -5,13 +5,21 @@ import type {
   CustomPhotoFile,
 } from '../utils';
 
-it('CameraMode accepts photoQuality and jpegQuality', () => {
+it('CameraMode accepts original fields (type/flashMode/quality/recTime)', () => {
   const m: CameraMode = {
+    type: 'back',
+    flashMode: 'auto',
     mode: 'single',
-    photoQuality: 'speed',
-    jpegQuality: 0.9,
+    quality: 0.9,
+    recTime: 15,
   };
   expect(m.mode).toBe('single');
+  expect(m.quality).toBe(0.9);
+});
+
+it('CameraMode only requires mode', () => {
+  const m: CameraMode = { mode: 'continuous' };
+  expect(m.mode).toBe('continuous');
 });
 
 it('CameraResult has known shape', () => {
@@ -27,8 +35,11 @@ it('OpenConfig requires cameraMode and dataRetainedMode', () => {
   expect(c.cameraMode).toHaveLength(1);
 });
 
-it('CustomPhotoFile mime is restricted', () => {
+it('CustomPhotoFile carries original + 2.x fields (union)', () => {
   const f: CustomPhotoFile = {
+    id: '1700000000000-0',
+    cameraType: 'back',
+    cameraMode: 'single',
     path: '/tmp/x.jpg',
     uri: 'file:///tmp/x.jpg',
     width: 100,
@@ -37,4 +48,5 @@ it('CustomPhotoFile mime is restricted', () => {
     mode: 'single',
   };
   expect(f.mime).toBe('image/jpeg');
+  expect(f.cameraMode).toBe(f.mode);
 });

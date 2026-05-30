@@ -10,23 +10,43 @@ describe('toFileUri', () => {
 });
 
 describe('buildPhotoFile', () => {
-  it('builds image file by default', () => {
+  it('builds image file by default with id/cameraType/cameraMode', () => {
     const f = buildPhotoFile(
       { path: '/tmp/a.jpg', width: 100, height: 200 },
-      'single'
+      'single',
+      'back'
     );
     expect(f.mime).toBe('image/jpeg');
     expect(f.uri).toBe('file:///tmp/a.jpg');
     expect(f.duration).toBeUndefined();
+    expect(f.cameraType).toBe('back');
+    expect(f.cameraMode).toBe('single');
+    expect(f.mode).toBe('single');
+    expect(typeof f.id).toBe('string');
   });
   it('builds video file when isVideo=true', () => {
     const f = buildPhotoFile(
       { path: '/tmp/a.mp4', width: 1920, height: 1080, duration: 5.2 },
       'video',
+      'front',
       true
     );
     expect(f.mime).toBe('video/mp4');
     expect(f.duration).toBe(5.2);
+    expect(f.cameraType).toBe('front');
+  });
+  it('generates unique ids across calls', () => {
+    const a = buildPhotoFile(
+      { path: '/a.jpg', width: 1, height: 1 },
+      'single',
+      'back'
+    );
+    const b = buildPhotoFile(
+      { path: '/b.jpg', width: 1, height: 1 },
+      'single',
+      'back'
+    );
+    expect(a.id).not.toBe(b.id);
   });
 });
 

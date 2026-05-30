@@ -38,18 +38,12 @@ function AppInner() {
         <Button
           variant="primary"
           label="单拍"
-          onPress={() =>
-            open([{ mode: 'single', photoQuality: 'speed', jpegQuality: 0.9 }])
-          }
+          onPress={() => open([{ mode: 'single', quality: 0.9 }])}
         />
         <Button
           variant="primary"
           label="连拍"
-          onPress={() =>
-            open([
-              { mode: 'continuous', photoQuality: 'speed', jpegQuality: 0.9 },
-            ])
-          }
+          onPress={() => open([{ mode: 'continuous', quality: 0.9 }])}
         />
         <Button
           variant="primary"

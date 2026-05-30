@@ -72,8 +72,11 @@ export function Container({ config, onSettle }: Props) {
     };
   }, [hasPermission, requestPermission]);
 
+  // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
+  // 运行时前后摄翻转是独立功能,不在本次范围。
   // 5.x：physicalDevices 字符串不带 -camera；单 'wide-angle' 规避 iOS #3773
-  const device = useCameraDevice('back', {
+  const initialPosition = config.cameraMode[0]?.type ?? 'back';
+  const device = useCameraDevice(initialPosition, {
     physicalDevices: ['wide-angle'],
   });
 

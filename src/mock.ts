@@ -23,9 +23,6 @@ import type { CameraApi, CameraResult } from './utils';
 // 它们不碰 native,消费者测试里跑真实逻辑比 mock 更有意义。
 export * from './utils';
 
-// 与 src/index.tsx 保持一致;mock 不能 import index(会触发 native 依赖链,失去 mock 意义)。
-export const VERSION = '2.0.0';
-
 const cancelled: CameraResult = { code: 0, data: [], message: 'cancelled' };
 
 export function useCamera(): [CameraApi, null] {
