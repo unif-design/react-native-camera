@@ -1,9 +1,9 @@
-# @unif/react-native-camera 3.0.0 — API 对齐原版 + 两个 Bug 修复 设计
+# @unif/react-native-camera 2.5.0 — API 对齐原版 + 两个 Bug 修复 设计
 
 - 日期：2026-05-30
 - 阶段：Phase 1（先修 bug + API 对齐；UI 全量重写为 Phase 2，后续单独 brainstorming）
 - 涉及仓库：
-  - `react-native-camera`（库，当前 2.4.0 → 本次 **3.0.0**）
+  - `react-native-camera`（库，当前 2.4.0 → 本次 **2.5.0**）
   - `unif/portal`（消费者，装 `^2.4.0` → 随库升级）
 - 参考来源：
   - 原版 v1.2.5 本地副本：`~/Downloads/react-native-camera-main/`（功能逻辑分析见本会话调研）
@@ -56,15 +56,15 @@ export type FlashMode = 'auto' | 'on' | 'off';
 export type DataRetainedMode = 'clear' | 'retain';
 
 export type CameraMode = {
-  /** 初始前/后摄,缺省 back */
+  /** 初始前/后摄,缺省 back。H5 传入,接线为初始 device position */
   type?: CameraType;
-  /** 初始闪光,缺省 off */
+  /** 初始闪光(原版字段,保留作 API 兼容)。闪光由相机内 UI 控制,不从 config 接线 */
   flashMode?: FlashMode;
   /** 拍摄模式 */
   mode: CameraModeName;
   /** JPEG 压缩 0~1,缺省 0.9。内部速度优先级写死 'speed'(对齐原版 4.x photoQualityBalance) */
   quality?: number;
-  /** 录制时长上限(秒),video 模式生效 */
+  /** 录制时长上限(秒),video 模式。原版字段,保留;未用到则 no-op */
   recTime?: number;
 };
 
@@ -128,9 +128,9 @@ export type CameraApi = {
 | 字段 | 接线 | 说明 |
 |---|---|---|
 | `quality` | **接线** | `usePhotoOutput({ quality: mode.quality ?? 0.9, qualityPrioritization: 'speed' })`。当前 `Camera.tsx:62-67` 用 `currentMode.photoQuality / jpegQuality` → 改为 `currentMode.quality`，`qualityPrioritization` 写死 `'speed'`。 |
-| `type`（初始前后摄） | **接线** | `Container` 当前 `useCameraDevice('back', …)` 写死。改为 `cameraMode[0]?.type ?? 'back'` 作初始 position。运行时前后摄翻转是独立功能，不在本 spec（沿用现状）。 |
-| `flashMode`（初始闪光） | **接线** | `Container` 当前 flash state 初始 `'off'`。改为 `cameraMode[0]?.flashMode ?? 'off'`。 |
-| `recTime`（录制时长） | **接线（轻量）** | `createRecorder({ maxDuration: recTime })`（5.x 支持）。video 模式生效，无 recTime 则不限制。 |
+| `type`（初始前后摄） | **接线** | H5 会传。`Container` 当前 `useCameraDevice('back', …)` 写死 → 改为 `cameraMode[0]?.type ?? 'back'` 作初始 position。运行时前后摄翻转是独立功能，不在本 spec（沿用现状）。 |
+| `flashMode`（初始闪光） | **不接线** | 闪光由相机内 UI（SetUp 闪光按钮）控制，不是 config 输入。字段保留仅为 API 兼容原版（原版也定义了但未消费）。**不从 config 设初始闪光。** |
+| `recTime`（录制时长） | **接受 / no-op** | 字段补上（API 兼容）。当前未用到，先 no-op；若后续视频需要再接 `createRecorder({ maxDuration })`。 |
 | `id` | **生成** | `${Date.now()}-${counter}`（模块内单调计数器），避免原版同毫秒撞 id 的问题。 |
 | `cameraType` | **填充** | 拍摄瞬间的 device position。 |
 | `cameraMode` | **填充** | = `mode`（同值，原版字段名）。 |
@@ -143,15 +143,15 @@ export type CameraApi = {
 | `src/utils/util.ts` | `buildPhotoFile` 增加 `id` / `cameraType` / `cameraMode` 填充；签名加 `cameraType` 入参 |
 | `src/camera/Camera.tsx` | `usePhotoOutput` 用 `currentMode.quality` + 写死 `qualityPrioritization:'speed'`；capture 时把 `cameraType` 传入 `buildPhotoFile` |
 | `src/camera/capturePhotoHelper.ts` | 透传 device position / 返回字段对齐（如需） |
-| `src/camera/Container.tsx` | 初始 `type` / `flashMode` 从 `cameraMode[0]` 取；video 模式 `recTime` 传 recorder |
-| `src/camera/setup/SetUp.tsx` | 若 `FlashMode` / `AspectRatio` 类型有移动则跟随（flash 类型对齐 `interface.ts`） |
+| `src/camera/Container.tsx` | 初始 `type` 从 `cameraMode[0]?.type` 取；`flashMode` 不接线（内部 UI 控制）；`recTime` no-op |
+| `src/camera/setup/SetUp.tsx` | 若 `FlashMode` / `AspectRatio` 类型有移动则跟随（flash 类型对齐 `interface.ts`）；闪光仍由此 UI 控制 |
 | `src/__tests__/*` | 契约测试更新到新形状（见 §5） |
-| `package.json` | version `2.4.0` → `3.0.0`（breaking） |
+| `package.json` | version `2.4.0` → `2.5.0` |
 | `README.md` | API 文档更新（quality / 返回字段并集） |
 
 ### 2.5 版本
 
-去掉 `photoQuality`/`jpegQuality` 是对 2.4.0 的 **breaking change** → **3.0.0**（major bump）。返回字段是新增（非破坏）。portal 同步升级（见 Part B）。
+→ **2.5.0**（minor bump）。去掉 `photoQuality`/`jpegQuality`、改回 `quality` 严格说是 API 变更，但这是**修正 2.0 重写时的 quality 拆分失误**，且本库为**内部使用**（消费者只有 portal，同步升级），不走严格 SemVer major。返回字段为新增（非破坏）。portal 随之升级（见 Part B）。
 
 ---
 
@@ -165,16 +165,16 @@ export type CameraApi = {
 
 ### 3.2 改法：像原版一样透传数组
 
-portal 不拍扁，把 H5 传来的 cameraMode 数组**透传**给库（对齐原版 retail-pecportal `cameraMode.map(...)` 的做法）。`RetailCameraParams` 跟随库 3.0.0 的字段（`quality` 而非 photoQuality/jpegQuality）。
+portal 不拍扁，把 H5 传来的 cameraMode 数组**透传**给库（对齐原版 retail-pecportal `cameraMode.map(...)` 的做法）。`RetailCameraParams` 跟随库 2.5.0 的字段（`quality` 而非 photoQuality/jpegQuality）。
 
 ```ts
 export type RetailCameraParams = {
   /** 多模式:底部出可切 tab。优先于单 mode。元素 = 库 CameraMode 的 retail 子集 */
   cameraMode?: Array<{
     mode: 'single' | 'continuous';   // unif 通用拍照(video 暂不经 portal 暴露)
-    type?: 'back' | 'front';
-    flashMode?: 'auto' | 'on' | 'off';
+    type?: 'back' | 'front';         // H5 传初始前后摄
     quality?: number;
+    // flashMode 不在此:闪光由相机内 UI 控制,非 config 输入
   }>;
   /** 单模式(向后兼容旧 H5) */
   mode?: 'single' | 'continuous';
@@ -194,7 +194,6 @@ export function toCameraConfig(params: RetailCameraParams): OpenConfig {
     cameraMode: list.map((m) => ({
       mode: m.mode,
       type: m.type,
-      flashMode: m.flashMode,
       quality: m.quality ?? q,
     })),
     dataRetainedMode: params.dataRetainedMode ?? 'clear',
@@ -331,8 +330,8 @@ const styles = StyleSheet.create({
 
 两个仓库、两个 PR，库先行（portal 依赖库新 API）：
 
-1. **库 PR（3.0.0）**：Part A（API 对齐）+ Part C（取景 WYSIWYG）+ 测试 + README + version bump。
-2. **portal PR**：升级 `@unif/react-native-camera` 到 3.0.0 + Part B（compat 透传多模式 + quality）+ 测试。
+1. **库 PR（2.5.0）**：Part A（API 对齐）+ Part C（取景 WYSIWYG）+ 测试 + README + version bump。
+2. **portal PR**：升级 `@unif/react-native-camera` 到 2.5.0 + Part B（compat 透传多模式 + quality）+ 测试。
 3. **H5 协调**：H5 改发 `cameraMode` 数组（调用方负责，非本仓库改动）。
 
 ---
@@ -341,8 +340,8 @@ const styles = StyleSheet.create({
 
 | 项 | 说明 |
 |---|---|
-| breaking change | 库 3.0.0 去掉 photoQuality/jpegQuality，portal 必须同步升级。其它消费者（若有）也需跟进。 |
-| `type`/`flashMode`/`recTime` 接线 | 原版定义但未消费。本 spec 选择**接线**（初始前后摄/闪光/录制时长），比原版更完整且非破坏。若只想"接受不接线"对齐原版行为，可在 review 时改为 no-op。 |
+| API 变更（2.5.0） | 去掉 photoQuality/jpegQuality、改回 quality。库内部使用，消费者仅 portal，同步升级；按"修正 2.0 失误"处理，走 minor。 |
+| 字段接线 | `type` 接线（H5 传初始前后摄）；`quality` 接线（JPEG）；`flashMode` **不接线**（闪光由相机内 UI 控制，字段仅作 API 兼容保留）；`recTime` 接受但 no-op（未用到，后续视频需要再接）。 |
 | 取景框 vs 传感器原生比例 | box 比例 = 输出 `targetResolution` 比例；若设备传感器原生比例与之差异较大，cover 仍可能有极小裁切。主因（全屏裁两侧）已解决；如真机仍有偏差，再微调。 |
 | 方向/镜像 | 用 5.x 默认，未烧像素。若真机出现歪/镜像，属已知风险，单独处理（不在本 spec）。 |
 | Footer 双 state | 原版 Footer/Camera 有两套 mode state 隐患；2.x 已是单一 `modeIndex`（Container），无此问题，无需改。 |
