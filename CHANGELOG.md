@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.1](https://github.com/unif-design/react-native-camera/compare/v2.6.0...v2.6.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* declare react-native-vision-camera-worklets peer dependency ([#19](https://github.com/unif-design/react-native-camera/issues/19)) ([ef27ce3](https://github.com/unif-design/react-native-camera/commit/ef27ce376cc5f611daa4001da6b487a7ec6e30fc))
+
 # [2.6.0](https://github.com/unif-design/react-native-camera/compare/v2.4.0...v2.6.0) (2026-05-30)
 
 
