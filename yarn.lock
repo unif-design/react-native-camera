@@ -3695,6 +3695,7 @@ __metadata:
     react-native-safe-area-context: "npm:^5.0.0"
     react-native-svg: "npm:^15.15.5"
     react-native-vision-camera: "npm:^5.0.0"
+    react-native-vision-camera-worklets: "npm:^5.0.0"
     react-native-worklets: "npm:*"
   languageName: unknown
   linkType: soft
@@ -3739,6 +3740,7 @@ __metadata:
     react-native-safe-area-context: "npm:^5.0.0"
     react-native-svg: "npm:^15.15.5"
     react-native-vision-camera: "npm:^5.0.0"
+    react-native-vision-camera-worklets: "npm:^5.0.0"
     react-native-webview: "npm:*"
     react-native-worklets: "npm:*"
     react-test-renderer: "npm:19.2.3"
@@ -3759,6 +3761,7 @@ __metadata:
     react-native-safe-area-context: ">=5.0.0"
     react-native-svg: ">=15"
     react-native-vision-camera: ^5.0.0
+    react-native-vision-camera-worklets: ^5.0.0
     react-native-webview: "*"
     react-native-worklets: "*"
   languageName: unknown
@@ -10197,6 +10200,19 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/34b71b6c83d7235efbc4263abaffcbad780375f9e0fca95786e4f1a543a2b6d07e90c7df426f708e85be68331c412066cdc639f4a6ce82bed42bc728050d9402
+  languageName: node
+  linkType: hard
+
+"react-native-vision-camera-worklets@npm:^5.0.0":
+  version: 5.0.11
+  resolution: "react-native-vision-camera-worklets@npm:5.0.11"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: "*"
+    react-native-vision-camera: "*"
+    react-native-worklets: "*"
+  checksum: 10c0/4580c37198247c0253e228e2a93eadadbd7b8468d44350dc14e1a09d637a85d2f444fbf32417ef85cf2bfaba7869b73723ac97db82b3d36ada3fa1de86b9234b
   languageName: node
   linkType: hard
 

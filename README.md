@@ -11,6 +11,7 @@
 ```sh
 yarn add @unif/react-native-camera \
          react-native-vision-camera \
+         react-native-vision-camera-worklets \
          react-native-nitro-modules \
          react-native-nitro-image \
          react-native-reanimated \
@@ -19,6 +20,8 @@ yarn add @unif/react-native-camera \
          react-native-gesture-handler \
          react-native-safe-area-context
 ```
+
+> `react-native-vision-camera-worklets` 是 vision-camera 5.x 的同伴包：即使本库未用 Frame Processor，打包器仍会解析 vision-camera 内部对它的引用，缺失会报错，故须一并安装。
 
 iOS 还需 `pod install`。
 
