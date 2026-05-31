@@ -21,9 +21,13 @@ yarn add @unif/react-native-camera \
          react-native-safe-area-context
 ```
 
-> `react-native-vision-camera-worklets` 是 vision-camera 5.x 的同伴包：即使本库未用 Frame Processor，打包器仍会解析 vision-camera 内部对它的引用，缺失会报错，故须一并安装。
-
 iOS 还需 `pod install`。
+
+### 关于 `react-native-vision-camera-worklets`
+
+vision-camera 5.x 把 Frame Processor / 多线程能力拆到了同伴包 `react-native-vision-camera-worklets`，并在内部通过懒 `require` 引用它。**即使本库不使用任何 Frame Processor**，消费端打包器（Metro 等）在静态解析阶段仍会解析 vision-camera 内部那处 `require`——缺失该包会直接报错：打包期 `Unable to resolve module react-native-vision-camera-worklets`，或运行时 `Cannot use Frame Processors - react-native-vision-camera-worklets is not installed`。
+
+因此它是**必装的同伴包**，版本与 `react-native-vision-camera` 对齐（同为 `^5.x`）。vision-camera 自身未将其声明为 peer（视作可选），本库已在 `peerDependencies` 中显式声明，以提醒消费者一并安装。
 
 ### 权限配置
 
