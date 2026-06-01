@@ -1,5 +1,37 @@
 # Changelog
 
+# [2.7.0](https://github.com/unif-design/react-native-camera/compare/v2.6.1...v2.7.0) (2026-06-01)
+
+
+### Bug Fixes
+
+* **2a:** clamp zoom-chip selection to device zoom range ([ade2dc1](https://github.com/unif-design/react-native-camera/commit/ade2dc19c777e75c2df5b23319e52f565b949c61))
+* **2b:** migrate VideoPlayer to react-native-video 7.x API ([4dd9cbc](https://github.com/unif-design/react-native-camera/commit/4dd9cbcbdc10b4b4f0634f20f2220886aaeec2e1))
+* **2b:** reconcile preview activeType/index on delete; drop unused useConfirm ([698623e](https://github.com/unif-design/react-native-camera/commit/698623e26204e932b9797ceb93b703d381a5e8cc))
+
+
+### Features
+
+* **2a:** action row (thumbnail/back/shutter/save/flip) ([438992d](https://github.com/unif-design/react-native-camera/commit/438992d85aaf185c42818289db1720d1e36c9ced))
+* **2a:** add fixed-dark color constants for viewfinder ([8350c59](https://github.com/unif-design/react-native-camera/commit/8350c598099f9872b56cb8b25b59531f6f441f01))
+* **2a:** capture flash overlay and reworked focus indicator ([76b1610](https://github.com/unif-design/react-native-camera/commit/76b1610e8932edaf28b3e8b57f2462da2c52dd84))
+* **2a:** flip button and zoom chips ([ca8d32f](https://github.com/unif-design/react-native-camera/commit/ca8d32f659c2fc4c8bbef05ea8846c4b82762a3c))
+* **2a:** inline VolumeIcon SVG + jest svg mock ([a18c6e5](https://github.com/unif-design/react-native-camera/commit/a18c6e5cae0d33f59cca6511aa52f417b2d0f295))
+* **2a:** mode switcher pill with orange sliding indicator ([8b8c769](https://github.com/unif-design/react-native-camera/commit/8b8c769ca0edee04a760712972d8c8975a1c105d))
+* **2a:** multi-state shutter component ([e9731a6](https://github.com/unif-design/react-native-camera/commit/e9731a6742122b239e44654550aa8dc5ae327fe0))
+* **2a:** recording timer with MM:SS + blink dot ([ab6162c](https://github.com/unif-design/react-native-camera/commit/ab6162c2c9300a5e08ae441ed1596632d3a031ef))
+* **2a:** thumbnail stack with orange count badge ([bfb5280](https://github.com/unif-design/react-native-camera/commit/bfb5280735dc93bbbe017c783d6c7db0740ebcdc))
+* **2a:** vertical side rail with flash dropdown ([2f7b1d2](https://github.com/unif-design/react-native-camera/commit/2f7b1d2585f84be48530d55e81918bd3e132cc00))
+* **2a:** wire new viewfinder chrome, runtime flip, save/back, auto-preview rule ([4bba6a8](https://github.com/unif-design/react-native-camera/commit/4bba6a8e31205390848f37f73cf38a42e97452b6))
+* **2a:** wire shutter sound, grid overlay, and flip animation in Camera ([f78d569](https://github.com/unif-design/react-native-camera/commit/f78d5691de2dc360c7defffeaceacc189176c796))
+* **2b:** groupTypes helpers (distinct types + filter) ([b7ec816](https://github.com/unif-design/react-native-camera/commit/b7ec8160852f66b732f1cd82d2521fa20d661f77))
+* **2b:** preview bottom bar (counter + variant buttons) ([8745b38](https://github.com/unif-design/react-native-camera/commit/8745b38246044a0c2ddbef299da466eafeb7a835))
+* **2b:** preview overlay (variant routing + tabs + carousel + confirm/toast) ([50b5131](https://github.com/unif-design/react-native-camera/commit/50b51316f0afb6c6939794f25133e751a491427f))
+* **2b:** preview top bar (label / total / type tabs) ([664eaa9](https://github.com/unif-design/react-native-camera/commit/664eaa92d54f25eb86cd9d4b06a89d402dbc689b))
+* **2b:** slide item renders video player for video files ([8dfb153](https://github.com/unif-design/react-native-camera/commit/8dfb153a6b51e78bae7cb12e1147575cb513da58))
+* **2b:** video player (react-native-video, tap to play/pause) ([fc1efa5](https://github.com/unif-design/react-native-camera/commit/fc1efa5d81968eff4d092a42312cc2f463d51576))
+* **2b:** wire preview overlay with confirm/gallery variants and remove old preview tree ([2f51716](https://github.com/unif-design/react-native-camera/commit/2f5171666a68cb3522bef7e497cc1d48f25a4c7f))
+
 ## [2.6.1](https://github.com/unif-design/react-native-camera/compare/v2.6.0...v2.6.1) (2026-05-31)
 
 
