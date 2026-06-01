@@ -3768,8 +3768,8 @@ __metadata:
   linkType: soft
 
 "@unif/react-native-design@npm:^0.4.0":
-  version: 0.4.34
-  resolution: "@unif/react-native-design@npm:0.4.34"
+  version: 0.4.35
+  resolution: "@unif/react-native-design@npm:0.4.35"
   peerDependencies:
     "@gorhom/bottom-sheet": ">=5"
     "@sbaiahmed1/react-native-blur": ">=4"
@@ -3781,7 +3781,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.9"
-  checksum: 10c0/925d7483b72dc0c3e07f9e72f55f690370b8a869e72c29d484c07ff2e3a17a44479688d47b97082cd71017bb06a0c1d5b87314adee9cf36e768fc55b22b9277c
+  checksum: 10c0/d6fb6d8cfe6072c752df29853ad83af5f9729a70ccd254466b925ab5b048cfeee0dc33d484f0712309675ffcd5501004d52d2593d8d16167cae190bc27284a6e
   languageName: node
   linkType: hard
 
