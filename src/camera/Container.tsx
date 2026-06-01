@@ -241,8 +241,13 @@ export function Container({ config, onSettle }: Props) {
           <ZoomChips
             zoom={zoom}
             onSelect={(z) => {
-              setZoom(z);
-              zoomShared.value = z;
+              // clamp 到设备变焦范围:无超广角设备 minZoom===1,点 0.5x 不应越界
+              const clamped = Math.min(
+                Math.max(z, device.minZoom),
+                device.maxZoom
+              );
+              setZoom(clamped);
+              zoomShared.value = clamped;
             }}
           />
         </View>
