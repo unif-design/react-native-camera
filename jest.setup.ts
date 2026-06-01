@@ -199,11 +199,19 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-// react-native-video:native 模块,jest 渲染成占位 View
+// react-native-video 7.x:native 模块,jest 渲染成占位 View
 jest.mock('react-native-video', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: (props: any) => require('react').createElement(View, props),
+    useVideoPlayer: () => ({
+      play: () => {},
+      pause: () => {},
+      loop: false,
+      muted: false,
+      rate: 1,
+      status: 'idle',
+    }),
+    VideoView: (props: any) => require('react').createElement(View, props),
   };
 });

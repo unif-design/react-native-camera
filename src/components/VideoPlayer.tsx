@@ -1,21 +1,29 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import Video from 'react-native-video';
+import { useVideoPlayer, VideoView } from 'react-native-video';
 
 export function VideoPlayer({ uri }: { uri: string }) {
-  const [paused, setPaused] = useState(true);
+  const player = useVideoPlayer({ uri }, (p) => {
+    p.loop = true;
+  });
+  const [playing, setPlaying] = useState(false);
   return (
     <Pressable
       testID="video-player"
       style={StyleSheet.absoluteFill}
-      onPress={() => setPaused((p) => !p)}
+      onPress={() => {
+        if (playing) {
+          player.pause();
+        } else {
+          player.play();
+        }
+        setPlaying((p) => !p);
+      }}
     >
-      <Video
-        source={{ uri }}
+      <VideoView
+        player={player}
         style={StyleSheet.absoluteFill}
         resizeMode="contain"
-        paused={paused}
-        repeat
       />
     </Pressable>
   );
