@@ -5,16 +5,21 @@ import {
   useCameraPermission,
 } from 'react-native-vision-camera';
 import { useSharedValue } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { r } from '@unif/react-native-design';
 import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
 import { PreViewContainer } from './preview';
-import { Footer } from './footer';
-import { SetUp, type AspectRatio, type FlashMode } from './setup';
-
-const NEUTRAL_ZOOM = 1;
+import { CaptureFlash } from './CaptureFlash';
+import { SideRail, type AspectRatio, type FlashMode } from './setup';
+import { ZoomChips } from './footer/ZoomChips';
+import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
+import { ActionRow } from './footer/ActionRow';
+import { RecordingTimer } from './footer/RecordingTimer';
+import { DARK } from './colors/dark';
 
 type Props = {
   config: OpenConfig;
@@ -27,10 +32,10 @@ export function Container({ config, onSettle }: Props) {
   const settledRef = useRef(false);
 
   const settle = useCallback(
-    (r: CameraResult) => {
+    (result: CameraResult) => {
       if (settledRef.current) return;
       settledRef.current = true;
-      onSettle(r);
+      onSettle(result);
     },
     [onSettle]
   );
@@ -72,11 +77,14 @@ export function Container({ config, onSettle }: Props) {
     };
   }, [hasPermission, requestPermission]);
 
+  const insets = useSafeAreaInsets();
   // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
-  // 运行时前后摄翻转是独立功能,不在本次范围。
-  // 5.x：physicalDevices 字符串不带 -camera；单 'wide-angle' 规避 iOS #3773
+  // 运行时翻转(S7):position state + flipNonce 触发 rotateY 动画。
+  // 5.x：physicalDevices 字符串不带 -camera;单 'wide-angle' 规避 iOS #3773
   const initialPosition = config.cameraMode[0]?.type ?? 'back';
-  const device = useCameraDevice(initialPosition, {
+  const [position, setPosition] = useState<'back' | 'front'>(initialPosition);
+  const [flipNonce, setFlipNonce] = useState(0);
+  const device = useCameraDevice(position, {
     physicalDevices: ['wide-angle'],
   });
 
@@ -87,10 +95,26 @@ export function Container({ config, onSettle }: Props) {
   const [modeIndex, setModeIndex] = useState(0);
   const currentMode = config.cameraMode[modeIndex];
 
-  const [flash, setFlash] = useState<FlashMode>('off');
+  // 初始闪光从 config 首个 mode 接线(API 兼容),缺省 off。
+  const [flash, setFlash] = useState<FlashMode>(
+    config.cameraMode[0]?.flashMode ?? 'off'
+  );
+  const [sound, setSound] = useState(true);
+  const [grid, setGrid] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('4:3');
-  const zoomShared = useSharedValue(NEUTRAL_ZOOM);
-  const [lensLabel, setLensLabel] = useState(`${NEUTRAL_ZOOM.toFixed(1)}x`);
+  const [flashNonce, setFlashNonce] = useState(0);
+  const [recSeconds, setRecSeconds] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const zoomShared = useSharedValue(1);
+
+  useEffect(() => {
+    if (!recording) {
+      setRecSeconds(0);
+      return;
+    }
+    const id = setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [recording]);
 
   const onShutter = async () => {
     if (currentMode?.mode === 'video') {
@@ -100,12 +124,8 @@ export function Container({ config, onSettle }: Props) {
       } else {
         const f = await cameraRef.current?.stopVideo();
         setRecording(false);
-        if (f) {
-          setPhotos([f]);
-          setPreviewing(true);
-        } else {
-          settle({ code: 503, data: [], message: 'video_failed' });
-        }
+        if (f) setPhotos((prev) => [...prev, f]);
+        else settle({ code: 503, data: [], message: 'video_failed' });
       }
       return;
     }
@@ -114,10 +134,22 @@ export function Container({ config, onSettle }: Props) {
       settle({ code: 500, data: photos, message: 'capture_failed' });
       return;
     }
+    setFlashNonce((n) => n + 1);
     setPhotos((prev) => [...prev, f]);
-    if (currentMode?.mode !== 'continuous') {
+    // 自动预览规则:仅「非保留(clear) + 单拍」拍完进预览;其余累积
+    if (currentMode?.mode === 'single' && config.dataRetainedMode === 'clear') {
       setPreviewing(true);
     }
+  };
+
+  const onFlip = () => {
+    setPosition((p) => (p === 'back' ? 'front' : 'back'));
+    setFlipNonce((n) => n + 1);
+  };
+
+  const onSelectMode = (i: number) => {
+    if (config.dataRetainedMode === 'clear' && i !== modeIndex) setPhotos([]);
+    setModeIndex(i);
   };
 
   if (state === 'denied') {
@@ -170,15 +202,11 @@ export function Container({ config, onSettle }: Props) {
     );
   }
 
-  const onToggleLens = () => {
-    if (lensLabel.startsWith(device.minZoom.toFixed(1))) {
-      zoomShared.value = NEUTRAL_ZOOM;
-      setLensLabel(`${NEUTRAL_ZOOM.toFixed(1)}x`);
-    } else {
-      zoomShared.value = device.minZoom;
-      setLensLabel(`${device.minZoom.toFixed(1)}x`);
-    }
-  };
+  const modeItems: ModeItem[] = config.cameraMode.map((m, i) => ({
+    key: `${m.mode}-${i}`,
+    label:
+      m.mode === 'single' ? '单拍' : m.mode === 'continuous' ? '连拍' : '视频',
+  }));
 
   return (
     <View style={styles.root} testID="device-ready">
@@ -189,49 +217,96 @@ export function Container({ config, onSettle }: Props) {
         flash={flash}
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
+        sound={sound}
+        grid={grid}
+        flipNonce={flipNonce}
       />
-      {!previewing && (
-        <SetUp
-          flash={flash}
-          aspectRatio={aspectRatio}
-          onChangeFlash={setFlash}
-          onChangeAspectRatio={setAspectRatio}
-          onToggleLens={onToggleLens}
-          lensLabel={lensLabel}
-        />
+
+      {!recording && (
+        <View style={[styles.sideRail, { bottom: insets.bottom + r(172) }]}>
+          <SideRail
+            flash={flash}
+            aspectRatio={aspectRatio}
+            sound={sound}
+            grid={grid}
+            onChangeFlash={setFlash}
+            onChangeAspectRatio={setAspectRatio}
+            onToggleSound={() => setSound((v) => !v)}
+            onToggleGrid={() => setGrid((v) => !v)}
+          />
+        </View>
       )}
-      <Footer
-        modes={config.cameraMode}
-        currentIndex={modeIndex}
-        recording={recording}
-        onShutter={onShutter}
-        onSelectMode={(i) => {
-          if (config.dataRetainedMode === 'clear' && i !== modeIndex) {
-            setPhotos([]);
-          }
-          setModeIndex(i);
-        }}
-        onCancel={() => settle({ code: 0, data: [], message: 'cancelled' })}
-        onFinishBurst={
-          currentMode?.mode === 'continuous'
-            ? () => setPreviewing(true)
-            : undefined
-        }
-        burstCount={
-          currentMode?.mode === 'continuous' ? photos.length : undefined
-        }
-      />
+      {!recording && (
+        <View style={[styles.zoomChips, { bottom: insets.bottom + r(184) }]}>
+          <ZoomChips
+            zoom={zoom}
+            onSelect={(z) => {
+              setZoom(z);
+              zoomShared.value = z;
+            }}
+          />
+        </View>
+      )}
+
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}>
+        {recording ? (
+          <View style={styles.center}>
+            <RecordingTimer seconds={recSeconds} />
+          </View>
+        ) : (
+          <View style={styles.center}>
+            <ModeSwitcherPill
+              items={modeItems}
+              currentIndex={modeIndex}
+              onSelect={onSelectMode}
+            />
+          </View>
+        )}
+        <ActionRow
+          mode={currentMode.mode}
+          recording={recording}
+          latestUri={photos.at(-1)?.uri}
+          count={photos.length}
+          onShutter={onShutter}
+          onBack={() => settle({ code: 0, data: [], message: 'cancelled' })}
+          onSave={() => settle({ code: 200, data: photos, message: 'ok' })}
+          onFlip={onFlip}
+          onOpenPreview={() => {
+            if (photos.length > 0) setPreviewing(true);
+          }}
+        />
+      </View>
+
+      <CaptureFlash trigger={flashNonce} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 相机主容器固定黑底:相机 UX 惯例(预览 / 拍照取景需要黑底凸显),
+  // 不走 c.background token。
   root: {
     flex: 1,
-    // 相机主容器固定黑底:相机 UX 惯例(预览 / 拍照取景需要黑底凸显),
-    // 不走 c.background token.
-    backgroundColor: '#000',
+    backgroundColor: DARK.black,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  sideRail: { position: 'absolute', left: r(12), zIndex: 9 },
+  zoomChips: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 7,
+  },
+  bottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: r(14),
+    zIndex: 8,
+    gap: r(16),
+  },
+  center: { alignItems: 'center' },
 });

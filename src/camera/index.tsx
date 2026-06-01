@@ -9,4 +9,14 @@ export {
   capturePhotoToFile,
   type CapturedPhotoRaw,
 } from './capturePhotoHelper';
-export { Footer } from './footer';
+export {
+  ActionRow,
+  ModeSwitcherPill,
+  Shutter,
+  ZoomChips,
+  RecordingTimer,
+  ThumbnailStack,
+  FlipButton,
+} from './footer';
+export { CaptureFlash } from './CaptureFlash';
+export { SideRail, type FlashMode, type AspectRatio } from './setup';

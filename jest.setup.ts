@@ -188,3 +188,13 @@ jest.mock('react-native-svg', () => {
     Rect: p,
   };
 });
+
+// safe-area:jest 下 insets 归零、Provider/View 直通,避免 Container 取景态崩
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native');
+  return {
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+    SafeAreaProvider: ({ children }: any) => children,
+    SafeAreaView: View,
+  };
+});

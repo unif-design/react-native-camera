@@ -3,7 +3,9 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Icon, r, type IconName } from '@unif/react-native-design';
 import { DARK } from '../colors/dark';
 import { VolumeIcon } from '../icons/VolumeIcon';
-import type { FlashMode, AspectRatio } from './SetUp';
+
+export type FlashMode = 'off' | 'on' | 'auto';
+export type AspectRatio = '4:3' | '16:9';
 
 type Props = {
   flash: FlashMode;
