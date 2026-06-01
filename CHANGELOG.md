@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.8.0](https://github.com/unif-design/react-native-camera/compare/v2.7.0...v2.8.0) (2026-06-01)
+
+
+### Features
+
+* camera watermark — burn into photo on save (Phase 2c) ([#26](https://github.com/unif-design/react-native-camera/issues/26)) ([967fbaa](https://github.com/unif-design/react-native-camera/commit/967fbaa4b23ba6aa7cb7160980dd27603d590bd8))
+
 # [2.7.0](https://github.com/unif-design/react-native-camera/compare/v2.6.1...v2.7.0) (2026-06-01)
 
 
