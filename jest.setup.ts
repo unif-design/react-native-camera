@@ -198,3 +198,12 @@ jest.mock('react-native-safe-area-context', () => {
     SafeAreaView: View,
   };
 });
+
+// react-native-video:native 模块,jest 渲染成占位 View
+jest.mock('react-native-video', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: any) => require('react').createElement(View, props),
+  };
+});

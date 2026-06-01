@@ -3739,6 +3739,7 @@ __metadata:
     react-native-reanimated-carousel: "npm:^5.0.0-beta.5"
     react-native-safe-area-context: "npm:^5.0.0"
     react-native-svg: "npm:^15.15.5"
+    react-native-video: "npm:^6.19.2"
     react-native-vision-camera: "npm:^5.0.0"
     react-native-vision-camera-worklets: "npm:^5.0.0"
     react-native-webview: "npm:*"
@@ -10200,6 +10201,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/34b71b6c83d7235efbc4263abaffcbad780375f9e0fca95786e4f1a543a2b6d07e90c7df426f708e85be68331c412066cdc639f4a6ce82bed42bc728050d9402
+  languageName: node
+  linkType: hard
+
+"react-native-video@npm:^6.19.2":
+  version: 6.19.2
+  resolution: "react-native-video@npm:6.19.2"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/f5e06d4b38ebdbe082e344659deeb64f11e42567f5b89f48b9c6013118643b21687cea7b3f89f593ea77f3b32307423fcdfc26830d399eaa3335dafc16c4be5a
   languageName: node
   linkType: hard
 
