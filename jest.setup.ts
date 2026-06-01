@@ -219,3 +219,35 @@ jest.mock('react-native-video', () => {
     VideoView: (props: any) => require('react').createElement(View, props),
   };
 });
+
+// react-native-fs:native 模块,jest 下用内存桩(水印烧图读写)
+jest.mock('react-native-fs', () => ({
+  TemporaryDirectoryPath: '/tmp',
+  readFile: jest.fn().mockResolvedValue('BASE64DATA'),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+}));
+
+// @shopify/react-native-skia:native 模块,jest 下桩离屏合成(返 1080×1440)
+jest.mock('@shopify/react-native-skia', () => {
+  const mkImage = { width: () => 1080, height: () => 1440 };
+  const mkCanvas = { drawImage: jest.fn(), drawText: jest.fn() };
+  const mkSnapshot = { encodeToBase64: jest.fn(() => 'OUTBASE64') };
+  const mkSurface = {
+    getCanvas: () => mkCanvas,
+    makeImageSnapshot: () => mkSnapshot,
+  };
+  return {
+    Skia: {
+      Data: { fromBase64: jest.fn(() => ({})) },
+      Image: { MakeImageFromEncoded: jest.fn(() => mkImage) },
+      Surface: { MakeOffscreen: jest.fn(() => mkSurface) },
+      Font: jest.fn(() => ({
+        getTextWidth: () => 100,
+        measureText: () => ({ width: 100 }),
+      })),
+      Paint: jest.fn(() => ({ setColor: jest.fn() })),
+      Color: jest.fn(() => 0),
+    },
+    ImageFormat: { JPEG: 3 },
+  };
+});
