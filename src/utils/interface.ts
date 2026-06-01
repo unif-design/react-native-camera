@@ -21,9 +21,24 @@ export type CameraMode = {
   recTime?: number;
 };
 
+export type WatermarkType = {
+  /** 水印文字,每行一条;数量不限,消费者可自由增减 */
+  content: string[];
+  /** 位置,缺省 'top-right' */
+  position?:
+    | 'top-left'
+    | 'top-center'
+    | 'top-right'
+    | 'bottom-left'
+    | 'bottom-center'
+    | 'bottom-right';
+};
+
 export type OpenConfig = {
   cameraMode: CameraMode[];
   dataRetainedMode: DataRetainedMode;
+  /** 水印,缺省不加;传入则取景显示戳记 + 保存时烧入成片 */
+  watermark?: WatermarkType;
 };
 
 export type CustomPhotoFile = {

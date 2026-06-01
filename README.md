@@ -18,6 +18,8 @@ yarn add @unif/react-native-camera \
          react-native-worklets \
          react-native-reanimated-carousel \
          react-native-video \
+         @shopify/react-native-skia \
+         react-native-fs \
          react-native-gesture-handler \
          react-native-safe-area-context
 ```
@@ -35,6 +37,15 @@ vision-camera 5.x 把 Frame Processor / 多线程能力拆到了同伴包 `react
 预览页的**视频播放**用 `react-native-video`（**7.x**，`useVideoPlayer` + `VideoView` API），消费端需安装并 iOS `pod install`。
 
 预览页的**二次确认弹窗**与 **Toast** 复用 `@unif/react-native-design` 的 `confirm` / `toast`，需消费端在 App 根挂 `ConfirmHost` / `ToastHost`（与 `ThemeProvider` 一样一次性挂载）；未挂则确认/提示静默失效。
+
+### 关于水印
+
+传 `open({ ..., watermark: { content: ['Unif · 拜访记录', '上海市…'], position: 'top-right' } })` 即给成片加水印：
+
+- **保存时**才把水印用 `@shopify/react-native-skia` 全分辨率离屏合成、烧进返回的照片（用 `react-native-fs` 写文件）；取景器显示同款戳记作 WYSIWYG 提示；预览显示原图；视频不烧。
+- 消费端需安装 `@shopify/react-native-skia` + `react-native-fs` 并 iOS `pod install`。
+- `position` 六选一（`top`/`bottom` × `left`/`center`/`right`，缺省 `top-right`），文字按位置自适应对齐（右→向左扩展、中→向两侧）。
+- **水印是可视记录，不防篡改**（无法阻止虚拟相机/替换照片——那是独立课题）。
 
 ### 权限配置
 

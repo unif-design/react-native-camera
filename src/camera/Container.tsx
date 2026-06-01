@@ -19,6 +19,7 @@ import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
+import { WatermarkStamp, burnWatermark } from './watermark';
 import { DARK } from './colors/dark';
 
 type Props = {
@@ -108,6 +109,7 @@ export function Container({ config, onSettle }: Props) {
   const [flashNonce, setFlashNonce] = useState(0);
   const [recSeconds, setRecSeconds] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [burning, setBurning] = useState(false);
   const zoomShared = useSharedValue(1);
 
   useEffect(() => {
@@ -156,6 +158,20 @@ export function Container({ config, onSettle }: Props) {
     setModeIndex(i);
   };
 
+  const handleSave = async () => {
+    if (!config.watermark) {
+      settle({ code: 200, data: photos, message: 'ok' });
+      return;
+    }
+    setBurning(true);
+    const out = await Promise.all(
+      photos.map((p) =>
+        p.mime === 'image/jpeg' ? burnWatermark(p, config.watermark!) : p
+      )
+    );
+    settle({ code: 200, data: out, message: 'ok' });
+  };
+
   if (state === 'denied') {
     return (
       <NoPermission
@@ -184,7 +200,7 @@ export function Container({ config, onSettle }: Props) {
           setPhotos([]);
           setPreviewing(false);
         }}
-        onSave={() => settle({ code: 200, data: photos, message: 'ok' })}
+        onSave={handleSave}
         onBack={() => setPreviewing(false)}
         onDelete={(f) => {
           const next = photos.filter((x) => x !== f);
@@ -232,6 +248,10 @@ export function Container({ config, onSettle }: Props) {
         grid={grid}
         flipNonce={flipNonce}
       />
+
+      {!recording && config.watermark && (
+        <WatermarkStamp watermark={config.watermark} />
+      )}
 
       {!recording && (
         <View style={[styles.sideRail, { bottom: insets.bottom + r(172) }]}>
@@ -285,7 +305,7 @@ export function Container({ config, onSettle }: Props) {
           count={photos.length}
           onShutter={onShutter}
           onBack={() => settle({ code: 0, data: [], message: 'cancelled' })}
-          onSave={() => settle({ code: 200, data: photos, message: 'ok' })}
+          onSave={handleSave}
           onFlip={onFlip}
           onOpenPreview={() => {
             if (photos.length > 0) {
@@ -297,6 +317,12 @@ export function Container({ config, onSettle }: Props) {
       </View>
 
       <CaptureFlash trigger={flashNonce} />
+
+      {burning && (
+        <View style={styles.burning} testID="burning">
+          <Loading />
+        </View>
+      )}
     </View>
   );
 }
@@ -328,4 +354,11 @@ const styles = StyleSheet.create({
     gap: r(16),
   },
   center: { alignItems: 'center' },
+  burning: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 60,
+  },
 });
