@@ -75,7 +75,7 @@ jest.mock('react-native-gesture-handler', () => {
 // Mock reanimated-carousel
 jest.mock('react-native-reanimated-carousel', () => {
   const { View } = require('react-native');
-  return { default: View };
+  return { __esModule: true, default: View };
 });
 
 // Worklets
@@ -157,7 +157,11 @@ jest.mock(
       TextField: passthrough,
       Thumbnail: passthrough,
       Toast: passthrough,
-      toast: () => null,
+      toast: Object.assign(() => null, {
+        info: () => null,
+        success: () => null,
+        error: () => null,
+      }),
       ToastHost: noop,
       // utils
       createLogger: () => ({
