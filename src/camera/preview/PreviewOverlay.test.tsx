@@ -32,14 +32,12 @@ it('confirm 变体: 重拍/保存 在', () => {
   expect(getByTestId('save-btn')).toBeTruthy();
 });
 
-it('gallery 变体: 返回/删除 在 + 保存触发 toast', () => {
-  const onSave = jest.fn();
+it('gallery 变体: 返回/删除 在', () => {
   const { getByTestId } = render(
     <PreviewOverlay
       files={[f('single', 'a'), f('single', 'b')]}
       variant="gallery"
       {...noop}
-      onSave={onSave}
     />
   );
   expect(getByTestId('back-btn')).toBeTruthy();

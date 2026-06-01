@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { confirm, toast, useThemedStyles } from '@unif/react-native-design';
 import type { ColorTokens } from '@unif/react-native-design';
@@ -32,9 +32,22 @@ export function PreviewOverlay({
   );
   const [index, setIndex] = useState(0);
 
+  // 删除回收:当前类型被删空 → 切到剩余首个类型(无则关由 Container 处理)
+  useEffect(() => {
+    if (!types.includes(activeType)) {
+      setActiveType(types[0] ?? 'single');
+      setIndex(0);
+    }
+  }, [types, activeType]);
+
   // confirm 不分 tab(全 files);gallery 按 activeType 过滤
   const data = variant === 'confirm' ? files : filesOfType(files, activeType);
   const current = data[index] ?? data[0];
+
+  // 删除后 index 越界 → 夹紧到末张(避免「第 X/Y」计数错位)
+  useEffect(() => {
+    if (index >= data.length && data.length > 0) setIndex(data.length - 1);
+  }, [index, data.length]);
 
   const handleSave = () => {
     toast.success('已保存');
