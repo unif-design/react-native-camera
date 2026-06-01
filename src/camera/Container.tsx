@@ -164,12 +164,17 @@ export function Container({ config, onSettle }: Props) {
       return;
     }
     setBurning(true);
-    const out = await Promise.all(
-      photos.map((p) =>
-        p.mime === 'image/jpeg' ? burnWatermark(p, config.watermark!) : p
-      )
-    );
-    settle({ code: 200, data: out, message: 'ok' });
+    try {
+      const out = await Promise.all(
+        photos.map((p) =>
+          p.mime === 'image/jpeg' ? burnWatermark(p, config.watermark!) : p
+        )
+      );
+      settle({ code: 200, data: out, message: 'ok' });
+    } finally {
+      // 兜底重置:即便 settle 已被前次调用(settledRef no-op)不再卸载,也不卡住遮罩
+      setBurning(false);
+    }
   };
 
   if (state === 'denied') {
