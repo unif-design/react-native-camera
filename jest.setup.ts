@@ -172,3 +172,19 @@ jest.mock(
   },
   { virtual: true }
 );
+
+// react-native-svg:jest 渲染成占位,组件挂载测试用
+jest.mock('react-native-svg', () => {
+  const { View } = require('react-native');
+  const p = (props: any) => require('react').createElement(View, props);
+  return {
+    __esModule: true,
+    default: p,
+    Svg: p,
+    Path: p,
+    Circle: p,
+    Line: p,
+    G: p,
+    Rect: p,
+  };
+});
