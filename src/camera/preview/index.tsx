@@ -1,4 +1,3 @@
-export { SinglePre } from './SinglePre';
-export { PreView } from './PreView';
-export { PreviewFooter } from './PreviewFooter';
-export { PreViewContainer } from './PreViewContainer';
+export { PreviewOverlay } from './PreviewOverlay';
+export { PreviewTopBar } from './PreviewTopBar';
+export { PreviewBottomBar } from './PreviewBottomBar';

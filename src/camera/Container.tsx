@@ -12,7 +12,7 @@ import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
-import { PreViewContainer } from './preview';
+import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
 import { ZoomChips } from './footer/ZoomChips';
@@ -91,6 +91,9 @@ export function Container({ config, onSettle }: Props) {
   const cameraRef = useRef<CameraHandle>(null);
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
+  const [previewVariant, setPreviewVariant] = useState<'confirm' | 'gallery'>(
+    'gallery'
+  );
   const [recording, setRecording] = useState(false);
   const [modeIndex, setModeIndex] = useState(0);
   const currentMode = config.cameraMode[modeIndex];
@@ -138,6 +141,7 @@ export function Container({ config, onSettle }: Props) {
     setPhotos((prev) => [...prev, f]);
     // 自动预览规则:仅「非保留(clear) + 单拍」拍完进预览;其余累积
     if (currentMode?.mode === 'single' && config.dataRetainedMode === 'clear') {
+      setPreviewVariant('confirm');
       setPreviewing(true);
     }
   };
@@ -173,13 +177,20 @@ export function Container({ config, onSettle }: Props) {
 
   if (previewing) {
     return (
-      <PreViewContainer
+      <PreviewOverlay
         files={photos}
+        variant={previewVariant}
         onRetake={() => {
           setPhotos([]);
           setPreviewing(false);
         }}
-        onConfirm={() => settle({ code: 200, data: photos, message: 'ok' })}
+        onSave={() => settle({ code: 200, data: photos, message: 'ok' })}
+        onBack={() => setPreviewing(false)}
+        onDelete={(f) => {
+          const next = photos.filter((x) => x !== f);
+          setPhotos(next);
+          if (next.length === 0) setPreviewing(false);
+        }}
       />
     );
   }
@@ -277,7 +288,10 @@ export function Container({ config, onSettle }: Props) {
           onSave={() => settle({ code: 200, data: photos, message: 'ok' })}
           onFlip={onFlip}
           onOpenPreview={() => {
-            if (photos.length > 0) setPreviewing(true);
+            if (photos.length > 0) {
+              setPreviewVariant('gallery');
+              setPreviewing(true);
+            }
           }}
         />
       </View>
