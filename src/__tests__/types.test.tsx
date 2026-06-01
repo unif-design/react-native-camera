@@ -3,6 +3,7 @@ import type {
   CameraResult,
   OpenConfig,
   CustomPhotoFile,
+  WatermarkType,
 } from '../utils';
 
 it('CameraMode accepts original fields (type/flashMode/quality/recTime)', () => {
@@ -49,4 +50,22 @@ it('CustomPhotoFile carries original + 2.x fields (union)', () => {
   };
   expect(f.mime).toBe('image/jpeg');
   expect(f.cameraMode).toBe(f.mode);
+});
+
+it('WatermarkType + OpenConfig.watermark', () => {
+  const wm: WatermarkType = {
+    content: ['Unif · 拜访记录', '上海'],
+    position: 'top-right',
+  };
+  const cfg: OpenConfig = {
+    cameraMode: [{ mode: 'single' }],
+    dataRetainedMode: 'clear',
+    watermark: wm,
+  };
+  expect(cfg.watermark?.content.length).toBe(2);
+  const noWm: OpenConfig = {
+    cameraMode: [{ mode: 'single' }],
+    dataRetainedMode: 'clear',
+  };
+  expect(noWm.watermark).toBeUndefined();
 });
