@@ -1,0 +1,12 @@
+{
+  "extends": "@docusaurus/tsconfig",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@unif/react-native-design": ["../src/index"],
+      "@site/*": ["./*"]
+    }
+  },
+  "include": ["src/", "docs/", "docusaurus.config.ts", "sidebars.ts"]
+}
