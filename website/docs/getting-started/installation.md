@@ -59,7 +59,7 @@ vision-camera 5.x 把 Frame Processor / 多线程能力拆到了同伴包 `react
 
 ---
 
-## 2. 配置权限
+## 2. 配置权限 {#权限配置}
 
 ### iOS（Info.plist）
 
