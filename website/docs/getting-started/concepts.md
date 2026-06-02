@@ -85,7 +85,7 @@ Promise.resolve(CameraResult)
 | 术语 | 一句话定义 | 详情 |
 | --- | --- | --- |
 | `CameraMode` | 单次拍摄模式配置项（`mode` + `quality` + 可选 `type`/`flashMode`/`recTime`） | [API → types](/docs/api/types) |
-| `OpenConfig` | `api.open()` 的入参，包含 `cameraMode[]` 数组和 `dataRetainedMode` | [API → types](/docs/api/types) |
+| `OpenConfig` | `api.open()` 的入参，包含 `cameraMode[]` 数组、`dataRetainedMode`（+ 可选 `watermark`） | [API → types](/docs/api/types) |
 | `CameraResult` | `api.open()` 的 resolve 值，包含 `code`、`data`（文件列表）、`message` | [API → types](/docs/api/types) |
 | `CustomPhotoFile` | 单张照片 / 视频文件的描述对象，含路径、尺寸、MIME 类型等 | [API → types](/docs/api/types) |
 | holder | `useCamera()` 返回的第二个元素，相机模态的 React 宿主节点，必须渲染进树 | 本页心智模型二 |

@@ -118,11 +118,7 @@ cd ios && bundle exec pod install
 
 Android 端无需额外配置，Gradle 自动同步。直接 `npx react-native run-android` 即可。
 
----
-
-## 4. 最小可运行示例
-
-完成安装后，参阅[快速上手](/docs/getting-started/quick-start)查看最小可运行示例。
+完成以上步骤后，参阅[快速上手](/docs/getting-started/quick-start)查看最小可运行示例。
 
 ---
 

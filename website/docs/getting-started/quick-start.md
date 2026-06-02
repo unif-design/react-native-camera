@@ -36,7 +36,9 @@ const App = () => {
             dataRetainedMode: 'clear',
           });
           // res.code: 200=ok, 0=cancelled, 403=no_permission, 404=no_device, 500=capture_failed, 503=video_failed
-          console.log(res);
+          if (res.code === 200) {
+            // res.data 是拍摄的文件列表(CustomPhotoFile[])
+          }
         }}
       >
         打开相机
@@ -87,7 +89,9 @@ const res = await api.open({
 
 ```tsx
 // res.code: 200=ok, 0=cancelled, 403=no_permission, 404=no_device, 500=capture_failed, 503=video_failed
-console.log(res);
+if (res.code === 200) {
+  // res.data 是拍摄的文件列表(CustomPhotoFile[])
+}
 ```
 
 `res` 是 `CameraResult`，根据 `res.code` 判断结果：
