@@ -19,7 +19,7 @@ yarn add @unif/react-native-camera \
          react-native-reanimated-carousel \
          react-native-video \
          @shopify/react-native-skia \
-         react-native-fs \
+         @dr.pogodin/react-native-fs \
          react-native-gesture-handler \
          react-native-safe-area-context
 ```
@@ -42,8 +42,8 @@ vision-camera 5.x 把 Frame Processor / 多线程能力拆到了同伴包 `react
 
 传 `open({ ..., watermark: { content: ['Unif · 拜访记录', '上海市…'], position: 'top-right' } })` 即给成片加水印：
 
-- **保存时**才把水印用 `@shopify/react-native-skia` 全分辨率离屏合成、烧进返回的照片（用 `react-native-fs` 写文件）；取景器显示同款戳记作 WYSIWYG 提示；预览显示原图；视频不烧。
-- 消费端需安装 `@shopify/react-native-skia` + `react-native-fs` 并 iOS `pod install`。
+- **快门后逐张**把水印用 `@shopify/react-native-skia` 全分辨率离屏合成、烧进照片（用 `@dr.pogodin/react-native-fs` 写文件）；串行处理(一次只烧 1 张、峰值内存恒定)，烧图时 footer 显示「正在生成水印图片…」；取景器显示同款戳记作 WYSIWYG 提示；预览显示已烧成片；视频不烧。
+- 消费端需安装 `@shopify/react-native-skia` + `@dr.pogodin/react-native-fs` 并 iOS `pod install`。
 - `position` 六选一（`top`/`bottom` × `left`/`center`/`right`，缺省 `top-right`），文字按位置自适应对齐（右→向左扩展、中→向两侧）。
 - **水印是可视记录，不防篡改**（无法阻止虚拟相机/替换照片——那是独立课题）。
 
