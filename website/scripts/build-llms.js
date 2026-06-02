@@ -18,7 +18,12 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const docsDir = path.join(root, 'docs');
-const outDir = path.join(root, 'static', 'md');
+const staticDir = path.join(root, 'static');
+// 每页 md 放 static/<MD_SUBDIR>/ —— 单一来源:写入路径(outDir)与 llms.txt 链接前缀(mdUrlBase)
+// 都从这一个常量派生,改一处两边同步,杜绝「索引链接 /md/ 与实际写入目录脱节」。
+const MD_SUBDIR = 'md';
+const outDir = path.join(staticDir, MD_SUBDIR);
+const mdUrlBase = `/${MD_SUBDIR}`;
 
 // 站点名从 docusaurus.config 的 title 读 —— 本脚本各库共用,自动适配,不硬编码库名。
 function readSiteTitle() {
@@ -228,8 +233,6 @@ function main() {
     aggregate.push('');
   }
 
-  const staticDir = path.join(root, 'static');
-
   // /llms-full.txt — 全文聚合(站点根,标准命名)
   const llmsFull = aggregate.join('\n').replace(/\n{3,}/g, '\n\n');
   write(path.join(staticDir, 'llms-full.txt'), llmsFull);
@@ -244,7 +247,7 @@ function main() {
     const seg = slug.split('/');
     return {
       title: title || finalSlug,
-      mdPath: `/md/${slug}.md`,
+      mdPath: `${mdUrlBase}/${slug}.md`,
       slug: `/${finalSlug}`,
       section: seg.length > 1 ? seg[0] : '概览',
     };
