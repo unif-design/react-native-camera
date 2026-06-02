@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.2](https://github.com/unif-design/react-native-camera/compare/v2.8.1...v2.8.2) (2026-06-02)
+
+
+### Bug Fixes
+
+* **camera:** use maintained [@dr](https://github.com/dr).pogodin/react-native-fs fork ([#28](https://github.com/unif-design/react-native-camera/issues/28)) ([add5611](https://github.com/unif-design/react-native-camera/commit/add5611a33c6cfc19da2f0bc77e5e85400899f7e))
+
 ## [2.8.1](https://github.com/unif-design/react-native-camera/compare/v2.8.0...v2.8.1) (2026-06-02)
 
 
