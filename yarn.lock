@@ -6475,7 +6475,7 @@ __metadata:
     "@docusaurus/types": "npm:^3.10.1"
     "@mdx-js/react": "npm:^3.0.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:^0.4.0"
+    "@unif/react-native-design": "npm:^0.5.0"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:^19.2.0"
@@ -6580,6 +6580,24 @@ __metadata:
     react-native-svg: ">=15"
     react-native-worklets: ">=0.9"
   checksum: 10c0/d6fb6d8cfe6072c752df29853ad83af5f9729a70ccd254466b925ab5b048cfeee0dc33d484f0712309675ffcd5501004d52d2593d8d16167cae190bc27284a6e
+  languageName: node
+  linkType: hard
+
+"@unif/react-native-design@npm:^0.5.0":
+  version: 0.5.0
+  resolution: "@unif/react-native-design@npm:0.5.0"
+  peerDependencies:
+    "@gorhom/bottom-sheet": ">=5"
+    "@sbaiahmed1/react-native-blur": ">=4"
+    react: "*"
+    react-native: "*"
+    react-native-gesture-handler: ">=2"
+    react-native-reanimated: ">=4"
+    react-native-reanimated-carousel: ">=5.0.0-beta.0"
+    react-native-safe-area-context: ">=5"
+    react-native-svg: ">=15"
+    react-native-worklets: ">=0.9"
+  checksum: 10c0/7882a35646c04efeb781aab10b1bb323570e0186377ab16356aae4a78af1fab477892132dcdf507119d2dc8b4576b82cb6f64171f26f3d819a93ebb5ee6767af
   languageName: node
   linkType: hard
 
