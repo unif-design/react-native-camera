@@ -18,7 +18,12 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const docsDir = path.join(root, 'docs');
-const outDir = path.join(root, 'static', 'md');
+const staticDir = path.join(root, 'static');
+// 每页 md 放 static/<MD_SUBDIR>/ —— 单一来源:写入路径(outDir)与 llms.txt 链接前缀(mdUrlBase)
+// 都从这一个常量派生,改一处两边同步,杜绝「索引链接 /md/ 与实际写入目录脱节」。
+const MD_SUBDIR = 'md';
+const outDir = path.join(staticDir, MD_SUBDIR);
+const mdUrlBase = `/${MD_SUBDIR}`;
 
 // 站点名从 docusaurus.config 的 title 读 —— 本脚本各库共用,自动适配,不硬编码库名。
 function readSiteTitle() {
@@ -58,11 +63,18 @@ function write(file, content) {
 }
 
 function relSlug(file) {
-  const rel = path.relative(docsDir, file).replace(/\.(mdx?|md)$/, '');
-  // 防御:剔除任何 `..` 路径遍历段 + 空段,把 slug 锁死在 static/md/ 内。
-  // 链接(/md/<slug>.md)与写入文件名永远用这同一个 slug —— 不混入 frontmatter slug,
-  // 杜绝「llms.txt 链接指向的 md 实际没被写」的不一致。
-  return rel.split(path.sep).filter(seg => seg && seg !== '..').join('/');
+  // 去扩展名 + 统一成 POSIX 分隔(URL / section 用);跨平台把 Windows 反斜杠也转成 /。
+  // 不在这里做安全过滤 —— 写入安全统一由 safeOutPath() 用 path.resolve + 前缀校验兜底。
+  return path.relative(docsDir, file).replace(/\.(mdx?|md)$/, '').split(path.sep).join('/');
+}
+
+// 把任意 slug(含来自 frontmatter 的 slug)解析成 outDir 内的安全写入绝对路径。
+// path.resolve 先吃掉 `../`、绝对路径、Windows 反斜杠等,再做严格前缀校验:
+// 不落在 outDir 内的一律拒绝(返回 null),调用方跳过 —— 杜绝路径遍历写到 static/md/ 之外。
+function safeOutPath(slug) {
+  const resolved = path.resolve(outDir, `${slug}.md`);
+  const base = path.resolve(outDir) + path.sep;
+  return resolved.startsWith(base) ? resolved : null;
 }
 
 /** Pull the `slug:` / `title:` values out of a frontmatter block. */
@@ -196,10 +208,19 @@ function main() {
     const fmEnd = raw.startsWith('---') ? raw.indexOf('\n---', 3) + 4 : 0;
     const fmBlock = fmEnd ? raw.slice(0, fmEnd) + '\n' : '';
     const pageOutput = `${fmBlock}\n${cleanBody}`.replace(/\n{3,}/g, '\n\n');
-    write(path.join(outDir, `${slug}.md`), pageOutput);
 
+    const slugPath = safeOutPath(slug);
+    if (!slugPath) {
+      console.warn(`[build-llms] 跳过越界 slug(疑似路径遍历):${slug}`);
+      continue;
+    }
+    write(slugPath, pageOutput);
+
+    // frontmatter slug 同样可能含 `../` —— 也过 safeOutPath,越界只跳过这份镜像、不影响主输出。
     if (fmSlug && finalSlug !== slug) {
-      write(path.join(outDir, `${finalSlug}.md`), pageOutput);
+      const fmPath = safeOutPath(finalSlug);
+      if (fmPath) write(fmPath, pageOutput);
+      else console.warn(`[build-llms] 跳过越界 frontmatter slug:${finalSlug}`);
     }
 
     // Aggregate block — drop the per-page frontmatter, prefer a section heading
@@ -212,8 +233,6 @@ function main() {
     aggregate.push('');
   }
 
-  const staticDir = path.join(root, 'static');
-
   // /llms-full.txt — 全文聚合(站点根,标准命名)
   const llmsFull = aggregate.join('\n').replace(/\n{3,}/g, '\n\n');
   write(path.join(staticDir, 'llms-full.txt'), llmsFull);
@@ -222,16 +241,17 @@ function main() {
   // 链接指向每页纯 .md(供 agent 按需抓取),全文一次性喂入走 /llms-full.txt。
   const entries = files.map(f => {
     const slug = relSlug(f);
+    if (!safeOutPath(slug)) return null; // 越界 slug 的页 md 也没写,不进索引 → 保持链接一致
     const { slug: fmSlug, title } = parseFrontmatter(read(f));
     const finalSlug = fmSlug ? fmSlug.replace(/^\/+/, '') : slug;
     const seg = slug.split('/');
     return {
       title: title || finalSlug,
-      mdPath: `/md/${slug}.md`,
+      mdPath: `${mdUrlBase}/${slug}.md`,
       slug: `/${finalSlug}`,
       section: seg.length > 1 ? seg[0] : '概览',
     };
-  });
+  }).filter(Boolean);
   const bySection = {};
   for (const e of entries) (bySection[e.section] = bySection[e.section] || []).push(e);
   const llmsLines = [
