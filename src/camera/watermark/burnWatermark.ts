@@ -1,4 +1,4 @@
-import RNFS from 'react-native-fs';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { Skia, ImageFormat } from '@shopify/react-native-skia';
 import type { SkData, SkImage, SkSurface } from '@shopify/react-native-skia';
 import type { CustomPhotoFile, WatermarkType } from '../../utils';

@@ -220,8 +220,8 @@ jest.mock('react-native-video', () => {
   };
 });
 
-// react-native-fs:native 模块,jest 下用内存桩(水印烧图读写)
-jest.mock('react-native-fs', () => ({
+// @dr.pogodin/react-native-fs:native 模块,jest 下用内存桩(水印烧图读写)
+jest.mock('@dr.pogodin/react-native-fs', () => ({
   TemporaryDirectoryPath: '/tmp',
   readFile: jest.fn().mockResolvedValue('BASE64DATA'),
   writeFile: jest.fn().mockResolvedValue(undefined),
