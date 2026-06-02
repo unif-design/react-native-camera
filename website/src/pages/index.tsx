@@ -2,6 +2,33 @@ import React from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 
+const FEATURES = [
+  {
+    icon: '📷',
+    title: '单拍 / 连拍',
+    body: '拍摄单张或多张照片，支持 JPEG 质量控制与前 / 后置切换。',
+    href: '/docs/guides/taking-photos',
+  },
+  {
+    icon: '🎬',
+    title: '视频录制',
+    body: '录制视频并内置预览页，可设录制时长上限，完成后直接拿到本地文件路径。',
+    href: '/docs/guides/recording-video',
+  },
+  {
+    icon: '🔖',
+    title: '水印烧录',
+    body: '基于 Skia 全分辨率离屏合成，把文字水印烧入成片，取景器同步 WYSIWYG 预览。',
+    href: '/docs/guides/watermark',
+  },
+  {
+    icon: '⚡',
+    title: '开箱即用',
+    body: '一行 hook 调用即可唤起完整的模态相机界面，无需手写 Camera 组件和权限逻辑。',
+    href: '/docs/api/use-camera',
+  },
+];
+
 export default function Home(): React.JSX.Element {
   return (
     <Layout
@@ -32,6 +59,16 @@ export default function Home(): React.JSX.Element {
           </div>
         </div>
       </header>
+
+      <section className="unif-features">
+        {FEATURES.map((f) => (
+          <Link key={f.href} to={f.href} className="unif-feature">
+            <div className="unif-feature__icon">{f.icon}</div>
+            <p className="unif-feature__title">{f.title}</p>
+            <p className="unif-feature__body">{f.body}</p>
+          </Link>
+        ))}
+      </section>
     </Layout>
   );
 }

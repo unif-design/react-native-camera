@@ -63,7 +63,7 @@
   "bugs": {
     "url": "https://github.com/unif-design/react-native-camera/issues"
   },
-  "homepage": "https://github.com/unif-design/react-native-camera#readme",
+  "homepage": "https://unif-design.github.io/react-native-camera/",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

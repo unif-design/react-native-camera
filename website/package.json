@@ -17,9 +17,7 @@
   "dependencies": {
     "@docusaurus/core": "^3.10.1",
     "@docusaurus/preset-classic": "^3.10.1",
-    "@gorhom/bottom-sheet": "^5.2.14",
     "@mdx-js/react": "^3.0.0",
-    "@sbaiahmed1/react-native-blur": "^4.6.2",
     "@unif/react-native-camera": "workspace:*",
     "@unif/react-native-design": "^0.4.0",
     "clsx": "^2.0.0",

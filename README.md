@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@unif/react-native-camera.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@unif/react-native-camera)
 [![CI](https://github.com/unif-design/react-native-camera/actions/workflows/ci.yml/badge.svg)](https://github.com/unif-design/react-native-camera/actions/workflows/ci.yml)
 [![License](https://img.shields.io/npm/l/@unif/react-native-camera.svg?color=blue)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-unif--design.github.io-orange.svg)](https://unif-design.github.io/react-native-camera/)
 
 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 构建的 React Native 相机库，提供模态化相机界面，支持单拍 / 连拍 / 视频录制 / 捏合变焦 / 镜头切换 / 点击对焦。
 
