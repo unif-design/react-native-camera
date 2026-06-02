@@ -19,11 +19,10 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const docsDir = path.join(root, 'docs');
 const staticDir = path.join(root, 'static');
-// 每页 md 放 static/<MD_SUBDIR>/ —— 单一来源:写入路径(outDir)与 llms.txt 链接前缀(mdUrlBase)
-// 都从这一个常量派生,改一处两边同步,杜绝「索引链接 /md/ 与实际写入目录脱节」。
+// 每页 md 放 static/<MD_SUBDIR>/ —— 单一来源,写入路径(outDir)由它派生。
+// llms.txt 的链接(mdPath)则从写入产物 outPath 反推(见 entries),与实际文件严格一致。
 const MD_SUBDIR = 'md';
 const outDir = path.join(staticDir, MD_SUBDIR);
-const mdUrlBase = `/${MD_SUBDIR}`;
 
 // 站点名从 docusaurus.config 的 title 读 —— 本脚本各库共用,自动适配,不硬编码库名。
 function readSiteTitle() {
@@ -72,6 +71,8 @@ function relSlug(file) {
 // path.resolve 先吃掉 `../`、绝对路径、Windows 反斜杠等,再做严格前缀校验:
 // 不落在 outDir 内的一律拒绝(返回 null),调用方跳过 —— 杜绝路径遍历写到 static/md/ 之外。
 function safeOutPath(slug) {
+  // 显式拒绝绝对路径 slug(slug 本应相对;绝对路径会让 path.resolve 丢掉 outDir 锚点)。
+  if (path.isAbsolute(slug)) return null;
   const resolved = path.resolve(outDir, `${slug}.md`);
   const base = path.resolve(outDir) + path.sep;
   return resolved.startsWith(base) ? resolved : null;
@@ -241,13 +242,15 @@ function main() {
   // 链接指向每页纯 .md(供 agent 按需抓取),全文一次性喂入走 /llms-full.txt。
   const entries = files.map(f => {
     const slug = relSlug(f);
-    if (!safeOutPath(slug)) return null; // 越界 slug 的页 md 也没写,不进索引 → 保持链接一致
+    const outPath = safeOutPath(slug);
+    if (!outPath) return null; // 越界 slug 的页 md 也没写,不进索引 → 保持链接一致
     const { slug: fmSlug, title } = parseFrontmatter(read(f));
     const finalSlug = fmSlug ? fmSlug.replace(/^\/+/, '') : slug;
     const seg = slug.split('/');
     return {
       title: title || finalSlug,
-      mdPath: `${mdUrlBase}/${slug}.md`,
+      // mdPath 从规范化写入路径 outPath 反推,与实际 md 文件严格一致(不用可能含 ../ 的原始 slug)
+      mdPath: '/' + path.relative(staticDir, outPath).split(path.sep).join('/'),
       slug: `/${finalSlug}`,
       section: seg.length > 1 ? seg[0] : '概览',
     };
