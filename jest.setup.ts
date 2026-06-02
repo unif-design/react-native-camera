@@ -229,16 +229,21 @@ jest.mock('react-native-fs', () => ({
 
 // @shopify/react-native-skia:native 模块,jest 下桩离屏合成(返 1080×1440)
 jest.mock('@shopify/react-native-skia', () => {
-  const mkImage = { width: () => 1080, height: () => 1440 };
+  const noop = () => {};
+  const mkImage = { width: () => 1080, height: () => 1440, dispose: noop };
   const mkCanvas = { drawImage: jest.fn(), drawText: jest.fn() };
-  const mkSnapshot = { encodeToBase64: jest.fn(() => 'OUTBASE64') };
+  const mkSnapshot = {
+    encodeToBase64: jest.fn(() => 'OUTBASE64'),
+    dispose: noop,
+  };
   const mkSurface = {
     getCanvas: () => mkCanvas,
     makeImageSnapshot: () => mkSnapshot,
+    dispose: noop,
   };
   return {
     Skia: {
-      Data: { fromBase64: jest.fn(() => ({})) },
+      Data: { fromBase64: jest.fn(() => ({ dispose: noop })) },
       Image: { MakeImageFromEncoded: jest.fn(() => mkImage) },
       Surface: { MakeOffscreen: jest.fn(() => mkSurface) },
       Font: jest.fn(() => ({

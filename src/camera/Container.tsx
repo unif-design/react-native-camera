@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 import {
   useCameraDevice,
   useCameraPermission,
@@ -140,7 +140,17 @@ export function Container({ config, onSettle }: Props) {
       return;
     }
     setFlashNonce((n) => n + 1);
-    setPhotos((prev) => [...prev, f]);
+    // 快门后立刻烧这一张(串行:一次只烧 1 张,峰值内存恒定);烧时 footer 显示"正在生成水印图片"
+    let saved = f;
+    if (config.watermark && f.mime === 'image/jpeg') {
+      setBurning(true);
+      try {
+        saved = await burnWatermark(f, config.watermark);
+      } finally {
+        setBurning(false);
+      }
+    }
+    setPhotos((prev) => [...prev, saved]);
     // 自动预览规则:仅「非保留(clear) + 单拍」拍完进预览;其余累积
     if (currentMode?.mode === 'single' && config.dataRetainedMode === 'clear') {
       setPreviewVariant('confirm');
@@ -158,18 +168,9 @@ export function Container({ config, onSettle }: Props) {
     setModeIndex(i);
   };
 
-  const handleSave = async () => {
-    if (!config.watermark) {
-      settle({ code: 200, data: photos, message: 'ok' });
-      return;
-    }
-    setBurning(true);
-    const out = await Promise.all(
-      photos.map((p) =>
-        p.mime === 'image/jpeg' ? burnWatermark(p, config.watermark!) : p
-      )
-    );
-    settle({ code: 200, data: out, message: 'ok' });
+  // 照片在快门后已逐张烧好,保存直接返回。
+  const handleSave = () => {
+    settle({ code: 200, data: photos, message: 'ok' });
   };
 
   if (state === 'denied') {
@@ -285,44 +286,47 @@ export function Container({ config, onSettle }: Props) {
       )}
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}>
-        {recording ? (
-          <View style={styles.center}>
-            <RecordingTimer seconds={recSeconds} />
+        {burning ? (
+          <View style={styles.burningFooter} testID="burning">
+            <Loading />
+            <Text style={styles.burningText}>正在生成水印图片…</Text>
           </View>
         ) : (
-          <View style={styles.center}>
-            <ModeSwitcherPill
-              items={modeItems}
-              currentIndex={modeIndex}
-              onSelect={onSelectMode}
+          <>
+            {recording ? (
+              <View style={styles.center}>
+                <RecordingTimer seconds={recSeconds} />
+              </View>
+            ) : (
+              <View style={styles.center}>
+                <ModeSwitcherPill
+                  items={modeItems}
+                  currentIndex={modeIndex}
+                  onSelect={onSelectMode}
+                />
+              </View>
+            )}
+            <ActionRow
+              mode={currentMode.mode}
+              recording={recording}
+              latestUri={photos.at(-1)?.uri}
+              count={photos.length}
+              onShutter={onShutter}
+              onBack={() => settle({ code: 0, data: [], message: 'cancelled' })}
+              onSave={handleSave}
+              onFlip={onFlip}
+              onOpenPreview={() => {
+                if (photos.length > 0) {
+                  setPreviewVariant('gallery');
+                  setPreviewing(true);
+                }
+              }}
             />
-          </View>
+          </>
         )}
-        <ActionRow
-          mode={currentMode.mode}
-          recording={recording}
-          latestUri={photos.at(-1)?.uri}
-          count={photos.length}
-          onShutter={onShutter}
-          onBack={() => settle({ code: 0, data: [], message: 'cancelled' })}
-          onSave={handleSave}
-          onFlip={onFlip}
-          onOpenPreview={() => {
-            if (photos.length > 0) {
-              setPreviewVariant('gallery');
-              setPreviewing(true);
-            }
-          }}
-        />
       </View>
 
       <CaptureFlash trigger={flashNonce} />
-
-      {burning && (
-        <View style={styles.burning} testID="burning">
-          <Loading />
-        </View>
-      )}
     </View>
   );
 }
@@ -354,11 +358,11 @@ const styles = StyleSheet.create({
     gap: r(16),
   },
   center: { alignItems: 'center' },
-  burning: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  burningFooter: {
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 60,
+    gap: r(8),
+    paddingVertical: r(16),
   },
+  burningText: { color: DARK.white, fontSize: r(14) },
 });
