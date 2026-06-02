@@ -29,6 +29,9 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['api/use-camera', 'api/camera-api', 'api/types'],
     },
+    'testing',
+    'troubleshooting',
+    'migration',
   ],
 };
 
