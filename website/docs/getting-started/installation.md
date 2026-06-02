@@ -122,6 +122,34 @@ Android 端无需额外配置，Gradle 自动同步。直接 `npx react-native r
 
 ---
 
+## 4. 挂载 Host 组件（如使用预览确认弹窗 / Toast）
+
+本库的**预览页**（用户拍完后的确认界面）内部使用 `@unif/react-native-design` 的 `confirm` / `toast`，需消费端在 App 根节点挂载对应 Host：
+
+```tsx title="App.tsx（或根组件）"
+import { ConfirmHost, ToastHost } from '@unif/react-native-design';
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      {/* ... 其余 UI ... */}
+      <ConfirmHost />
+      <ToastHost />
+    </ThemeProvider>
+  );
+}
+```
+
+:::warning 未挂 Host 时弹窗/提示静默失效
+`ConfirmHost` / `ToastHost` 与 `ThemeProvider` 一样，是一次性全局挂载的基础组件。
+- **缺 `ConfirmHost`**：预览页的「二次确认弹窗」不弹出，用户无法确认照片。
+- **缺 `ToastHost`**：错误/提示 Toast 静默失效。
+
+已在 App 根挂过 `ConfirmHost` / `ToastHost`（如使用 design 系统其他组件已挂），无需重复挂载。
+:::
+
+---
+
 ## 下一步
 
 - [快速上手](/docs/getting-started/quick-start) — 5 分钟跑通第一次拍照
