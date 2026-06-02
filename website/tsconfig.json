@@ -4,7 +4,7 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@unif/react-native-design": ["../src/index"],
+      "@unif/react-native-camera": ["../src/index"],
       "@site/*": ["./*"]
     }
   },

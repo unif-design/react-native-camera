@@ -6477,7 +6477,7 @@ __metadata:
     "@mdx-js/react": "npm:^3.0.0"
     "@sbaiahmed1/react-native-blur": "npm:^4.6.2"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:^0.3.0"
+    "@unif/react-native-design": "npm:^0.4.0"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:^19.2.0"
@@ -6566,24 +6566,6 @@ __metadata:
     react-native-worklets: "*"
   languageName: unknown
   linkType: soft
-
-"@unif/react-native-design@npm:^0.3.0":
-  version: 0.3.0
-  resolution: "@unif/react-native-design@npm:0.3.0"
-  peerDependencies:
-    "@gorhom/bottom-sheet": ">=5"
-    "@sbaiahmed1/react-native-blur": ">=4"
-    react: "*"
-    react-native: "*"
-    react-native-gesture-handler: ">=2"
-    react-native-reanimated: ">=4"
-    react-native-reanimated-carousel: ">=5.0.0-beta.0"
-    react-native-safe-area-context: ">=5"
-    react-native-svg: ">=15"
-    react-native-worklets: ">=0.9"
-  checksum: 10c0/5a842bd5f72f9df80aca4e6e66a7c8e22bd73040384a06590a444e1f7c460c8119da9e075d7c3e976ace3aa88ab8eea0a269f87d9ae8696cf4112c1f87f58f10
-  languageName: node
-  linkType: hard
 
 "@unif/react-native-design@npm:^0.4.0":
   version: 0.4.35

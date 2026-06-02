@@ -21,7 +21,7 @@
     "@mdx-js/react": "^3.0.0",
     "@sbaiahmed1/react-native-blur": "^4.6.2",
     "@unif/react-native-camera": "workspace:*",
-    "@unif/react-native-design": "^0.3.0",
+    "@unif/react-native-design": "^0.4.0",
     "clsx": "^2.0.0",
     "prism-react-renderer": "^2.3.0",
     "react": "^19.2.0",
