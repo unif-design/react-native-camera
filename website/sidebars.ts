@@ -13,6 +13,16 @@ const sidebars: SidebarsConfig = {
         'getting-started/concepts',
       ],
     },
+    {
+      type: 'category',
+      label: '指南',
+      collapsed: false,
+      items: [
+        'guides/taking-photos',
+        'guides/recording-video',
+        'guides/watermark',
+      ],
+    },
   ],
 };
 
