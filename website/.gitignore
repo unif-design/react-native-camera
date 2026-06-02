@@ -1,0 +1,5 @@
+
+# llms 产物(build 时生成)
+/static/md/
+/static/llms.txt
+/static/llms-full.txt
