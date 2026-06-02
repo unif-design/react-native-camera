@@ -1,3 +1,5 @@
+# 目标路径:.github/workflows/pr-title.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
 name: PR Title
 
 # 校验 PR 标题符合 conventional commits。
@@ -6,7 +8,7 @@ name: PR Title
 # 并作为唯一 commit 进 main;而 release-it 用 conventional-changelog 扫 commit message
 # 决定 bump 类型 + 写 CHANGELOG。本地 commitlint(lefthook commit-msg)只管本地 commit
 # —— squash 会把它们压扁丢弃,最终进 main 的 message 是 PR 标题,commitlint 够不着。
-# 标题不规范(如 "Fix/website 1to1 portal")会让 release-it 漏判版本 / changelog 缺条。
+# 标题不规范(如 "Fix/website xxx")会让 release-it 漏判版本 / changelog 缺条。
 #
 # type 列表跟 package.json#commitlint 的 @commitlint/config-conventional 对齐。
 

@@ -1,37 +1,44 @@
-# Security Policy
+# 安全策略
 
-## 报告漏洞
+## 报告安全漏洞
 
-发现 `@unif/react-native-camera` 的安全问题,请 **不要** 直接开 public issue,请走以下任一渠道私下报告:
+请**不要**在 GitHub Issues 公开报告安全漏洞 —— 公开 issue 在修复前可能被人利用。
 
-1. **GitHub Security Advisory**(首选):仓库 → Security tab → "Report a vulnerability"
-   - 走 GitHub 原生加密通道,可只对 maintainer 可见
-   - 可关联 CVE / 申请 CVE ID
-2. **邮件**:`382724935@qq.com`(主题加 `[SECURITY]` 前缀)
+请通过以下任一**私下**渠道报告:
 
-我们会在 **3 个工作日内** 确认收到,并在 **30 天内** 给出修复计划或不修复理由。
+- **GitHub Security Advisory**(推荐):进对应 repo → Security tab → "Report a vulnerability"
+- **邮件**:382724935@qq.com(主题加 `[security]`)
+
+报告时请尽量包含:
+
+- 受影响的 repo + 版本范围
+- 漏洞类型 + 触发场景
+- 复现步骤(若已有)
+- 可能的影响 + 严重性评估
+
+## 响应时间承诺
+
+| 阶段 | 承诺时间 |
+|---|---|
+| 收到报告 → 维护者确认 | 7 天内 |
+| 确认 → 修复方案 / 时间线公布 | 30 天内 |
+| 高危漏洞修复后 | 按 [CVE 流程](https://www.cve.org/) 申请编号(如适用)+ GitHub Security Advisory 公示 |
 
 ## 支持的版本
 
-只对 `latest` major 提供安全修复。当前为 `2.x`(基于 react-native-vision-camera 5.x)。
+各 repo 默认只对**最新 major 版本**提供安全更新。具体到 npm 包(如 `@unif/react-native-design`):
 
-| 版本 | 支持 |
+| 版本 | 是否支持 |
 |---|---|
-| 2.x | ✅ 持续修复 |
-| 1.x | ❌ 已停止维护(架构基于 vision-camera 4.x,请升级到 2.x) |
+| 当前 minor(0.x.y)| ✅ 完整支持 |
+| 旧 major(如 0.0.x 而当前是 0.2.x)| ⚠️ 仅 critical 漏洞回 patch,非 critical 建议升级 |
 
-## 披露原则
+## 公开披露
 
-- 收到报告 → 内部 triage → 私下复现 → 准备 patch → 同步给报告者验证 → 发布 patch + 公开 advisory
-- 修复后我们会通过 GitHub Release notes + npm 自动 advisory 通知用户
-- 报告者按意愿在 advisory 中署名,我们不强制 disclose 身份
+漏洞修复后,我们会:
 
-## 依赖链漏洞
+- 发新 patch 版本(走 `fix:` commit + 自动发版)
+- 在 GitHub Security Advisory 公开漏洞细节(CVE 编号 / 影响 / 修复版本)
+- 在 CHANGELOG 标注 security-related
 
-本库严重依赖以下第三方包,这些上游漏洞请直接上游报:
-
-- [`react-native-vision-camera`](https://github.com/mrousavy/react-native-vision-camera/security)
-- [`react-native`](https://github.com/facebook/react-native/security)
-- [`react-native-nitro-modules`](https://github.com/mrousavy/nitro/security)
-
-我们会通过 Dependabot 监控这些上游 advisory,并在 patch 可用时及时升级。
+我们不会在修复前公开漏洞信息。
