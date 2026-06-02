@@ -13,25 +13,6 @@ const sidebars: SidebarsConfig = {
         'getting-started/concepts',
       ],
     },
-    {
-      type: 'category',
-      label: '指南',
-      collapsed: false,
-      items: [
-        'guides/taking-photos',
-        'guides/recording-video',
-        'guides/watermark',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'API 参考',
-      collapsed: false,
-      items: ['api/use-camera', 'api/camera-api', 'api/types'],
-    },
-    'testing',
-    'troubleshooting',
-    'migration',
   ],
 };
 
