@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.1](https://github.com/unif-design/react-native-camera/compare/v2.8.0...v2.8.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **camera:** dispose Skia objects + burn watermark per-shot (continuous memory/perf) ([#27](https://github.com/unif-design/react-native-camera/issues/27)) ([7e4e8d4](https://github.com/unif-design/react-native-camera/commit/7e4e8d415854f6339951108e0b89d1fe37da028a))
+
 # [2.8.0](https://github.com/unif-design/react-native-camera/compare/v2.7.0...v2.8.0) (2026-06-01)
 
 
