@@ -1,24 +1,39 @@
-name: Dependabot Auto-Merge
+# 目标路径:.github/workflows/dependabot-auto-merge.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 文件名统一 dependabot-auto-merge.yml(历史上有仓叫 dependabot-automerge.yml,sync 会覆盖为本名)。
+name: Dependabot Auto-merge
 
-# Dependabot PR 自动启用 GitHub auto-merge。
-# 条件:
-#   - PR 由 dependabot[bot] 创建
-#   - 升级类型是 patch 或 minor(major 留给人审)
-# 启用后 GitHub 等满足 branch protection 所有条件(CI 5 个 check 全绿等)
-# 自动 squash merge。major 升级不触发,留给人工审 + commit changelog。
+# 自动批准 + 合并 dependabot 的 patch / minor 类 PR,跳过人审。
+# 仅允许 patch / minor —— major bump 通常含 breaking changes,必须人审。
+#
+# 流程:
+#   1. dependabot 开 PR (push 到 dependabot/<ecosystem>/<dep>-<ver> 分支)
+#   2. 本 workflow 触发,fetch metadata 拿 update-type
+#   3. patch / minor → gh pr review --approve + gh pr merge --auto --squash
+#      ('--auto' 让 GitHub 等 required status checks 全绿后再自动 merge,
+#       配合 ruleset 'required_status_checks: lint/test/build-*' 一起工作)
+#   4. major → 不动,等人审
+#
+# 安全:
+#   - 用 pull_request_target 让 workflow 拿 base branch 上下文,GITHUB_TOKEN
+#     有 write 权限。dependabot PR 来源是仓库自己的 dependabot/* 分支
+#     (非 fork),无 code-injection 风险。
+#   - 双保险 actor == dependabot[bot] 防伪 PR 走这路径。
+#   - 所有外部输入 (PR url) 走 env: 注入,不在 run 命令体里展开 ${{ }}。
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize]
+    types: [opened, synchronize, reopened]
 
 permissions:
-  pull-requests: write
   contents: write
+  pull-requests: write
 
 jobs:
   automerge:
-    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'
+
     steps:
       - name: Fetch Dependabot metadata
         id: meta
@@ -26,11 +41,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for patch / minor
-        if: |
-          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
-          steps.meta.outputs.update-type == 'version-update:semver-minor'
+      - name: Approve PR
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review --approve "$PR_URL"
+
+      - name: Enable auto-merge (squash) for patch / minor
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr merge --auto --squash "$PR_URL"
