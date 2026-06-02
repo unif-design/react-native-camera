@@ -23,6 +23,12 @@ const sidebars: SidebarsConfig = {
         'guides/watermark',
       ],
     },
+    {
+      type: 'category',
+      label: 'API 参考',
+      collapsed: false,
+      items: ['api/use-camera', 'api/camera-api', 'api/types'],
+    },
   ],
 };
 
