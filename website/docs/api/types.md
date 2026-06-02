@@ -19,6 +19,7 @@ import type {
   CameraResult,
   CustomPhotoFile,
   CameraApi,
+  WatermarkType,
 } from '@unif/react-native-camera';
 ```
 
@@ -36,6 +37,17 @@ import type {
 
 ---
 
+## WatermarkType
+
+`OpenConfig.watermark` 的类型——给取景画面和成片烧入文字水印。水印用法见[水印指南](/docs/guides/watermark)。
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+| --- | --- | --- | --- | --- |
+| `content` | `string[]` | ✅ | — | 水印文字，每行一条；数量不限 |
+| `position` | `'top-left' \| 'top-center' \| 'top-right' \| 'bottom-left' \| 'bottom-center' \| 'bottom-right'` | — | `'top-right'` | 水印位置 |
+
+---
+
 ## CameraMode
 
 `OpenConfig.cameraMode` 数组中每一项的类型，描述一种拍摄模式及其初始参数。
@@ -44,7 +56,7 @@ import type {
 | --- | --- | --- | --- |
 | `type` | `'back' \| 'front'` | `back` | 初始前/后摄 |
 | `flashMode` | `'auto' \| 'on' \| 'off'` | — | 初始闪光（保留作兼容；闪光实际由相机内 UI 控制） |
-| `mode` | `'single' \| 'continuous' \| 'video'` | — | 拍摄模式 |
+| `mode` | `'single' \| 'continuous' \| 'video'` | — | 拍摄模式（**必填**） |
 | `quality` | `number` | `0.9` | JPEG 压缩 0~1 |
 | `recTime` | `number` | — | 录制时长上限（秒，video 模式） |
 
