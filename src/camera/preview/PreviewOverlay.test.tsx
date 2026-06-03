@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { PreviewOverlay } from './PreviewOverlay';
 import type { CustomPhotoFile } from '../../utils';
 
@@ -22,6 +22,7 @@ const noop = {
   onSave: () => {},
   onBack: () => {},
   onDelete: () => {},
+  onComplete: () => {},
 };
 
 it('confirm 变体: 重拍/保存 在', () => {
@@ -42,4 +43,18 @@ it('gallery 变体: 返回/删除 在', () => {
   );
   expect(getByTestId('back-btn')).toBeTruthy();
   expect(getByTestId('delete-btn')).toBeTruthy();
+});
+
+it('gallery 完成按钮触发 onComplete', () => {
+  const onComplete = jest.fn();
+  const { getByTestId } = render(
+    <PreviewOverlay
+      files={[f('single', 'a'), f('single', 'b')]}
+      variant="gallery"
+      {...noop}
+      onComplete={onComplete}
+    />
+  );
+  fireEvent.press(getByTestId('complete-btn'));
+  expect(onComplete).toHaveBeenCalledTimes(1);
 });

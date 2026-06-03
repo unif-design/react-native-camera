@@ -10,6 +10,7 @@ type Props = {
   onSave: () => void;
   onBack: () => void;
   onDelete: () => void;
+  onComplete: () => void;
 };
 
 export function PreviewBottomBar({
@@ -20,6 +21,7 @@ export function PreviewBottomBar({
   onSave,
   onBack,
   onDelete,
+  onComplete,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
   return (
@@ -58,6 +60,12 @@ export function PreviewBottomBar({
               label="删除"
               onPress={onDelete}
               testID="delete-btn"
+            />
+            <Button
+              variant="primary"
+              label="完成"
+              onPress={onComplete}
+              testID="complete-btn"
             />
           </>
         )}

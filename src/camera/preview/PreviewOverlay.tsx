@@ -15,6 +15,7 @@ type Props = {
   onSave: () => void;
   onBack: () => void;
   onDelete: (f: CustomPhotoFile) => void;
+  onComplete: () => void;
 };
 
 export function PreviewOverlay({
@@ -24,6 +25,7 @@ export function PreviewOverlay({
   onSave,
   onBack,
   onDelete,
+  onComplete,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
   const types = useMemo(() => distinctTypes(files), [files]);
@@ -83,6 +85,7 @@ export function PreviewOverlay({
         onSave={handleSave}
         onBack={onBack}
         onDelete={handleDelete}
+        onComplete={onComplete}
       />
     </View>
   );

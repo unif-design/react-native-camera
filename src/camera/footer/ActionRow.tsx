@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { Button, r } from '@unif/react-native-design';
+import { r } from '@unif/react-native-design';
 import { Shutter } from './Shutter';
 import { ThumbnailStack } from './ThumbnailStack';
 import { FlipButton } from './FlipButton';
@@ -10,8 +10,6 @@ type Props = {
   latestUri?: string;
   count: number;
   onShutter: () => void;
-  onBack: () => void;
-  onSave: () => void;
   onFlip: () => void;
   onOpenPreview: () => void;
 };
@@ -22,8 +20,6 @@ export function ActionRow({
   latestUri,
   count,
   onShutter,
-  onBack,
-  onSave,
   onFlip,
   onOpenPreview,
 }: Props) {
@@ -38,27 +34,7 @@ export function ActionRow({
       ) : (
         <View style={styles.slot} />
       )}
-      {!recording ? (
-        <Button
-          variant="ghost"
-          label="返回"
-          onPress={onBack}
-          testID="back-btn"
-        />
-      ) : (
-        <View style={styles.slot} />
-      )}
       <Shutter mode={mode} recording={recording} onPress={onShutter} />
-      {!recording ? (
-        <Button
-          variant="primary"
-          label="保存"
-          onPress={onSave}
-          testID="save-btn"
-        />
-      ) : (
-        <View style={styles.slot} />
-      )}
       {!recording ? (
         <FlipButton onFlip={onFlip} />
       ) : (
@@ -74,7 +50,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    paddingHorizontal: r(20),
+    paddingHorizontal: r(28),
   },
   slot: { width: r(44) },
 });

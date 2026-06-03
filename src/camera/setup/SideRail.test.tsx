@@ -35,3 +35,10 @@ it('flash dropdown selects a mode', () => {
   fireEvent.press(getByTestId('flash-opt-on'));
   expect(p.onChangeFlash).toHaveBeenCalledWith('on');
 });
+
+it('展开闪光菜单后渲染尾巴三角', () => {
+  const { getByTestId, queryByTestId } = render(<SideRail {...base} />);
+  expect(queryByTestId('flash-tail')).toBeNull();
+  fireEvent.press(getByTestId('flash-btn'));
+  expect(getByTestId('flash-tail')).toBeTruthy();
+});

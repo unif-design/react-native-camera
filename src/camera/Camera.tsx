@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import {
   Camera as VisionCamera,
@@ -67,12 +67,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const cameraType = device.position === 'front' ? 'front' : 'back';
 
-  const { width: screenW } = useWindowDimensions();
-  // 取景框比例 = 输出照片比例(targetResolution):4:3→竖屏 高/宽=4/3, 16:9→16/9。
-  // 框比例 = 画面比例后,cover 不再裁两侧 → 预览 = 拍照(WYSIWYG)。
-  const frameRatio = (aspectRatio ?? '4:3') === '4:3' ? 4 / 3 : 16 / 9;
-  const frameW = screenW;
-  const frameH = screenW * frameRatio;
+  // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
+  const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
 
   const targetResolution =
     (aspectRatio ?? '4:3') === '4:3'
@@ -262,6 +258,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       <GestureDetector gesture={composed}>
         <Animated.View
           style={{
+            backfaceVisibility: 'hidden',
             transform: [
               { perspective: 1000 },
               {
@@ -273,7 +270,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             ],
           }}
         >
-          <View style={[styles.frame, { width: frameW, height: frameH }]}>
+          <View style={[styles.frame, { aspectRatio: frameAspect }]}>
             <VisionCamera
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
@@ -347,11 +344,11 @@ function GridOverlay() {
 const styles = StyleSheet.create({
   // 全屏黑底,把取景框居中 → 框外区域是黑边(letterbox)。
   root: {
-    ...StyleSheet.absoluteFill,
+    flex: 1,
     backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
   },
   // overflow:hidden 裁掉 cover 溢出部分,框内只显示输出比例的画面。
-  frame: { overflow: 'hidden' },
+  frame: { width: '100%', overflow: 'hidden' },
 });

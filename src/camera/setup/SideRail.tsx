@@ -93,6 +93,7 @@ export function SideRail({
                 </Text>
               </TouchableOpacity>
             ))}
+            <View style={styles.tail} testID="flash-tail" />
           </View>
         )}
       </View>
@@ -131,6 +132,8 @@ const styles = StyleSheet.create({
     paddingVertical: r(10),
     borderRadius: r(26),
     backgroundColor: DARK.black42,
+    borderWidth: 1,
+    borderColor: DARK.white08,
   },
   btn: {
     width: r(40),
@@ -158,4 +161,14 @@ const styles = StyleSheet.create({
   },
   optTxt: { color: DARK.white, fontSize: r(14) },
   optTxtSel: { color: DARK.orange },
+  tail: {
+    position: 'absolute',
+    left: r(-5),
+    top: '50%',
+    width: r(10),
+    height: r(10),
+    marginTop: r(-5),
+    backgroundColor: 'rgba(28,28,30,0.94)',
+    transform: [{ rotate: '45deg' }],
+  },
 });

@@ -43,28 +43,26 @@ const actionBase = {
   latestUri: undefined,
   count: 0,
   onShutter: jest.fn(),
-  onBack: jest.fn(),
-  onSave: jest.fn(),
   onFlip: jest.fn(),
   onOpenPreview: jest.fn(),
 };
 
-it('ActionRow shows back/save/flip/thumb when idle', () => {
-  const { getByTestId } = render(<ActionRow {...actionBase} count={2} />);
-  expect(getByTestId('shutter-btn')).toBeTruthy();
-  expect(getByTestId('back-btn')).toBeTruthy();
-  expect(getByTestId('save-btn')).toBeTruthy();
-  expect(getByTestId('flip-btn')).toBeTruthy();
+it('ActionRow shows thumb/shutter/flip when idle (no back/save)', () => {
+  const { getByTestId, queryByTestId } = render(
+    <ActionRow {...actionBase} count={2} />
+  );
   expect(getByTestId('thumbnail-stack')).toBeTruthy();
+  expect(getByTestId('shutter-btn')).toBeTruthy();
+  expect(getByTestId('flip-btn')).toBeTruthy();
+  expect(queryByTestId('back-btn')).toBeNull();
+  expect(queryByTestId('save-btn')).toBeNull();
 });
 
-it('ActionRow hides back/save/flip/thumb while recording', () => {
+it('ActionRow hides thumb/flip while recording, keeps shutter', () => {
   const { queryByTestId, getByTestId } = render(
     <ActionRow {...actionBase} recording />
   );
   expect(getByTestId('shutter-btn')).toBeTruthy();
-  expect(queryByTestId('back-btn')).toBeNull();
-  expect(queryByTestId('save-btn')).toBeNull();
   expect(queryByTestId('flip-btn')).toBeNull();
   expect(queryByTestId('thumbnail-stack')).toBeNull();
 });
