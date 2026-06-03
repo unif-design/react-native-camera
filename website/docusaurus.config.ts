@@ -2,6 +2,9 @@ import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import pkg from '../package.json';
+// navbar 只显示 major.minor(如 0.5):release-it 发版推的 chore: release [skip ci] commit
+// 不触发文档部署,显示精确 patch 版会滞后;major.minor 下 bug-fix patch 不改版本号。
+const navbarVersion = pkg.version.split('.').slice(0, 2).join('.');
 
 const config: Config = {
   title: 'Unif Camera',
@@ -85,7 +88,7 @@ const config: Config = {
         {
           type: 'html',
           position: 'right',
-          value: `<span class="navbar-version">v${pkg.version}</span>`,
+          value: `<span class="navbar-version">v${navbarVersion}</span>`,
         },
       ],
     },
