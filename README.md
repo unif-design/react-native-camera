@@ -1,42 +1,82 @@
 # @unif/react-native-camera
 
+> 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 的**弹窗式相机**库:`await api.open()` 弹出全屏相机,拍完 resolve 结果。
+
 [![npm](https://img.shields.io/npm/v/@unif/react-native-camera.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@unif/react-native-camera)
 [![CI](https://github.com/unif-design/react-native-camera/actions/workflows/ci.yml/badge.svg)](https://github.com/unif-design/react-native-camera/actions/workflows/ci.yml)
 [![License](https://img.shields.io/npm/l/@unif/react-native-camera.svg?color=blue)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-unif--design.github.io-orange.svg)](https://unif-design.github.io/react-native-camera/)
 
-基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 的 React Native 模态相机库：单拍 / 连拍 / 视频录制 / 捏合变焦 / 镜头切换 / 点击对焦 / 水印。
+## 特性
 
-> 📖 **完整文档**（安装 · 原生配置 · API · 水印 · 故障排查 · 升级）：
-> **https://unif-design.github.io/react-native-camera/**
+- **单拍 / 连拍 / 视频录制** — 一个 `useCamera()` Hook 统一编排
+- **弹窗式交互** — `await api.open(config)`,拍完 / 取消后 Promise resolve `CameraResult`
+- **手势** — 双指变焦、点击对焦、前后摄翻转
+- **Skia 水印** — 拍照后将文字水印离屏烧入成片(仅照片,录像无水印)
+- **公开面极简** — 唯一入口 `useCamera()`,不直接暴露 vision-camera 的 `<Camera>`
 
 ## 安装
+
+以下同伴包**全部必装,缺一即崩**(以 `package.json` 的 `peerDependencies` 为准):
 
 ```sh
 yarn add @unif/react-native-camera \
   react-native-vision-camera react-native-vision-camera-worklets \
   react-native-nitro-modules react-native-nitro-image \
+  @shopify/react-native-skia @dr.pogodin/react-native-fs react-native-video \
   react-native-reanimated react-native-worklets react-native-reanimated-carousel \
-  react-native-video @shopify/react-native-skia @dr.pogodin/react-native-fs \
-  react-native-gesture-handler react-native-safe-area-context
+  react-native-gesture-handler react-native-safe-area-context react-native-svg \
+  @gorhom/bottom-sheet @sbaiahmed1/react-native-blur @unif/react-native-design
 ```
 
-iOS 再 `cd ios && pod install`。权限配置、各 peer 作用、为何 `react-native-vision-camera-worklets` 必装 —— 见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。
+> ⚠️ **文件系统用 fork**:本库依赖 `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`,装错会冲突。
+> ⚠️ **worklets 必装**:vision-camera 5.x 内部 `require` 了 `react-native-vision-camera-worklets`,缺它 Metro 报 `Unable to resolve module react-native-vision-camera-worklets`。
 
-## 用法
+iOS 升级原生依赖后须重新 `cd ios && bundle exec pod install`。权限键(iOS Info.plist / Android Manifest)、为何各 peer 必装、`<ConfirmHost/>` + `<ToastHost/>` 挂载 —— 见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。
+
+## 快速开始
 
 ```tsx
-import { useCamera } from '@unif/react-native-camera';
+import { useCamera, type CameraResult } from '@unif/react-native-camera';
 
-const [api, holder] = useCamera();      // holder 渲进 React 树
-const res = await api.open({
-  cameraMode: [{ mode: 'single', quality: 0.9 }, { mode: 'continuous' }],
-  dataRetainedMode: 'clear',
-});
-// res.code: 200 成功 / 0 取消 / 403 无权限 / 404 无设备 / 500 拍照失败 / 503 录像失败
+function PhotoScreen() {
+  const [api, holder] = useCamera(); // holder 必须渲染进树
+
+  const onShoot = async () => {
+    const res: CameraResult = await api.open({
+      cameraMode: [{ mode: 'single', quality: 0.9 }],
+      dataRetainedMode: 'clear',
+    });
+    if (res.code === 200) {
+      // 成功:res.data 为 CustomPhotoFile[],每项含 .uri / .path / .width / .height / .mime
+    }
+    // 0 取消 / 403 无权限 / 404 无设备 / 500 拍摄失败 / 503 录像失败
+  };
+
+  return (
+    <View>
+      <Button title="拍照" onPress={onShoot} />
+      {holder}{/* ← 缺 holder 相机不弹 */}
+    </View>
+  );
+}
 ```
 
-API · 类型 · 水印 · 测试 mock · 从 v1 升级 —— 见[文档站](https://unif-design.github.io/react-native-camera/)。
+> 相机 + 水印需真机(摄像头硬件 + Skia GPU);模拟器 / web 跑不起来,属预期行为。
+
+## 文档
+
+- 完整文档(安装 · 原生配置 · API · 水印 · 测试 · 故障排查 · 升级):**https://unif-design.github.io/react-native-camera/**
+- 喂给 AI 的纯 Markdown:[llms.txt](https://unif-design.github.io/react-native-camera/llms.txt) · [llms-full.txt](https://unif-design.github.io/react-native-camera/llms-full.txt)
+- Claude Code / Cursor 等接入:Agent Skill **`using-unif-camera`**(`unif-react-native` 插件)
+
+## 兼容性
+
+| 项 | 要求 |
+| --- | --- |
+| React Native | **0.85+**(仅新架构 Fabric + Nitro;旧架构不支持) |
+| React | 19+ |
+| iOS / Android | iOS 14+ / Android API 24+ |
 
 ## 许可
 
