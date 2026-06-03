@@ -6445,7 +6445,7 @@ __metadata:
     "@react-native/typescript-config": "npm:0.85.0"
     "@sbaiahmed1/react-native-blur": "npm:^4.6.2"
     "@types/react": "npm:^19.2.0"
-    "@unif/react-native-design": "npm:^0.4.0"
+    "@unif/react-native-design": "npm:0.5.1"
     react: "npm:19.2.3"
     react-native: "npm:0.85.0"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6475,7 +6475,7 @@ __metadata:
     "@docusaurus/types": "npm:^3.10.1"
     "@mdx-js/react": "npm:^3.0.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:^0.5.0"
+    "@unif/react-native-design": "npm:0.5.1"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:^19.2.0"
@@ -6513,7 +6513,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:^0.4.0"
+    "@unif/react-native-design": "npm:0.5.1"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^9.39.4"
@@ -6565,9 +6565,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:^0.4.0":
-  version: 0.4.35
-  resolution: "@unif/react-native-design@npm:0.4.35"
+"@unif/react-native-design@npm:0.5.1":
+  version: 0.5.1
+  resolution: "@unif/react-native-design@npm:0.5.1"
   peerDependencies:
     "@gorhom/bottom-sheet": ">=5"
     "@sbaiahmed1/react-native-blur": ">=4"
@@ -6579,25 +6579,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.9"
-  checksum: 10c0/d6fb6d8cfe6072c752df29853ad83af5f9729a70ccd254466b925ab5b048cfeee0dc33d484f0712309675ffcd5501004d52d2593d8d16167cae190bc27284a6e
-  languageName: node
-  linkType: hard
-
-"@unif/react-native-design@npm:^0.5.0":
-  version: 0.5.0
-  resolution: "@unif/react-native-design@npm:0.5.0"
-  peerDependencies:
-    "@gorhom/bottom-sheet": ">=5"
-    "@sbaiahmed1/react-native-blur": ">=4"
-    react: "*"
-    react-native: "*"
-    react-native-gesture-handler: ">=2"
-    react-native-reanimated: ">=4"
-    react-native-reanimated-carousel: ">=5.0.0-beta.0"
-    react-native-safe-area-context: ">=5"
-    react-native-svg: ">=15"
-    react-native-worklets: ">=0.9"
-  checksum: 10c0/7882a35646c04efeb781aab10b1bb323570e0186377ab16356aae4a78af1fab477892132dcdf507119d2dc8b4576b82cb6f64171f26f3d819a93ebb5ee6767af
+  checksum: 10c0/80e5ffe7530ac92d7a8c437f5a472e3c3afef236ff9a3c6cbd02011bb21988c18c2fca6d8d59d803393f05f4460b85fa87ddc51e4cebf15b93a247ab3f146ea7
   languageName: node
   linkType: hard
 
