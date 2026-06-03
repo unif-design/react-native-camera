@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: 安装
-description: 安装 @unif/react-native-camera 及全部必装 peerDependencies（含 @dr.pogodin/react-native-fs fork 与 vision-camera-worklets），配置 iOS / Android 权限键，运行 pod install。
+description: "安装 @unif/react-native-camera 及全部必装 peerDependencies（含 @dr.pogodin/react-native-fs fork 与 vision-camera-worklets），配置 iOS / Android 权限键，运行 pod install。"
 ---
 
 # 安装

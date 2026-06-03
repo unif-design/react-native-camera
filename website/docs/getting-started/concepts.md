@@ -79,7 +79,7 @@ Promise.resolve(CameraResult)
 
 - **挂起调用方** —— `await api.open(...)` 会等整个流程(确认或取消)完成才继续。
 - **取消也 resolve** —— 用户取消时 `code` 为 `0`,**不会 reject**。
-- **水印在确认后异步处理** —— 若传 `watermark`,相机在确认后串行烧入水印再 resolve(期间 footer 提示「正在生成水印图片…」)。Promise resolve 时水印已烧入成片。
+- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间 footer 提示「正在生成水印图片…」)。Promise resolve 时水印已烧入成片。
 
 ### `config`:`cameraMode` 与 `dataRetainedMode`
 

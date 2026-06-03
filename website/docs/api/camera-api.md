@@ -114,7 +114,7 @@ useEffect(() => {
 
 ### `watermark` {#watermark-behavior}
 
-传入则**取景画面实时显示水印戳记**（WYSIWYG），**保存时把水印离屏烧入成片**。仅对照片（`image/jpeg`）生效，录像无水印。详见 [水印指南](/docs/guides/watermark)。
+传入则**取景画面实时显示水印戳记**（WYSIWYG），**每次快门后逐张烧入**（保存时返回的已是烧好的成片）。仅对照片（`image/jpeg`）生效，录像无水印。详见 [水印指南](/docs/guides/watermark)。
 
 ---
 
