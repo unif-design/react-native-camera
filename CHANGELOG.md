@@ -1,5 +1,20 @@
 # Changelog
 
+# [2.9.0](https://github.com/unif-design/react-native-camera/compare/v2.8.3...v2.9.0) (2026-06-03)
+
+
+### Bug Fixes
+
+* **website:** build-llms review 加固 + 建 CLAUDE.md [@import](https://github.com/import) AGENTS.md ([#37](https://github.com/unif-design/react-native-camera/issues/37)) ([ea73de2](https://github.com/unif-design/react-native-camera/commit/ea73de2f49690ae8ae27f5c9ad56a6f9d50f82a2))
+* **website:** build-llms 升 path.resolve 路径遍历加固 ([#36](https://github.com/unif-design/react-native-camera/issues/36)) ([dc48aed](https://github.com/unif-design/react-native-camera/commit/dc48aed0b4ce72257c1ef7cf1e84c2381e51376d))
+
+
+### Features
+
+* **camera:** UI 对齐设计原型 + 弹性布局重构 + 修两个 bug ([#43](https://github.com/unif-design/react-native-camera/issues/43)) ([69c3496](https://github.com/unif-design/react-native-camera/commit/69c349663b8bed2513b6dbf3772078f15f2c348a))
+* **website:** camera 站首页重构(代码+取景器 hero) ([#39](https://github.com/unif-design/react-native-camera/issues/39)) ([b17ad33](https://github.com/unif-design/react-native-camera/commit/b17ad33cd91b78614494c82e2847e3bda909b963))
+* **website:** llms.txt 标准化(复制 design build-llms) ([#34](https://github.com/unif-design/react-native-camera/issues/34)) ([5618f30](https://github.com/unif-design/react-native-camera/commit/5618f30c01b17fc52252504b834325d54e5858df))
+
 ## [2.8.3](https://github.com/unif-design/react-native-camera/compare/v2.8.2...v2.8.3) (2026-06-02)
 
 ## [2.8.2](https://github.com/unif-design/react-native-camera/compare/v2.8.1...v2.8.2) (2026-06-02)
