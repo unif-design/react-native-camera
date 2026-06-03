@@ -6,12 +6,13 @@ import {
 } from 'react-native-vision-camera';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { r } from '@unif/react-native-design';
+import { confirm, r } from '@unif/react-native-design';
 import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
+import { TopBar } from './TopBar';
 import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
@@ -158,19 +159,58 @@ export function Container({ config, onSettle }: Props) {
     }
   };
 
+  const flippingRef = useRef(false);
   const onFlip = () => {
-    setPosition((p) => (p === 'back' ? 'front' : 'back'));
+    if (flippingRef.current) return;
+    flippingRef.current = true;
     setFlipNonce((n) => n + 1);
+    setTimeout(() => {
+      setPosition((p) => (p === 'back' ? 'front' : 'back'));
+    }, 180);
+    setTimeout(() => {
+      flippingRef.current = false;
+    }, 380);
   };
 
-  const onSelectMode = (i: number) => {
-    if (config.dataRetainedMode === 'clear' && i !== modeIndex) setPhotos([]);
+  // 设备切换(翻转前/后摄)后,把当前 zoom clamp 回新设备的 min/max 范围。
+  // 有意只依赖 device:仅在设备切换时 clamp,不随 zoom 变化重跑。
+  useEffect(() => {
+    if (device == null) return;
+    const z = Math.min(Math.max(zoom, device.minZoom), device.maxZoom);
+    if (z !== zoom) {
+      setZoom(z);
+      zoomShared.value = z;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device]);
+
+  const onSelectMode = async (i: number) => {
+    if (i === modeIndex) return;
+    if (config.dataRetainedMode === 'clear' && photos.length > 0) {
+      const ok = await confirm({
+        title: '切换拍摄模式',
+        message: '切换将清空已拍摄的照片,是否继续?',
+      });
+      if (!ok) return;
+      setPhotos([]);
+    }
     setModeIndex(i);
   };
 
   // 照片在快门后已逐张烧好,保存直接返回。
   const handleSave = () => {
     settle({ code: 200, data: photos, message: 'ok' });
+  };
+
+  const handleCancel = async () => {
+    if (photos.length > 0) {
+      const ok = await confirm({
+        title: '放弃拍摄',
+        message: `放弃已拍 ${photos.length} 张?`,
+      });
+      if (!ok) return;
+    }
+    settle({ code: 0, data: [], message: 'cancelled' });
   };
 
   if (state === 'denied') {
@@ -202,6 +242,7 @@ export function Container({ config, onSettle }: Props) {
           setPreviewing(false);
         }}
         onSave={handleSave}
+        onComplete={handleSave}
         onBack={() => setPreviewing(false)}
         onDelete={(f) => {
           const next = photos.filter((x) => x !== f);
@@ -238,52 +279,62 @@ export function Container({ config, onSettle }: Props) {
 
   return (
     <View style={styles.root} testID="device-ready">
-      <Camera
-        ref={cameraRef}
-        device={device}
-        currentMode={currentMode}
-        flash={flash}
-        aspectRatio={aspectRatio}
-        zoomShared={zoomShared}
-        sound={sound}
-        grid={grid}
-        flipNonce={flipNonce}
-      />
+      <TopBar onCancel={handleCancel} />
 
-      {!recording && config.watermark && (
-        <WatermarkStamp watermark={config.watermark} />
-      )}
+      <View style={styles.viewport}>
+        <Camera
+          ref={cameraRef}
+          device={device}
+          currentMode={currentMode}
+          flash={flash}
+          aspectRatio={aspectRatio}
+          zoomShared={zoomShared}
+          sound={sound}
+          grid={grid}
+          flipNonce={flipNonce}
+        />
 
-      {!recording && (
-        <View style={[styles.sideRail, { bottom: insets.bottom + r(172) }]}>
-          <SideRail
-            flash={flash}
-            aspectRatio={aspectRatio}
-            sound={sound}
-            grid={grid}
-            onChangeFlash={setFlash}
-            onChangeAspectRatio={setAspectRatio}
-            onToggleSound={() => setSound((v) => !v)}
-            onToggleGrid={() => setGrid((v) => !v)}
-          />
-        </View>
-      )}
-      {!recording && (
-        <View style={[styles.zoomChips, { bottom: insets.bottom + r(184) }]}>
-          <ZoomChips
-            zoom={zoom}
-            onSelect={(z) => {
-              // clamp 到设备变焦范围:无超广角设备 minZoom===1,点 0.5x 不应越界
-              const clamped = Math.min(
-                Math.max(z, device.minZoom),
-                device.maxZoom
-              );
-              setZoom(clamped);
-              zoomShared.value = clamped;
-            }}
-          />
-        </View>
-      )}
+        {!recording && config.watermark && (
+          <View style={styles.watermark} pointerEvents="none">
+            <WatermarkStamp watermark={config.watermark} />
+          </View>
+        )}
+
+        {!recording && (
+          <View style={styles.sideRail}>
+            <SideRail
+              flash={flash}
+              aspectRatio={aspectRatio}
+              sound={sound}
+              grid={grid}
+              onChangeFlash={setFlash}
+              onChangeAspectRatio={setAspectRatio}
+              onToggleSound={() => setSound((v) => !v)}
+              onToggleGrid={() => setGrid((v) => !v)}
+            />
+          </View>
+        )}
+
+        {!recording && (
+          <View style={styles.zoomChips}>
+            <ZoomChips
+              zoom={zoom}
+              minZoom={device.minZoom}
+              maxZoom={device.maxZoom}
+              onSelect={(z) => {
+                const clamped = Math.min(
+                  Math.max(z, device.minZoom),
+                  device.maxZoom
+                );
+                setZoom(clamped);
+                zoomShared.value = clamped;
+              }}
+            />
+          </View>
+        )}
+
+        <CaptureFlash trigger={flashNonce} />
+      </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}>
         {burning ? (
@@ -312,8 +363,6 @@ export function Container({ config, onSettle }: Props) {
               latestUri={photos.at(-1)?.uri}
               count={photos.length}
               onShutter={onShutter}
-              onBack={() => settle({ code: 0, data: [], message: 'cancelled' })}
-              onSave={handleSave}
               onFlip={onFlip}
               onOpenPreview={() => {
                 if (photos.length > 0) {
@@ -325,38 +374,31 @@ export function Container({ config, onSettle }: Props) {
           </>
         )}
       </View>
-
-      <CaptureFlash trigger={flashNonce} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // 相机主容器固定黑底:相机 UX 惯例(预览 / 拍照取景需要黑底凸显),
-  // 不走 c.background token。
-  root: {
-    flex: 1,
-    backgroundColor: DARK.black,
-    justifyContent: 'center',
-    alignItems: 'center',
+  // 相机主容器固定黑底:相机 UX 惯例,不走 c.background token。
+  root: { flex: 1, backgroundColor: DARK.black },
+  viewport: { flex: 1, position: 'relative', justifyContent: 'center' },
+  watermark: {
+    position: 'absolute',
+    right: r(6),
+    top: r(12),
+    maxWidth: r(230),
+    zIndex: 7,
   },
-  sideRail: { position: 'absolute', left: r(12), zIndex: 9 },
+  sideRail: { position: 'absolute', left: r(12), bottom: r(24), zIndex: 9 },
   zoomChips: {
     position: 'absolute',
     left: 0,
     right: 0,
+    bottom: r(16),
     alignItems: 'center',
     zIndex: 7,
   },
-  bottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: r(14),
-    zIndex: 8,
-    gap: r(16),
-  },
+  bottom: { paddingTop: r(14), gap: r(16) },
   center: { alignItems: 'center' },
   burningFooter: {
     alignItems: 'center',
