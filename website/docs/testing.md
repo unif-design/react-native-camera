@@ -1,12 +1,18 @@
 ---
 sidebar_position: 5
-title: 测试(Mock)
-description: "在 Jest 测试环境中 mock @unif/react-native-camera，避免加载 native 模块。"
+title: 测试（Mock）
+description: "在 Jest 中用官方 mock 替换 @unif/react-native-camera：useCamera() 返回 [api, null]，api.open 默认 resolve { code: 0 }，工具函数与类型保留真实实现。"
 ---
 
-# 测试(Mock)
+# 测试（Mock）
 
-本库依赖 `react-native-vision-camera` 等 native 模块，jest 环境无法直接加载。消费者在测试里 mock 本库：
+本库依赖 `react-native-vision-camera` 等原生模块,Jest 环境加载不到会崩溃。官方提供整包 mock,在测试里替换本库即可。
+
+---
+
+## 启用 mock
+
+在 Jest setup 或单个测试文件里整包替换:
 
 ```js
 jest.mock('@unif/react-native-camera', () =>
@@ -14,11 +20,18 @@ jest.mock('@unif/react-native-camera', () =>
 );
 ```
 
-mock 后 `useCamera()` 返回 `[api, null]`，`api.open` / `api.close` 是 `jest.fn`，`open` 默认 resolve `{ code: 0, data: [], message: 'cancelled' }`。
+替换后:
 
-## 覆盖单次返回
+- `useCamera()` 返回 `[api, null]`(holder 为 `null`,无需渲染)。
+- `api.open` / `api.close` 是 `jest.fn`。
+- `api.open` **默认 resolve `{ code: 0, data: [], message: 'cancelled' }`**(模拟用户取消)。
+- **工具函数(`toFileUri` / `buildPhotoFile` 等)与所有类型保留真实实现** —— 它们不碰原生,跑真实逻辑比 mock 更有意义,无需额外 stub。
 
-按需用 `mockResolvedValueOnce` 覆盖 `open` 的返回值：
+---
+
+## 覆盖单次返回(成功用例)
+
+默认是取消(`code: 0`)。要测拍照成功,用 `mockResolvedValueOnce` 覆盖一次返回:
 
 ```ts
 const [api] = useCamera();
@@ -41,9 +54,7 @@ const [api] = useCamera();
 });
 ```
 
-## 工具函数与类型
-
-工具函数（`toFileUri` / `buildPhotoFile` 等）与所有类型在 mock 中保留真实实现，无需额外 stub。
+---
 
 ## 完整示例
 
@@ -58,8 +69,8 @@ describe('拍照流程', () => {
   it('用户取消时 code 为 0', async () => {
     const [api] = useCamera();
     // open 默认 resolve { code: 0, data: [], message: 'cancelled' }
-    const result = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
-    expect(result.code).toBe(0);
+    const res = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
+    expect(res.code).toBe(0);
   });
 
   it('拍照成功时返回文件列表', async () => {
@@ -81,9 +92,16 @@ describe('拍照流程', () => {
       ],
       message: 'ok',
     });
-    const result = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
-    expect(result.code).toBe(200);
-    expect(result.data).toHaveLength(1);
+    const res = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
+    expect(res.code).toBe(200);
+    expect(res.data).toHaveLength(1);
   });
 });
 ```
+
+---
+
+## 下一步
+
+- [核心概念 → result code](/docs/getting-started/concepts) —— `CameraResult.code` 各值含义
+- [常见问题](/docs/troubleshooting) —— 真机 / 模拟器限制与排障
