@@ -17,7 +17,7 @@
 
 ## 安装
 
-以下同伴包**全部必装,缺一即崩**(以 `package.json` 的 `peerDependencies` 为准):
+本库的原生能力全部来自同伴包,运行时实际用到的 peers 如下,**缺一即崩**:
 
 ```sh
 yarn add @unif/react-native-camera \
@@ -28,6 +28,8 @@ yarn add @unif/react-native-camera \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
   @gorhom/bottom-sheet @sbaiahmed1/react-native-blur @unif/react-native-design
 ```
+
+> `package.json` 的 `peerDependencies` 另声明了 `react-native-webview`(历史保留,`src` 未直接引用),并含 `react` / `react-native` 本身。**完整、权威的清单以 `package.json` 的 `peerDependencies` 为准。**
 
 > ⚠️ **文件系统用 fork**:本库依赖 `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`,装错会冲突。
 > ⚠️ **worklets 必装**:vision-camera 5.x 内部 `require` 了 `react-native-vision-camera-worklets`,缺它 Metro 报 `Unable to resolve module react-native-vision-camera-worklets`。
