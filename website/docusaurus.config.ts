@@ -85,6 +85,7 @@ const config: Config = {
           position: 'left',
           label: '文档',
         },
+        { type: 'doc', docId: 'skills', position: 'left', label: 'Skills' },
         {
           type: 'html',
           position: 'right',
