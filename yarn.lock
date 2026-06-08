@@ -6477,7 +6477,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:0.7.0"
+    "@unif/react-native-design": "npm:0.8.0"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^9.39.4"
@@ -6510,7 +6510,7 @@ __metadata:
     "@dr.pogodin/react-native-fs": ">=2"
     "@sbaiahmed1/react-native-blur": ">=4"
     "@shopify/react-native-skia": ">=2"
-    "@unif/react-native-design": ">=0.7.0"
+    "@unif/react-native-design": ">=0.8.0"
     react: ">=19.0.0"
     react-native: ">=0.85.0"
     react-native-gesture-handler: ">=2.21.0"
@@ -6560,6 +6560,23 @@ __metadata:
     react-native-svg: ">=15"
     react-native-worklets: ">=0.9"
   checksum: 10c0/a5e51f75e8dd62133cafcfcf9d23b71d7ecea50f88c41ba00a405bf65a2fc3c1369dc374e6f54056ce7ecb3d9984f061a32c303a4d4ef050b1857ca3ec2df5f5
+  languageName: node
+  linkType: hard
+
+"@unif/react-native-design@npm:0.8.0":
+  version: 0.8.0
+  resolution: "@unif/react-native-design@npm:0.8.0"
+  peerDependencies:
+    "@sbaiahmed1/react-native-blur": ">=4"
+    react: "*"
+    react-native: "*"
+    react-native-gesture-handler: ">=2"
+    react-native-reanimated: ">=4"
+    react-native-reanimated-carousel: ">=5.0.0-beta.0"
+    react-native-safe-area-context: ">=5"
+    react-native-svg: ">=15"
+    react-native-worklets: ">=0.9"
+  checksum: 10c0/f37b726a0e1c1e9b4e2d1788aee1994fdbd2fefc22b47d082ffafb663166d0fa8838ef2634791f465b795177648b2f9c0bd543522ce8df3a34964be28c2a98cc
   languageName: node
   linkType: hard
 

@@ -19,7 +19,7 @@ export function SideActions({ canSave, onBack, onSave }: Props) {
         style={styles.btn}
         onPress={onBack}
       >
-        <Icon name="arrow-left" size={r(20)} color={DARK.white95} />
+        <Icon name="undo" size={r(20)} color={DARK.white95} />
       </TouchableOpacity>
       {canSave && (
         <TouchableOpacity
