@@ -23,6 +23,19 @@ it('toggles aspect / sound', () => {
   expect(p.onToggleSound).toHaveBeenCalled();
 });
 
+it('aspect button shows current ratio as text and toggles', () => {
+  const p = { ...base, onChangeAspectRatio: jest.fn() };
+  const { getByTestId, getByText, rerender } = render(
+    <SideRail {...p} aspectRatio="4:3" />
+  );
+  expect(getByText('4:3')).toBeTruthy();
+  fireEvent.press(getByTestId('aspect-btn'));
+  expect(p.onChangeAspectRatio).toHaveBeenCalledWith('16:9');
+
+  rerender(<SideRail {...p} aspectRatio="16:9" />);
+  expect(getByText('16:9')).toBeTruthy();
+});
+
 it('flash dropdown selects a mode', () => {
   const p = { ...base, onChangeFlash: jest.fn() };
   const { getByTestId } = render(<SideRail {...p} />);

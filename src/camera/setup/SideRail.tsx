@@ -46,11 +46,7 @@ export function SideRail({
           onChangeAspectRatio(aspectRatio === '4:3' ? '16:9' : '4:3')
         }
       >
-        <Icon
-          name={aspectRatio === '4:3' ? 'aspect-4-3' : 'aspect-16-9'}
-          size={r(20)}
-          color={DARK.white95}
-        />
+        <Text style={styles.aspectTxt}>{aspectRatio}</Text>
       </TouchableOpacity>
 
       <View>
@@ -127,6 +123,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnActive: { backgroundColor: DARK.orange95 },
+  aspectTxt: { color: DARK.white95, fontSize: r(13), fontWeight: '600' },
   dropdown: {
     position: 'absolute',
     left: r(52),
