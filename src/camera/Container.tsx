@@ -28,9 +28,11 @@ import { RecordingTimer } from './footer/RecordingTimer';
 import { WatermarkStamp, burnWatermark } from './watermark';
 import { VIEWFINDER } from './colors/viewfinder';
 
-// 控件浮层需让出底部 footer:footer 高度 ≈ 内容(快门 r(72) + 模式行)+ 安全区。
-// 这里取一个基线常量,zoomChips 紧贴其上、sideRail 再高一档;真机按需微调(改一处联动两者)。
-const FOOTER_CLEARANCE = r(120);
+// 控件浮层需让出底部 footer。footer 高度由内容(快门/模式行)+ 安全区决定、随语言/机型变,
+// 故用 onLayout 实测(见 footerHeight);此处只留估值,兜底 onLayout 测得前的首帧防跳动。
+const FOOTER_FALLBACK = r(120);
+// 浮层底与 footer 顶的间隔:zoomChips 离 footer 顶 CONTROL_GAP,sideRail 再高一档(+r(30))。
+const CONTROL_GAP = r(12);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
@@ -132,6 +134,8 @@ export function Container({ config, onSettle }: Props) {
   const [recSeconds, setRecSeconds] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [burning, setBurning] = useState(false);
+  // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
+  const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
   const zoomShared = useSharedValue(1);
 
   useEffect(() => {
@@ -320,7 +324,12 @@ export function Container({ config, onSettle }: Props) {
       )}
 
       {!recording && (
-        <View style={styles.sideRail}>
+        <View
+          style={[
+            styles.sideRail,
+            { bottom: footerHeight + CONTROL_GAP + r(30) },
+          ]}
+        >
           <SideRail
             flash={flash}
             aspectRatio={aspectRatio}
@@ -338,7 +347,9 @@ export function Container({ config, onSettle }: Props) {
       )}
 
       {!recording && (
-        <View style={styles.zoomChips}>
+        <View
+          style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
+        >
           <ZoomChips
             zoom={zoom}
             minZoom={device.minZoom}
@@ -357,7 +368,10 @@ export function Container({ config, onSettle }: Props) {
 
       <CaptureFlash trigger={flashNonce} />
 
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}>
+      <View
+        style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+      >
         {burning ? (
           <View style={styles.burningFooter} testID="burning">
             <Loading />
@@ -411,12 +425,10 @@ const makeStyles = (c: ColorTokens) =>
       maxWidth: r(230),
       zIndex: Z.overlay,
     },
-    // 控件浮层 bottom 以整屏底为参照,需让出 footer:zoomChips 紧贴 FOOTER_CLEARANCE,
-    // sideRail 再高一档(+r(30));两者由同一基线联动,改 FOOTER_CLEARANCE 即可。
+    // 控件浮层的 bottom 由 footerHeight 实测内联设置(见 JSX),这里只放与底无关的样式。
     sideRail: {
       position: 'absolute',
       left: r(12),
-      bottom: FOOTER_CLEARANCE + r(30),
       gap: r(10),
       zIndex: Z.sideRail,
     },
@@ -424,11 +436,10 @@ const makeStyles = (c: ColorTokens) =>
       position: 'absolute',
       left: 0,
       right: 0,
-      bottom: FOOTER_CLEARANCE,
       alignItems: 'center',
       zIndex: Z.overlay,
     },
-    // footer 浮在取景之上:半透明黑保护底让控件可读,zIndex 最高保证可点。
+    // footer 浮在取景之上:design scrim token 作半透明遮罩让控件可读,zIndex 最高保证可点。
     bottom: {
       position: 'absolute',
       left: 0,
@@ -436,7 +447,7 @@ const makeStyles = (c: ColorTokens) =>
       bottom: 0,
       paddingTop: r(14),
       gap: r(16),
-      backgroundColor: VIEWFINDER.glassPillStrong,
+      backgroundColor: c.scrim,
       zIndex: Z.footer,
     },
     center: { alignItems: 'center' },
