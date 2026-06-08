@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.11.0](https://github.com/unif-design/react-native-camera/compare/v2.10.1...v2.11.0) (2026-06-08)
+
+
+### Features
+
+* **camera:** UX 对齐(ultra-wide/aspect/去网格)+ 下方返回改 undo ([#54](https://github.com/unif-design/react-native-camera/issues/54)) ([7e32e61](https://github.com/unif-design/react-native-camera/commit/7e32e61876dc43f83eefd52f3ee2a925a01f1b02))
+
 ## [2.10.1](https://github.com/unif-design/react-native-camera/compare/v2.10.0...v2.10.1) (2026-06-08)
 
 # [2.10.0](https://github.com/unif-design/react-native-camera/compare/v2.9.0...v2.10.0) (2026-06-08)
