@@ -99,6 +99,17 @@ describe('CameraDialogHost', () => {
     expect(queryByTestId('camera-confirm')).toBeNull();
   });
 
+  it('点背景遮罩 resolve(false) 并关闭弹窗', async () => {
+    const onResult = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      wrap(<ConfirmTrigger onResult={onResult} />)
+    );
+    fireEvent.press(getByTestId('trigger-confirm'));
+    fireEvent.press(getByTestId('camera-confirm-backdrop'));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(false));
+    expect(queryByTestId('camera-confirm')).toBeNull();
+  });
+
   it('toast 渲染文案', () => {
     const { getByTestId, getByText } = render(
       wrap(<ToastTrigger msg="已保存" />)

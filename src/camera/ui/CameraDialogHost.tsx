@@ -50,6 +50,8 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Single-flight:调用方都是 await 串行使用。若并发调用,后一个 setEntry 会
+  // 覆盖前一个,前一个的 Promise 永不 resolve(当前用法不会发生此情况)。
   const confirm = useCallback(
     (o: ConfirmOpts) =>
       new Promise<boolean>((resolve) => setEntry({ ...o, resolve })),
@@ -69,10 +71,13 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const close = (b: boolean) => {
-    entry?.resolve(b);
-    setEntry(null);
-  };
+  const close = useCallback(
+    (b: boolean) => {
+      entry?.resolve(b);
+      setEntry(null);
+    },
+    [entry]
+  );
 
   return (
     <DialogCtx.Provider value={{ confirm, toast }}>
@@ -84,6 +89,7 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
             onPress={() => close(false)}
             accessibilityRole="button"
             accessibilityLabel="关闭"
+            testID="camera-confirm-backdrop"
           />
           <View style={[styles.sheet, { backgroundColor: c.surface }]}>
             <Text style={[styles.title, { color: c.foreground }]}>
