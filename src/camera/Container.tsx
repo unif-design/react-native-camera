@@ -99,8 +99,12 @@ export function Container({ config, onSettle }: Props) {
   // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
   // 运行时翻转(S7):position state + flipNonce 触发 rotateY 动画。
   // 5.x：physicalDevices 字符串不带 -camera。请求 ultra-wide-angle + wide-angle
-  // 换取 0.5x 超广角档(device.minZoom≤0.5 → ZoomChips 自动显示 0.5);
-  // 历史上单 'wide-angle' 是为规避 iOS #3773,启用超广角后需真机验证不复现。
+  // 换取 0.5x 超广角档(device.minZoom≤0.5 → ZoomChips 自动显示 0.5)。
+  // physicalDevices 是 best-match 排序、非硬过滤(vision-camera 文档:「filter
+  // never excludes cameras」):不支持超广角的机型会自动 fallback 到 wide-angle
+  // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null;真正的
+  // device==null 仅「该方向无相机」时出现,已由下方 NoCamera(code 404)兜底,不崩。
+  // 历史上单 'wide-angle' 为规避 iOS #3773,启用超广角后需真机验证不复现。
   const initialPosition = config.cameraMode[0]?.type ?? 'back';
   const [position, setPosition] = useState<'back' | 'front'>(initialPosition);
   const [flipNonce, setFlipNonce] = useState(0);
