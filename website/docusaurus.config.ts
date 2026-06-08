@@ -61,7 +61,7 @@ const config: Config = {
 
   clientModules: [
     // 在 React 树启动前给 window 上注入 `global = window`,
-    // 让 @gorhom/bottom-sheet 等 RN 库的 lib/module/*.js 顶层 `global.X` 跑通。
+    // 让 reanimated / blur 等 RN 库的 lib/module/*.js 顶层 `global.X` 跑通。
     './src/clientModules/rn-globals.ts',
   ],
 

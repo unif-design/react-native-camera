@@ -35,7 +35,7 @@ yarn add @unif/react-native-camera \
   @shopify/react-native-skia @dr.pogodin/react-native-fs react-native-video \
   react-native-reanimated react-native-worklets react-native-reanimated-carousel \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
-  @gorhom/bottom-sheet @sbaiahmed1/react-native-blur @unif/react-native-design
+  @sbaiahmed1/react-native-blur @unif/react-native-design
 ```
 :::
 
@@ -55,10 +55,9 @@ yarn add @unif/react-native-camera \
 | `react-native-reanimated-carousel` | `>=5.0.0-beta.0` | 预览页轮播 |
 | `react-native-gesture-handler` | `>=2.21.0` | 变焦 / 对焦手势 |
 | `react-native-safe-area-context` | `>=5.0.0` | 安全区适配 |
-| `react-native-svg` | `>=15` | 图标 |
-| `@gorhom/bottom-sheet` | `>=5` | 预览底栏 |
+| `react-native-svg` | `>=15` | 矢量绘制(design `Icon` 等) |
 | `@sbaiahmed1/react-native-blur` | `>=4` | 界面毛玻璃 |
-| `@unif/react-native-design` | `>=0.4.0` | 预览页 `confirm` / `toast`(见第 4 节) |
+| `@unif/react-native-design` | `>=0.8.0` | 图标(`Icon`)、按钮、主题 token、缩放工具 `r()` |
 
 :::note 关于 `react-native-webview`
 `package.json` 的 `peerDependencies` 中还列有 `react-native-webview`(`*`),这是**早期版本遗留保留**的声明,当前源码已不直接引用它。新接入无需为本库单独安装;若项目其他依赖已带它,保持原样即可。
@@ -156,30 +155,17 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 
 ---
 
-## 4. 挂载 Host 组件
+## 4. 弹窗 / Toast 无需额外挂载 Host
 
-本库的**预览页**(用户拍完后的确认界面)内部使用 `@unif/react-native-design` 的 `confirm` / `toast`,需消费端在 App 根节点挂载对应 Host:
+相机的**二次确认弹窗 / Toast 是内部自洽的** —— 由相机 Modal 子树内的本地弹窗系统(`CameraDialogHost`)渲染,**不依赖** `@unif/react-native-design` 的全局 `ConfirmHost` / `ToastHost`。因此接入本库时:
 
-```tsx title="App.tsx（或根组件）"
-import { ConfirmHost, ToastHost } from '@unif/react-native-design';
+- **无需为相机在 App 根挂 `<ConfirmHost />` / `<ToastHost />`** —— 切模式 / 放弃拍摄的确认弹窗、保存提示 Toast 都直接显示在相机之上,开箱即用。
+- 相机内部用 `ThemeProvider`(强制深色 token)+ `useColors`,模态内 UI 不依赖宿主的主题 Provider。
 
-export default function App() {
-  return (
-    <ThemeProvider>
-      {/* ... 其余 UI ... */}
-      <ConfirmHost />
-      <ToastHost />
-    </ThemeProvider>
-  );
-}
-```
+:::note 为什么相机要用本地弹窗
+相机是全屏 RN `<Modal>`。design 的 `ConfirmHost` / `ToastHost` 挂在消费者 App 根节点,而 App 根的弹窗 / Toast **无法叠加到已经 present 的相机 Modal 之上**(会被相机盖住)。所以相机内部改用挂在相机 Modal 子树里的高 `zIndex` 浮层渲染确认弹窗 / Toast,确保正常显示。
 
-:::warning 未挂 Host 时弹窗 / 提示静默失效
-`ConfirmHost` / `ToastHost` 与 `ThemeProvider` 一样,是一次性全局挂载的基础组件。
-- **缺 `ConfirmHost`**:预览页的「二次确认弹窗」不弹出,用户无法确认照片。
-- **缺 `ToastHost`**:错误 / 提示 Toast 静默失效。
-
-已在 App 根挂过 `ConfirmHost` / `ToastHost`(如已使用 design 系统其他组件)无需重复挂载。
+> 这是本库自身的设计;若你在**相机之外**使用 design 的命令式 `confirm` / `toast`,仍需按 design 文档在 App 根挂 `ConfirmHost` / `ToastHost`。
 :::
 
 ---

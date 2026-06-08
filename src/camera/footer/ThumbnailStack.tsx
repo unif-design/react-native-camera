@@ -1,10 +1,14 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { r } from '@unif/react-native-design';
-import { DARK } from '../colors/dark';
+import {
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 
 type Props = { latestUri?: string; count: number; onPress: () => void };
 
 export function ThumbnailStack({ latestUri, count, onPress }: Props) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       testID="thumbnail-stack"
@@ -25,34 +29,35 @@ export function ThumbnailStack({ latestUri, count, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { width: r(44), height: r(44) },
-  img: {
-    width: r(44),
-    height: r(44),
-    borderRadius: r(6),
-    borderWidth: 2,
-    borderColor: DARK.white,
-  },
-  empty: {
-    width: r(44),
-    height: r(44),
-    borderRadius: r(8),
-    borderWidth: 1.5,
-    borderColor: DARK.white40,
-    backgroundColor: DARK.white08,
-  },
-  badge: {
-    position: 'absolute',
-    top: r(-6),
-    right: r(-6),
-    minWidth: r(20),
-    height: r(20),
-    borderRadius: r(999),
-    backgroundColor: DARK.orange,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: r(4),
-  },
-  badgeText: { color: DARK.white, fontSize: r(11), fontWeight: '700' },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    wrap: { width: r(44), height: r(44) },
+    img: {
+      width: r(44),
+      height: r(44),
+      borderRadius: r(6),
+      borderWidth: 2,
+      borderColor: c.foreground,
+    },
+    empty: {
+      width: r(44),
+      height: r(44),
+      borderRadius: r(8),
+      borderWidth: 1.5,
+      borderColor: c.foregroundSubtle,
+      backgroundColor: c.glassSeparator,
+    },
+    badge: {
+      position: 'absolute',
+      top: r(-6),
+      right: r(-6),
+      minWidth: r(20),
+      height: r(20),
+      borderRadius: r(999),
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: r(4),
+    },
+    badgeText: { color: c.foreground, fontSize: r(11), fontWeight: '700' },
+  });

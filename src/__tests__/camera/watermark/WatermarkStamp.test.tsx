@@ -1,8 +1,14 @@
+import type { ReactElement } from 'react';
 import { render } from '@testing-library/react-native';
-import { WatermarkStamp } from './WatermarkStamp';
+import { ThemeProvider } from '@unif/react-native-design';
+import { WatermarkStamp } from '../../../camera/watermark/WatermarkStamp';
+
+// 相机 Modal 强制 dark,WatermarkStamp 用 useThemedStyles —— 包 dark Provider 对齐运行时。
+const r = (ui: ReactElement) =>
+  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
 
 it('renders content lines + testID', () => {
-  const { getByTestId, getByText } = render(
+  const { getByTestId, getByText } = r(
     <WatermarkStamp
       watermark={{ content: ['L1', 'L2'], position: 'top-right' }}
     />
@@ -14,7 +20,7 @@ it('renders content lines + testID', () => {
 
 it('no crash for center/bottom', () => {
   expect(() =>
-    render(
+    r(
       <WatermarkStamp
         watermark={{ content: ['x'], position: 'bottom-center' }}
       />

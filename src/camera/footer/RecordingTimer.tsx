@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { r } from '@unif/react-native-design';
-import { DARK } from '../colors/dark';
+import {
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
+import { VIEWFINDER } from '../colors/viewfinder';
 
 export function formatDuration(totalSec: number): string {
   const s = Math.max(0, Math.floor(totalSec));
@@ -11,6 +15,7 @@ export function formatDuration(totalSec: number): string {
 }
 
 export function RecordingTimer({ seconds }: { seconds: number }) {
+  const styles = useThemedStyles(makeStyles);
   const blink = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -38,21 +43,27 @@ export function RecordingTimer({ seconds }: { seconds: number }) {
   );
 }
 
-const styles = StyleSheet.create({
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: r(8),
-    paddingVertical: r(6),
-    paddingHorizontal: r(14),
-    borderRadius: r(999),
-    backgroundColor: 'rgba(255,59,48,0.18)',
-  },
-  dot: {
-    width: r(8),
-    height: r(8),
-    borderRadius: r(4),
-    backgroundColor: DARK.recRed,
-  },
-  text: { color: DARK.white, fontSize: r(13), fontVariant: ['tabular-nums'] },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    pill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: r(8),
+      paddingVertical: r(6),
+      paddingHorizontal: r(14),
+      borderRadius: r(999),
+      // 录制态药丸底:录制红 18% alpha 物理 tint(与 dot 同色系,无对应 design token)。
+      backgroundColor: 'rgba(255,59,48,0.18)',
+    },
+    dot: {
+      width: r(8),
+      height: r(8),
+      borderRadius: r(4),
+      backgroundColor: VIEWFINDER.recRed,
+    },
+    text: {
+      color: c.foreground,
+      fontSize: r(13),
+      fontVariant: ['tabular-nums'],
+    },
+  });

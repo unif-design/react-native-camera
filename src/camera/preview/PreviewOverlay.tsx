@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { confirm, toast } from '@unif/react-native-design';
 import type { CustomPhotoFile, CameraModeName } from '../../utils';
+import { useCameraDialog } from '../ui/CameraDialogHost';
 import { Carousel } from '../../components/Carousel';
-import { DARK } from '../colors/dark';
+import { VIEWFINDER } from '../colors/viewfinder';
 import { distinctTypes, filesOfType } from './groupTypes';
 import { PreviewTopBar } from './PreviewTopBar';
 import { PreviewBottomBar } from './PreviewBottomBar';
@@ -27,6 +27,9 @@ export function PreviewOverlay({
   onDelete,
   onComplete,
 }: Props) {
+  // 本地弹窗:删除二次确认 + "已保存" toast 走相机 Modal 内部 host
+  // (见 ../ui/CameraDialogHost),不走 design 全局 —— 后者会被相机 Modal 盖住。
+  const { confirm, toast } = useCameraDialog();
   const types = useMemo(() => distinctTypes(files), [files]);
   const [activeType, setActiveType] = useState<CameraModeName>(
     types[0] ?? 'single'
@@ -51,7 +54,7 @@ export function PreviewOverlay({
   }, [index, data.length]);
 
   const handleSave = () => {
-    toast.success('已保存');
+    toast('已保存');
     onSave();
   };
   const handleDelete = async () => {
@@ -90,12 +93,12 @@ export function PreviewOverlay({
   );
 }
 
-// 预览整屏走相机黑底(取景器同款 DARK),不跟随 light/dark 主题 —— 与图片区
+// 预览整屏走相机黑底(取景器同款纯黑物理常量),不跟随 light/dark 主题 —— 与图片区
 // (SlideItem 黑底)统一成一个颜色,避免浅色模式下底部 bar 透出白色。
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: DARK.black,
+    backgroundColor: VIEWFINDER.black,
     zIndex: 50,
   },
   pager: { flex: 1 },

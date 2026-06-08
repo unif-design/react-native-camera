@@ -1,6 +1,19 @@
+import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { PreviewOverlay } from './PreviewOverlay';
-import type { CustomPhotoFile } from '../../utils';
+import { ThemeProvider } from '@unif/react-native-design';
+import { PreviewOverlay } from '../../../camera/preview/PreviewOverlay';
+import { CameraDialogProvider } from '../../../camera/ui/CameraDialogHost';
+import type { CustomPhotoFile } from '../../../utils';
+
+// PreviewOverlay 现用 useCameraDialog()(本地 confirm/toast),渲染必须包
+// CameraDialogProvider(+ design ThemeProvider 提供 useColors),否则 hook 抛错。
+// forceScheme="dark" 对齐相机 Modal 运行时(强制深色)。
+const renderPreview = (ui: ReactElement) =>
+  render(
+    <ThemeProvider forceScheme="dark">
+      <CameraDialogProvider>{ui}</CameraDialogProvider>
+    </ThemeProvider>
+  );
 
 const f = (
   cameraMode: CustomPhotoFile['cameraMode'],
@@ -26,7 +39,7 @@ const noop = {
 };
 
 it('confirm 变体: 重拍/保存 在', () => {
-  const { getByTestId } = render(
+  const { getByTestId } = renderPreview(
     <PreviewOverlay files={[f('single', 'a')]} variant="confirm" {...noop} />
   );
   expect(getByTestId('retake-btn')).toBeTruthy();
@@ -34,7 +47,7 @@ it('confirm 变体: 重拍/保存 在', () => {
 });
 
 it('gallery 变体: 返回/删除 在', () => {
-  const { getByTestId } = render(
+  const { getByTestId } = renderPreview(
     <PreviewOverlay
       files={[f('single', 'a'), f('single', 'b')]}
       variant="gallery"
@@ -47,7 +60,7 @@ it('gallery 变体: 返回/删除 在', () => {
 
 it('gallery 完成按钮触发 onComplete', () => {
   const onComplete = jest.fn();
-  const { getByTestId } = render(
+  const { getByTestId } = renderPreview(
     <PreviewOverlay
       files={[f('single', 'a'), f('single', 'b')]}
       variant="gallery"

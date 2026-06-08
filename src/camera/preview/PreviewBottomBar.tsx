@@ -1,7 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, r } from '@unif/react-native-design';
-import { DARK } from '../colors/dark';
+import {
+  Button,
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 
 type Props = {
   variant: 'confirm' | 'gallery';
@@ -25,6 +29,7 @@ export function PreviewBottomBar({
   onComplete,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom + r(20) }]}>
       {variant === 'gallery' && (
@@ -75,15 +80,16 @@ export function PreviewBottomBar({
   );
 }
 
-// 预览底部走相机黑底,计数文字 DARK 白;paddingBottom 由组件按底部安全区
-// (home indicator)+ 基础 20 给,不走 useColors()。
-const styles = StyleSheet.create({
-  root: {
-    paddingHorizontal: r(16),
-    paddingTop: r(12),
-    gap: r(12),
-    alignItems: 'center',
-  },
-  counter: { color: DARK.white, fontSize: r(15), fontWeight: '600' },
-  btns: { flexDirection: 'row', gap: r(12), justifyContent: 'center' },
-});
+// 预览底部走相机黑底,计数文字用 foreground token(Modal 强制 dark → 恒白);
+// paddingBottom 由组件按底部安全区(home indicator)+ 基础 20 给。
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    root: {
+      paddingHorizontal: r(16),
+      paddingTop: r(12),
+      gap: r(12),
+      alignItems: 'center',
+    },
+    counter: { color: c.foreground, fontSize: r(15), fontWeight: '600' },
+    btns: { flexDirection: 'row', gap: r(12), justifyContent: 'center' },
+  });

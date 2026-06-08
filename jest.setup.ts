@@ -111,7 +111,6 @@ jest.mock(
       // components
       Avatar: passthrough,
       BlurLayer: passthrough,
-      BottomSheet: passthrough,
       Button: ({ children, ...props }: any) =>
         React.createElement(
           TouchableOpacity,

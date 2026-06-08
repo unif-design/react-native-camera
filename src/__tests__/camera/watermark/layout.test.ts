@@ -1,4 +1,4 @@
-import { computeWatermarkLayout } from './layout';
+import { computeWatermarkLayout } from '../../../camera/watermark/layout';
 
 it('position → align/anchor', () => {
   expect(computeWatermarkLayout(390, { content: ['a'] }).align).toBe('right'); // 缺省 top-right

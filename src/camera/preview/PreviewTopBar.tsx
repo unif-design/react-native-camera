@@ -1,9 +1,12 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { r } from '@unif/react-native-design';
+import {
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 import type { CustomPhotoFile, CameraModeName } from '../../utils';
 import { distinctTypes, filesOfType } from './groupTypes';
-import { DARK } from '../colors/dark';
 
 const LABEL: Record<CameraModeName, string> = {
   continuous: '连拍',
@@ -25,6 +28,7 @@ export function PreviewTopBar({
   onSelectType,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(makeStyles);
   // 顶部安全区(刘海 / 状态栏)+ 基础 14
   const rootStyle = [styles.root, { paddingTop: insets.top + r(14) }];
   if (variant === 'confirm') {
@@ -61,30 +65,31 @@ export function PreviewTopBar({
   );
 }
 
-// 预览顶部走相机黑底(与整屏统一),文字 / tab 用 DARK;paddingTop 由组件按安全区给。
-const styles = StyleSheet.create({
-  root: {
-    minHeight: r(46),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: r(10),
-    paddingHorizontal: r(14),
-  },
-  label: { color: DARK.white, fontSize: r(14), fontWeight: '500' },
-  tabs: {
-    flexDirection: 'row',
-    gap: r(4),
-    padding: r(4),
-    borderRadius: r(999),
-    backgroundColor: DARK.white12,
-  },
-  tab: {
-    paddingVertical: r(7),
-    paddingHorizontal: r(16),
-    borderRadius: r(999),
-  },
-  tabSel: { backgroundColor: '#EB6E00' },
-  tabTxt: { color: DARK.white, fontSize: r(13), fontWeight: '600' },
-  tabTxtSel: { color: '#fff' },
-});
+// 预览顶部走相机黑底(与整屏统一),文字 / tab 用 design token;paddingTop 由组件按安全区给。
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    root: {
+      minHeight: r(46),
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: r(10),
+      paddingHorizontal: r(14),
+    },
+    label: { color: c.foreground, fontSize: r(14), fontWeight: '500' },
+    tabs: {
+      flexDirection: 'row',
+      gap: r(4),
+      padding: r(4),
+      borderRadius: r(999),
+      backgroundColor: c.glassPillBorder,
+    },
+    tab: {
+      paddingVertical: r(7),
+      paddingHorizontal: r(16),
+      borderRadius: r(999),
+    },
+    tabSel: { backgroundColor: c.primary },
+    tabTxt: { color: c.foreground, fontSize: r(13), fontWeight: '600' },
+    tabTxtSel: { color: c.foreground },
+  });
