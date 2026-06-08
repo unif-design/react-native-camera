@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react-native';
-import { SlideItem } from './SlideItem';
-import type { CustomPhotoFile } from '../../utils';
+import { SlideItem } from '../../../components/Carousel/SlideItem';
+import type { CustomPhotoFile } from '../../../utils';
 
 const base = { id: '1', cameraType: 'back' as const, width: 1, height: 1 };
 const img: CustomPhotoFile = {

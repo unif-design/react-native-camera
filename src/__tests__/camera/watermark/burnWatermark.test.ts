@@ -1,5 +1,5 @@
-import { burnWatermark } from './burnWatermark';
-import type { CustomPhotoFile, WatermarkType } from '../../utils';
+import { burnWatermark } from '../../../camera/watermark/burnWatermark';
+import type { CustomPhotoFile, WatermarkType } from '../../../utils';
 
 const photo = (): CustomPhotoFile => ({
   id: '1',

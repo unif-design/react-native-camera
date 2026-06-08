@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { PreviewOverlay } from './PreviewOverlay';
-import { CameraDialogProvider } from '../ui/CameraDialogHost';
-import type { CustomPhotoFile } from '../../utils';
+import { PreviewOverlay } from '../../../camera/preview/PreviewOverlay';
+import { CameraDialogProvider } from '../../../camera/ui/CameraDialogHost';
+import type { CustomPhotoFile } from '../../../utils';
 
 // PreviewOverlay 现用 useCameraDialog()(本地 confirm/toast),渲染必须包
 // CameraDialogProvider(+ design ThemeProvider 提供 useColors),否则 hook 抛错。

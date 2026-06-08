@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { SideActions } from './SideActions';
+import { SideActions } from '../../../camera/setup/SideActions';
 
 // 相机 Modal 强制 dark,SideActions 用 useColors/useThemedStyles —— 包 dark Provider 对齐运行时。
 const r = (ui: ReactElement) =>

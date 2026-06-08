@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { ActionRow } from './ActionRow';
+import { ActionRow } from '../../../camera/footer/ActionRow';
 
 const base = {
   mode: 'single' as const,

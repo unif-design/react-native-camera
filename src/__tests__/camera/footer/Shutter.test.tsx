@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { Shutter } from './Shutter';
+import { Shutter } from '../../../camera/footer/Shutter';
 
 // 相机 Modal 强制 dark,Shutter 用 useThemedStyles —— 包 dark Provider 对齐运行时。
 const wrap = (ui: ReactElement) => (

@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { ModeSwitcherPill } from './ModeSwitcherPill';
+import { ModeSwitcherPill } from '../../../camera/footer/ModeSwitcherPill';
 
 const items = [
   { key: 'continuous', label: '连拍' },

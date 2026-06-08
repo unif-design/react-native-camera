@@ -1,5 +1,5 @@
-import { distinctTypes, filesOfType } from './groupTypes';
-import type { CustomPhotoFile } from '../../utils';
+import { distinctTypes, filesOfType } from '../../../camera/preview/groupTypes';
+import type { CustomPhotoFile } from '../../../utils';
 
 const f = (
   cameraMode: CustomPhotoFile['cameraMode'],

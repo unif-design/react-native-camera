@@ -1,6 +1,9 @@
 import { render } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { RecordingTimer, formatDuration } from './RecordingTimer';
+import {
+  RecordingTimer,
+  formatDuration,
+} from '../../../camera/footer/RecordingTimer';
 
 it('formatDuration → MM:SS', () => {
   expect(formatDuration(0)).toBe('00:00');

@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { SideRail } from './SideRail';
+import { SideRail } from '../../../camera/setup/SideRail';
 
 const base = {
   flash: 'off' as const,

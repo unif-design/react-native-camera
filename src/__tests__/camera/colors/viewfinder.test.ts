@@ -1,4 +1,4 @@
-import { VIEWFINDER } from './viewfinder';
+import { VIEWFINDER } from '../../../camera/colors/viewfinder';
 
 it('exposes viewfinder physical constants', () => {
   expect(VIEWFINDER.black).toBe('#000');

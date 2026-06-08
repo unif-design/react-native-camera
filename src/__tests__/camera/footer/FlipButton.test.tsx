@@ -1,6 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
-import { FlipButton } from './FlipButton';
+import { FlipButton } from '../../../camera/footer/FlipButton';
 
 // 相机 Modal 强制 dark,FlipButton 用 useColors/useThemedStyles —— 包 dark Provider 对齐运行时。
 it('fires onFlip', () => {
