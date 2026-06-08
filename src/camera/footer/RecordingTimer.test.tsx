@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
 import { RecordingTimer, formatDuration } from './RecordingTimer';
 
 it('formatDuration → MM:SS', () => {
@@ -8,7 +9,12 @@ it('formatDuration → MM:SS', () => {
   expect(formatDuration(-5)).toBe('00:00');
 });
 
+// 相机 Modal 强制 dark,RecordingTimer 用 useThemedStyles —— 包 dark Provider 对齐运行时。
 it('renders timer pill', () => {
-  const { getByTestId } = render(<RecordingTimer seconds={5} />);
+  const { getByTestId } = render(
+    <ThemeProvider forceScheme="dark">
+      <RecordingTimer seconds={5} />
+    </ThemeProvider>
+  );
   expect(getByTestId('recording-timer')).toBeTruthy();
 });

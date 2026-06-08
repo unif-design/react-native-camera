@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import type { CustomPhotoFile, CameraModeName } from '../../utils';
 import { useCameraDialog } from '../ui/CameraDialogHost';
 import { Carousel } from '../../components/Carousel';
-import { DARK } from '../colors/dark';
+import { VIEWFINDER } from '../colors/viewfinder';
 import { distinctTypes, filesOfType } from './groupTypes';
 import { PreviewTopBar } from './PreviewTopBar';
 import { PreviewBottomBar } from './PreviewBottomBar';
@@ -93,12 +93,12 @@ export function PreviewOverlay({
   );
 }
 
-// 预览整屏走相机黑底(取景器同款 DARK),不跟随 light/dark 主题 —— 与图片区
+// 预览整屏走相机黑底(取景器同款纯黑物理常量),不跟随 light/dark 主题 —— 与图片区
 // (SlideItem 黑底)统一成一个颜色,避免浅色模式下底部 bar 透出白色。
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: DARK.black,
+    backgroundColor: VIEWFINDER.black,
     zIndex: 50,
   },
   pager: { flex: 1 },

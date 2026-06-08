@@ -7,9 +7,10 @@ import type { CustomPhotoFile } from '../../utils';
 
 // PreviewOverlay 现用 useCameraDialog()(本地 confirm/toast),渲染必须包
 // CameraDialogProvider(+ design ThemeProvider 提供 useColors),否则 hook 抛错。
+// forceScheme="dark" 对齐相机 Modal 运行时(强制深色)。
 const renderPreview = (ui: ReactElement) =>
   render(
-    <ThemeProvider>
+    <ThemeProvider forceScheme="dark">
       <CameraDialogProvider>{ui}</CameraDialogProvider>
     </ThemeProvider>
   );

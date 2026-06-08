@@ -6,7 +6,11 @@ import {
 } from 'react-native-vision-camera';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { r } from '@unif/react-native-design';
+import {
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { NoCamera } from './NoCamera';
@@ -22,7 +26,7 @@ import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
 import { WatermarkStamp, burnWatermark } from './watermark';
-import { DARK } from './colors/dark';
+import { VIEWFINDER } from './colors/viewfinder';
 
 // 控件浮层需让出底部 footer:footer 高度 ≈ 内容(快门 r(72) + 模式行)+ 安全区。
 // 这里取一个基线常量,zoomChips 紧贴其上、sideRail 再高一档;真机按需微调(改一处联动两者)。
@@ -42,6 +46,7 @@ export function Container({ config, onSettle }: Props) {
   // 本地弹窗:切模式/放弃拍摄的二次确认走相机 Modal 内部 host(见 ui/CameraDialogHost),
   // 不走 design 全局 confirm —— 后者会被相机 Modal 盖住。
   const { confirm } = useCameraDialog();
+  const styles = useThemedStyles(makeStyles);
   const settledRef = useRef(false);
 
   const settle = useCallback(
@@ -390,51 +395,52 @@ export function Container({ config, onSettle }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  // 相机主容器固定黑底:相机 UX 惯例,不走 c.background token。
-  // position:relative → 内部 absolute 浮层(footer/sideRail/zoomChips)以整屏为参照。
-  root: { flex: 1, backgroundColor: DARK.black, position: 'relative' },
-  watermark: {
-    position: 'absolute',
-    right: r(6),
-    top: r(12),
-    maxWidth: r(230),
-    zIndex: Z.overlay,
-  },
-  // 控件浮层 bottom 以整屏底为参照,需让出 footer:zoomChips 紧贴 FOOTER_CLEARANCE,
-  // sideRail 再高一档(+r(30));两者由同一基线联动,改 FOOTER_CLEARANCE 即可。
-  sideRail: {
-    position: 'absolute',
-    left: r(12),
-    bottom: FOOTER_CLEARANCE + r(30),
-    gap: r(10),
-    zIndex: Z.sideRail,
-  },
-  zoomChips: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: FOOTER_CLEARANCE,
-    alignItems: 'center',
-    zIndex: Z.overlay,
-  },
-  // footer 浮在取景之上:半透明黑保护底让控件可读,zIndex 最高保证可点。
-  bottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: r(14),
-    gap: r(16),
-    backgroundColor: DARK.black45,
-    zIndex: Z.footer,
-  },
-  center: { alignItems: 'center' },
-  burningFooter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: r(8),
-    paddingVertical: r(16),
-  },
-  burningText: { color: DARK.white, fontSize: r(14) },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    // 相机主容器固定黑底:相机 UX 惯例(取景物理常量),不走 c.background token。
+    // position:relative → 内部 absolute 浮层(footer/sideRail/zoomChips)以整屏为参照。
+    root: { flex: 1, backgroundColor: VIEWFINDER.black, position: 'relative' },
+    watermark: {
+      position: 'absolute',
+      right: r(6),
+      top: r(12),
+      maxWidth: r(230),
+      zIndex: Z.overlay,
+    },
+    // 控件浮层 bottom 以整屏底为参照,需让出 footer:zoomChips 紧贴 FOOTER_CLEARANCE,
+    // sideRail 再高一档(+r(30));两者由同一基线联动,改 FOOTER_CLEARANCE 即可。
+    sideRail: {
+      position: 'absolute',
+      left: r(12),
+      bottom: FOOTER_CLEARANCE + r(30),
+      gap: r(10),
+      zIndex: Z.sideRail,
+    },
+    zoomChips: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: FOOTER_CLEARANCE,
+      alignItems: 'center',
+      zIndex: Z.overlay,
+    },
+    // footer 浮在取景之上:半透明黑保护底让控件可读,zIndex 最高保证可点。
+    bottom: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingTop: r(14),
+      gap: r(16),
+      backgroundColor: VIEWFINDER.glassPillStrong,
+      zIndex: Z.footer,
+    },
+    center: { alignItems: 'center' },
+    burningFooter: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: r(8),
+      paddingVertical: r(16),
+    },
+    burningText: { color: c.foreground, fontSize: r(14) },
+  });

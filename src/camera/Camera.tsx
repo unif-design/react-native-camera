@@ -24,6 +24,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
 import { capturePhotoToFile } from './capturePhotoHelper';
+import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
 import type { AspectRatio, FlashMode } from './setup';
 
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
   // 全屏黑底,把取景框居中 → 框外区域是黑边(letterbox)。
   root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: VIEWFINDER.black,
     alignItems: 'center',
     justifyContent: 'center',
   },

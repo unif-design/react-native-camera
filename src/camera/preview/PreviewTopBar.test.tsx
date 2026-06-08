@@ -1,6 +1,12 @@
+import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
 import { PreviewTopBar } from './PreviewTopBar';
 import type { CustomPhotoFile } from '../../utils';
+
+// 相机 Modal 强制 dark,PreviewTopBar 用 useThemedStyles —— 包 dark Provider 对齐运行时。
+const r = (ui: ReactElement) =>
+  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
 
 const f = (
   cameraMode: CustomPhotoFile['cameraMode'],
@@ -18,7 +24,7 @@ const f = (
 });
 
 it('confirm 变体显示类型 label', () => {
-  const { getByText } = render(
+  const { getByText } = r(
     <PreviewTopBar
       variant="confirm"
       files={[f('single', 'a')]}
@@ -32,7 +38,7 @@ it('confirm 变体显示类型 label', () => {
 it('gallery 多类型显示 tab,点 tab 回调', () => {
   const onSelectType = jest.fn();
   const files = [f('continuous', 'a'), f('continuous', 'b'), f('single', 'c')];
-  const { getByTestId } = render(
+  const { getByTestId } = r(
     <PreviewTopBar
       variant="gallery"
       files={files}

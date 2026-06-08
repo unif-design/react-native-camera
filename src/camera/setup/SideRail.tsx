@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Icon, r, type IconName } from '@unif/react-native-design';
-import { DARK } from '../colors/dark';
+import {
+  Icon,
+  r,
+  useColors,
+  useThemedStyles,
+  type ColorTokens,
+  type IconName,
+} from '@unif/react-native-design';
+import { VIEWFINDER } from '../colors/viewfinder';
 import { VolumeIcon } from '../icons/VolumeIcon';
 
 export type FlashMode = 'off' | 'on' | 'auto';
@@ -36,6 +43,8 @@ export function SideRail({
   onChangeAspectRatio,
   onToggleSound,
 }: Props) {
+  const c = useColors();
+  const styles = useThemedStyles(makeStyles);
   const [flashOpen, setFlashOpen] = useState(false);
   return (
     <View style={styles.rail}>
@@ -55,11 +64,7 @@ export function SideRail({
           style={[styles.btn, flash !== 'off' && styles.btnActive]}
           onPress={() => setFlashOpen((v) => !v)}
         >
-          <Icon
-            name={flashIcon[flash]}
-            size={r(20)}
-            color={flash !== 'off' ? DARK.white : DARK.white95}
-          />
+          <Icon name={flashIcon[flash]} size={r(20)} color={c.foreground} />
         </TouchableOpacity>
         {flashOpen && (
           <View style={styles.dropdown}>
@@ -76,7 +81,7 @@ export function SideRail({
                 <Icon
                   name={flashIcon[o.key]}
                   size={r(18)}
-                  color={flash === o.key ? DARK.orange : DARK.white}
+                  color={flash === o.key ? c.primary : c.foreground}
                 />
                 <Text
                   style={[styles.optTxt, flash === o.key && styles.optTxtSel]}
@@ -95,61 +100,60 @@ export function SideRail({
         style={[styles.btn, sound && styles.btnActive]}
         onPress={onToggleSound}
       >
-        <VolumeIcon
-          on={sound}
-          size={r(20)}
-          color={sound ? DARK.white : DARK.white95}
-        />
+        <VolumeIcon on={sound} size={r(20)} color={c.foreground} />
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  rail: {
-    gap: r(8),
-    padding: r(6),
-    paddingVertical: r(10),
-    borderRadius: r(26),
-    backgroundColor: DARK.black42,
-    borderWidth: 1,
-    borderColor: DARK.white08,
-  },
-  btn: {
-    width: r(40),
-    height: r(40),
-    borderRadius: r(999),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnActive: { backgroundColor: DARK.orange95 },
-  aspectTxt: { color: DARK.white95, fontSize: r(13), fontWeight: '600' },
-  dropdown: {
-    position: 'absolute',
-    left: r(52),
-    top: 0,
-    minWidth: r(130),
-    padding: r(6),
-    borderRadius: r(12),
-    backgroundColor: 'rgba(28,28,30,0.94)',
-  },
-  opt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: r(8),
-    padding: r(10),
-    borderRadius: r(8),
-  },
-  optTxt: { color: DARK.white, fontSize: r(14) },
-  optTxtSel: { color: DARK.orange },
-  tail: {
-    position: 'absolute',
-    left: r(-5),
-    top: '50%',
-    width: r(10),
-    height: r(10),
-    marginTop: r(-5),
-    backgroundColor: 'rgba(28,28,30,0.94)',
-    transform: [{ rotate: '45deg' }],
-  },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    rail: {
+      gap: r(8),
+      padding: r(6),
+      paddingVertical: r(10),
+      borderRadius: r(26),
+      // 药丸浮在明亮取景上:半透明黑底物理常量(design glass token 是半透白,不适用)。
+      backgroundColor: VIEWFINDER.glassPill,
+      borderWidth: 1,
+      borderColor: c.glassSeparator,
+    },
+    btn: {
+      width: r(40),
+      height: r(40),
+      borderRadius: r(999),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnActive: { backgroundColor: c.primary },
+    aspectTxt: { color: c.foreground, fontSize: r(13), fontWeight: '600' },
+    // flash 下拉浮层:design surface(#1C1C1E == rgb(28,28,30),原为同 RGB 0.94 透)。
+    dropdown: {
+      position: 'absolute',
+      left: r(52),
+      top: 0,
+      minWidth: r(130),
+      padding: r(6),
+      borderRadius: r(12),
+      backgroundColor: c.surface,
+    },
+    opt: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: r(8),
+      padding: r(10),
+      borderRadius: r(8),
+    },
+    optTxt: { color: c.foreground, fontSize: r(14) },
+    optTxtSel: { color: c.primary },
+    tail: {
+      position: 'absolute',
+      left: r(-5),
+      top: '50%',
+      width: r(10),
+      height: r(10),
+      marginTop: r(-5),
+      backgroundColor: c.surface,
+      transform: [{ rotate: '45deg' }],
+    },
+  });

@@ -7,8 +7,11 @@ import {
   View,
 } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
-import { r } from '@unif/react-native-design';
-import { DARK } from '../colors/dark';
+import {
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
 
 export type ModeItem = { key: string; label: string };
 
@@ -21,6 +24,7 @@ export function ModeSwitcherPill({
   currentIndex: number;
   onSelect: (i: number) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const [w, setW] = useState(0);
   const slide = useRef(new Animated.Value(0)).current;
   const itemW = items.length ? w / items.length : 0;
@@ -66,32 +70,34 @@ export function ModeSwitcherPill({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignSelf: 'center', position: 'relative' },
-  slider: {
-    position: 'absolute',
-    top: r(4),
-    bottom: r(4),
-    left: 0,
-    borderRadius: r(999),
-    backgroundColor: DARK.orange16,
-  },
-  item: {
-    paddingVertical: r(8),
-    paddingHorizontal: r(22),
-    alignItems: 'center',
-  },
-  txt: {
-    color: DARK.white65,
-    fontSize: r(15),
-    fontWeight: '500',
-    letterSpacing: 1,
-  },
-  txtSel: { color: DARK.orange, fontWeight: '600' },
-  singleLabel: {
-    color: DARK.white65,
-    fontSize: r(14),
-    letterSpacing: 2,
-    alignSelf: 'center',
-  },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    wrap: { flexDirection: 'row', alignSelf: 'center', position: 'relative' },
+    slider: {
+      position: 'absolute',
+      top: r(4),
+      bottom: r(4),
+      left: 0,
+      borderRadius: r(999),
+      // 选中段底:品牌橙浅 tint(design dark brandTint10 = 橙 16% alpha,与原值一致)。
+      backgroundColor: c.brandTint10,
+    },
+    item: {
+      paddingVertical: r(8),
+      paddingHorizontal: r(22),
+      alignItems: 'center',
+    },
+    txt: {
+      color: c.foregroundMuted,
+      fontSize: r(15),
+      fontWeight: '500',
+      letterSpacing: 1,
+    },
+    txtSel: { color: c.primary, fontWeight: '600' },
+    singleLabel: {
+      color: c.foregroundMuted,
+      fontSize: r(14),
+      letterSpacing: 2,
+      alignSelf: 'center',
+    },
+  });

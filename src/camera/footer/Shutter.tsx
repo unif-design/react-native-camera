@@ -1,7 +1,11 @@
 import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
-import { r } from '@unif/react-native-design';
-import { DARK } from '../colors/dark';
+import {
+  r,
+  useThemedStyles,
+  type ColorTokens,
+} from '@unif/react-native-design';
+import { VIEWFINDER } from '../colors/viewfinder';
 
 type Props = {
   mode: 'single' | 'continuous' | 'video';
@@ -11,6 +15,7 @@ type Props = {
 };
 
 export function Shutter({ mode, recording, disabled, onPress }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const scale = useRef(new Animated.Value(1)).current;
   const to = (v: number) =>
     Animated.timing(scale, {
@@ -39,33 +44,34 @@ export function Shutter({ mode, recording, disabled, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  ring: {
-    width: r(72),
-    height: r(72),
-    borderRadius: r(36),
-    borderWidth: r(3),
-    borderColor: DARK.white95,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  innerBase: {},
-  innerPhoto: {
-    width: r(58),
-    height: r(58),
-    borderRadius: r(29),
-    backgroundColor: DARK.white,
-  },
-  innerVideo: {
-    width: r(58),
-    height: r(58),
-    borderRadius: r(29),
-    backgroundColor: DARK.recRed,
-  },
-  innerRecording: {
-    width: r(24),
-    height: r(24),
-    borderRadius: r(4),
-    backgroundColor: DARK.recRed,
-  },
-});
+const makeStyles = (c: ColorTokens) =>
+  StyleSheet.create({
+    ring: {
+      width: r(72),
+      height: r(72),
+      borderRadius: r(36),
+      borderWidth: r(3),
+      borderColor: c.foreground,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    innerBase: {},
+    innerPhoto: {
+      width: r(58),
+      height: r(58),
+      borderRadius: r(29),
+      backgroundColor: c.foreground,
+    },
+    innerVideo: {
+      width: r(58),
+      height: r(58),
+      borderRadius: r(29),
+      backgroundColor: VIEWFINDER.recRed,
+    },
+    innerRecording: {
+      width: r(24),
+      height: r(24),
+      borderRadius: r(4),
+      backgroundColor: VIEWFINDER.recRed,
+    },
+  });

@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { r } from '@unif/react-native-design';
-import { DARK } from './colors/dark';
+import { r, useColors } from '@unif/react-native-design';
 import type { Point } from '../utils';
 
 type Props = { point: Point; onAnimationEnd: () => void };
@@ -26,6 +25,7 @@ const RAY_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
 export function FocusIndicator({ point, onAnimationEnd }: Props) {
+  const c = useColors();
   const scale = useRef(new Animated.Value(1.35)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -75,22 +75,23 @@ export function FocusIndicator({ point, onAnimationEnd }: Props) {
         {/* 四角括号(约 64×64 居中,中心 55,44) */}
         <Path
           d="M23 31v-8h8 M79 23h8v8 M87 57v8h-8 M31 65h-8v-8"
-          stroke={DARK.orange}
+          stroke={c.primary}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
         />
         {/* 中心点 */}
-        <Circle cx={55} cy={44} r={2.4} fill={DARK.orange} />
+        <Circle cx={55} cy={44} r={2.4} fill={c.primary} />
         {/* 曝光小太阳:圆 + 8 道短射线 + 上下引导线 */}
         <Circle
           cx={SUN_CX}
           cy={SUN_CY}
           r={SUN_R}
-          stroke={DARK.orange}
+          stroke={c.primary}
           strokeWidth={1.6}
-          fill="rgba(235,110,0,0.2)"
+          // 曝光小太阳填充:品牌橙浅 tint(design dark brandTint10 = 橙 16% alpha)。
+          fill={c.brandTint10}
         />
         {RAY_ANGLES.map((deg) => {
           const rad = (deg * Math.PI) / 180;
@@ -103,7 +104,7 @@ export function FocusIndicator({ point, onAnimationEnd }: Props) {
               y1={SUN_CY + sin * RAY_INNER}
               x2={SUN_CX + cos * RAY_OUTER}
               y2={SUN_CY + sin * RAY_OUTER}
-              stroke={DARK.orange}
+              stroke={c.primary}
               strokeWidth={1.4}
               strokeLinecap="round"
             />
@@ -115,7 +116,7 @@ export function FocusIndicator({ point, onAnimationEnd }: Props) {
           y1={20}
           x2={SUN_CX}
           y2={34}
-          stroke={DARK.orange}
+          stroke={c.primary}
           strokeWidth={1.6}
           opacity={0.45}
           strokeLinecap="round"
@@ -125,7 +126,7 @@ export function FocusIndicator({ point, onAnimationEnd }: Props) {
           y1={54}
           x2={SUN_CX}
           y2={68}
-          stroke={DARK.orange}
+          stroke={c.primary}
           strokeWidth={1.6}
           opacity={0.45}
           strokeLinecap="round"
