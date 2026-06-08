@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@unif/react-native-design';
+import { CameraDialogProvider } from './ui/CameraDialogHost';
 
 type Props = {
   visible: boolean;
@@ -20,7 +21,11 @@ export function ModalView({ visible, onClose, children }: Props) {
     >
       <SafeAreaProvider>
         <ThemeProvider>
-          <View style={styles.root}>{children}</View>
+          {/* 本地弹窗系统:相机 Modal 内部自带 confirm/toast(absolute overlay),
+              不走 design 全局 host —— 后者挂在 App 根,会被相机 Modal 盖住。 */}
+          <CameraDialogProvider>
+            <View style={styles.root}>{children}</View>
+          </CameraDialogProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </Modal>

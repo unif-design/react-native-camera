@@ -6,8 +6,9 @@ import {
 } from 'react-native-vision-camera';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { confirm, r } from '@unif/react-native-design';
+import { r } from '@unif/react-native-design';
 import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
+import { useCameraDialog } from './ui/CameraDialogHost';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
@@ -38,6 +39,9 @@ type Props = {
 type PermissionState = 'pending' | 'granted' | 'denied';
 
 export function Container({ config, onSettle }: Props) {
+  // 本地弹窗:切模式/放弃拍摄的二次确认走相机 Modal 内部 host(见 ui/CameraDialogHost),
+  // 不走 design 全局 confirm —— 后者会被相机 Modal 盖住。
+  const { confirm } = useCameraDialog();
   const settledRef = useRef(false);
 
   const settle = useCallback(
