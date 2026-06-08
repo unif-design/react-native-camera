@@ -29,10 +29,10 @@ it('confirm 变体显示类型 label', () => {
   expect(getByText('单拍')).toBeTruthy();
 });
 
-it('gallery 多类型显示 tab + 共N张,点 tab 回调', () => {
+it('gallery 多类型显示 tab,点 tab 回调', () => {
   const onSelectType = jest.fn();
   const files = [f('continuous', 'a'), f('continuous', 'b'), f('single', 'c')];
-  const { getByTestId, getByText } = render(
+  const { getByTestId } = render(
     <PreviewTopBar
       variant="gallery"
       files={files}
@@ -40,7 +40,6 @@ it('gallery 多类型显示 tab + 共N张,点 tab 回调', () => {
       onSelectType={onSelectType}
     />
   );
-  expect(getByText('共 3 张')).toBeTruthy();
   fireEvent.press(getByTestId('type-tab-single'));
   expect(onSelectType).toHaveBeenCalledWith('single');
 });

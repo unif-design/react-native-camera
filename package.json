@@ -194,6 +194,11 @@
     ],
     "setupFiles": [
       "./jest.setup.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/website/",
+      "<rootDir>/lib/"
     ]
   },
   "prettier": {
