@@ -6445,7 +6445,7 @@ __metadata:
     "@react-native/typescript-config": "npm:0.85.0"
     "@sbaiahmed1/react-native-blur": "npm:^4.6.2"
     "@types/react": "npm:^19.2.0"
-    "@unif/react-native-design": "npm:0.5.1"
+    "@unif/react-native-design": "npm:0.7.1"
     react: "npm:19.2.3"
     react-native: "npm:0.85.0"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6475,7 +6475,7 @@ __metadata:
     "@docusaurus/types": "npm:^3.10.1"
     "@mdx-js/react": "npm:^3.0.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.5.1"
+    "@unif/react-native-design": "npm:0.7.1"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:^19.2.0"
@@ -6513,7 +6513,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:0.5.1"
+    "@unif/react-native-design": "npm:0.7.1"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^9.39.4"
@@ -6565,11 +6565,10 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:0.5.1":
-  version: 0.5.1
-  resolution: "@unif/react-native-design@npm:0.5.1"
+"@unif/react-native-design@npm:0.7.1":
+  version: 0.7.1
+  resolution: "@unif/react-native-design@npm:0.7.1"
   peerDependencies:
-    "@gorhom/bottom-sheet": ">=5"
     "@sbaiahmed1/react-native-blur": ">=4"
     react: "*"
     react-native: "*"
@@ -6579,7 +6578,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.9"
-  checksum: 10c0/80e5ffe7530ac92d7a8c437f5a472e3c3afef236ff9a3c6cbd02011bb21988c18c2fca6d8d59d803393f05f4460b85fa87ddc51e4cebf15b93a247ab3f146ea7
+  checksum: 10c0/34b87f6a28e7545e01c24954cce5a60900dd17c1bca937c46e92f182ca0afa5a56037f16fd1171cb1908ce91ced9305a3bb3ac4a02a2944a82720c20a698e604
   languageName: node
   linkType: hard
 
