@@ -280,62 +280,62 @@ export function Container({ config, onSettle }: Props) {
 
   return (
     <View style={styles.root} testID="device-ready">
-      <View style={styles.viewport}>
-        <Camera
-          ref={cameraRef}
-          device={device}
-          currentMode={currentMode}
-          flash={flash}
-          aspectRatio={aspectRatio}
-          zoomShared={zoomShared}
-          sound={sound}
-          flipNonce={flipNonce}
-        />
+      {/* 取景铺满整屏 → 画面相对整屏垂直居中(上下黑边对称,系统相机式布局)。
+          控件全部 absolute 浮在取景之上,所以这里不再用纵向 flex 分割。 */}
+      <Camera
+        ref={cameraRef}
+        device={device}
+        currentMode={currentMode}
+        flash={flash}
+        aspectRatio={aspectRatio}
+        zoomShared={zoomShared}
+        sound={sound}
+        flipNonce={flipNonce}
+      />
 
-        {!recording && config.watermark && (
-          <View style={styles.watermark} pointerEvents="none">
-            <WatermarkStamp watermark={config.watermark} />
-          </View>
-        )}
+      {!recording && config.watermark && (
+        <View style={styles.watermark} pointerEvents="none">
+          <WatermarkStamp watermark={config.watermark} />
+        </View>
+      )}
 
-        {!recording && (
-          <View style={styles.sideRail}>
-            <SideRail
-              flash={flash}
-              aspectRatio={aspectRatio}
-              sound={sound}
-              onChangeFlash={setFlash}
-              onChangeAspectRatio={setAspectRatio}
-              onToggleSound={() => setSound((v) => !v)}
-            />
-            <SideActions
-              canSave={photos.length > 0}
-              onBack={handleCancel}
-              onSave={handleSave}
-            />
-          </View>
-        )}
+      {!recording && (
+        <View style={styles.sideRail}>
+          <SideRail
+            flash={flash}
+            aspectRatio={aspectRatio}
+            sound={sound}
+            onChangeFlash={setFlash}
+            onChangeAspectRatio={setAspectRatio}
+            onToggleSound={() => setSound((v) => !v)}
+          />
+          <SideActions
+            canSave={photos.length > 0}
+            onBack={handleCancel}
+            onSave={handleSave}
+          />
+        </View>
+      )}
 
-        {!recording && (
-          <View style={styles.zoomChips}>
-            <ZoomChips
-              zoom={zoom}
-              minZoom={device.minZoom}
-              maxZoom={device.maxZoom}
-              onSelect={(z) => {
-                const clamped = Math.min(
-                  Math.max(z, device.minZoom),
-                  device.maxZoom
-                );
-                setZoom(clamped);
-                zoomShared.value = clamped;
-              }}
-            />
-          </View>
-        )}
+      {!recording && (
+        <View style={styles.zoomChips}>
+          <ZoomChips
+            zoom={zoom}
+            minZoom={device.minZoom}
+            maxZoom={device.maxZoom}
+            onSelect={(z) => {
+              const clamped = Math.min(
+                Math.max(z, device.minZoom),
+                device.maxZoom
+              );
+              setZoom(clamped);
+              zoomShared.value = clamped;
+            }}
+          />
+        </View>
+      )}
 
-        <CaptureFlash trigger={flashNonce} />
-      </View>
+      <CaptureFlash trigger={flashNonce} />
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}>
         {burning ? (
@@ -381,8 +381,8 @@ export function Container({ config, onSettle }: Props) {
 
 const styles = StyleSheet.create({
   // 相机主容器固定黑底:相机 UX 惯例,不走 c.background token。
-  root: { flex: 1, backgroundColor: DARK.black },
-  viewport: { flex: 1, position: 'relative', justifyContent: 'center' },
+  // position:relative → 内部 absolute 浮层(footer/sideRail/zoomChips)以整屏为参照。
+  root: { flex: 1, backgroundColor: DARK.black, position: 'relative' },
   watermark: {
     position: 'absolute',
     right: r(6),
@@ -390,10 +390,11 @@ const styles = StyleSheet.create({
     maxWidth: r(230),
     zIndex: 7,
   },
+  // 控件浮层 bottom 现以整屏底为参照,需抬到 footer 浮层之上(真机微调)。
   sideRail: {
     position: 'absolute',
     left: r(12),
-    bottom: r(24),
+    bottom: r(150),
     gap: r(10),
     zIndex: 9,
   },
@@ -401,11 +402,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: r(16),
+    bottom: r(120),
     alignItems: 'center',
     zIndex: 7,
   },
-  bottom: { paddingTop: r(14), gap: r(16) },
+  // footer 浮在取景之上:半透明黑保护底让控件可读,zIndex 最高保证可点。
+  bottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: r(14),
+    gap: r(16),
+    backgroundColor: DARK.black45,
+    zIndex: 10,
+  },
   center: { alignItems: 'center' },
   burningFooter: {
     alignItems: 'center',
