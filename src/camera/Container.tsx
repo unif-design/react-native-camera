@@ -12,10 +12,10 @@ import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
-import { TopBar } from './TopBar';
 import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
+import { SideActions } from './setup/SideActions';
 import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
@@ -279,8 +279,6 @@ export function Container({ config, onSettle }: Props) {
 
   return (
     <View style={styles.root} testID="device-ready">
-      <TopBar onCancel={handleCancel} />
-
       <View style={styles.viewport}>
         <Camera
           ref={cameraRef}
@@ -311,6 +309,11 @@ export function Container({ config, onSettle }: Props) {
               onChangeAspectRatio={setAspectRatio}
               onToggleSound={() => setSound((v) => !v)}
               onToggleGrid={() => setGrid((v) => !v)}
+            />
+            <SideActions
+              canSave={photos.length > 0}
+              onBack={handleCancel}
+              onSave={handleSave}
             />
           </View>
         )}
@@ -389,7 +392,13 @@ const styles = StyleSheet.create({
     maxWidth: r(230),
     zIndex: 7,
   },
-  sideRail: { position: 'absolute', left: r(12), bottom: r(24), zIndex: 9 },
+  sideRail: {
+    position: 'absolute',
+    left: r(12),
+    bottom: r(24),
+    gap: r(10),
+    zIndex: 9,
+  },
   zoomChips: {
     position: 'absolute',
     left: 0,
