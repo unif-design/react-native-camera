@@ -9,7 +9,6 @@ import {
   type IconName,
 } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
-import { VolumeIcon } from '../icons/VolumeIcon';
 
 export type FlashMode = 'off' | 'on' | 'auto';
 export type AspectRatio = '4:3' | '16:9';
@@ -100,7 +99,11 @@ export function SideRail({
         style={[styles.btn, sound && styles.btnActive]}
         onPress={onToggleSound}
       >
-        <VolumeIcon on={sound} size={r(20)} color={c.foreground} />
+        <Icon
+          name={sound ? 'sound' : 'sound-off'}
+          size={r(20)}
+          color={c.foreground}
+        />
       </TouchableOpacity>
     </View>
   );
