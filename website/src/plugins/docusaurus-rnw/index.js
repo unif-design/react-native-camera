@@ -23,10 +23,10 @@ module.exports = function reactNativeWebPlugin(context) {
 
   // 几个 ESM-shipped 且带 Flow / TS 注解的 RN 库要让 babel-loader 处理（默认 node_modules 不走 babel）。
   // 用 regex 匹配，因为这些包同时在 root 和 website/ 两份 node_modules 下都可能存在。
-  // @gorhom/bottom-sheet 与 @sbaiahmed1/react-native-blur 的 lib/module 里有 .ts NativeComponent
+  // @sbaiahmed1/react-native-blur 等库的 lib/module 里有 .ts NativeComponent
   // 规范文件,带 import type 等 TS 语法,默认 webpack parser 解析不了,需要 babel + preset-typescript。
   const rnPackagesPattern =
-    /node_modules\/(react-native-(?:reanimated|worklets|gesture-handler|keyboard-controller|svg|safe-area-context|web)|@gorhom\/bottom-sheet|@sbaiahmed1\/react-native-blur)\//;
+    /node_modules\/(react-native-(?:reanimated|worklets|gesture-handler|keyboard-controller|svg|safe-area-context|web)|@sbaiahmed1\/react-native-blur)\//;
 
   return {
     name: 'docusaurus-rnw',
@@ -135,7 +135,7 @@ module.exports = function reactNativeWebPlugin(context) {
               include: [srcDir],
               type: 'asset/resource',
             },
-            // node_modules 里 ESM-shipped RN 库(@gorhom/bottom-sheet、@sbaiahmed1/react-native-blur、
+            // node_modules 里 ESM-shipped RN 库(@sbaiahmed1/react-native-blur、
             // @react-navigation/native 等)用相对 import 不带后缀。webpack 5 严格 ESM 拒收;
             // 放宽 fullySpecified 让 webpack 按 resolve.extensions 兜底找文件。
             // 仅作用于 node_modules,不影响 srcDir(我们的代码走 babel-loader 上面那条规则)。

@@ -26,7 +26,7 @@ yarn add @unif/react-native-camera \
   @shopify/react-native-skia @dr.pogodin/react-native-fs react-native-video \
   react-native-reanimated react-native-worklets react-native-reanimated-carousel \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
-  @gorhom/bottom-sheet @sbaiahmed1/react-native-blur @unif/react-native-design
+  @sbaiahmed1/react-native-blur @unif/react-native-design
 ```
 
 > `package.json` 的 `peerDependencies` 另声明了 `react-native-webview`(历史保留,`src` 未直接引用),并含 `react` / `react-native` 本身。**完整、权威的清单以 `package.json` 的 `peerDependencies` 为准。**
@@ -34,7 +34,7 @@ yarn add @unif/react-native-camera \
 > ⚠️ **文件系统用 fork**:本库依赖 `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`,装错会冲突。
 > ⚠️ **worklets 必装**:vision-camera 5.x 内部 `require` 了 `react-native-vision-camera-worklets`,缺它 Metro 报 `Unable to resolve module react-native-vision-camera-worklets`。
 
-iOS 升级原生依赖后须重新 `cd ios && bundle exec pod install`。权限键(iOS Info.plist / Android Manifest)、为何各 peer 必装、`<ConfirmHost/>` + `<ToastHost/>` 挂载 —— 见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。
+iOS 升级原生依赖后须重新 `cd ios && bundle exec pod install`。权限键(iOS Info.plist / Android Manifest)、为何各 peer 必装 —— 见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。相机的确认弹窗 / toast 已内部自洽,**无需为相机挂 `<ConfirmHost/>` / `<ToastHost/>`**。
 
 ## 快速开始
 

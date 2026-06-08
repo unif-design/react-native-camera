@@ -20,7 +20,7 @@ yarn                  # 安装(yarn 4.11,node v24.13,见 .nvmrc)
 yarn typecheck        # tsc(noEmit,strict + noUncheckedIndexedAccess)
 yarn lint             # eslint **/*.{js,ts,tsx}
 yarn lint --fix       # 自动修复
-yarn test             # jest(跑 src/ 下 colocate 的 *.test.{ts,tsx} + __tests__/)
+yarn test             # jest(跑 src/__tests__/ 下 *.test.{ts,tsx},镜像源码结构)
 yarn test src/__tests__/useCamera.test.tsx   # 跑单文件
 yarn test -t "pattern"                        # 按测试名过滤
 yarn prepare          # react-native-builder-bob → lib/module + lib/typescript
@@ -57,7 +57,7 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 - **`api.open(config)` 返回 Promise**,用户在全屏模态内拍摄 → 预览确认 / 取消后 resolve 为 `CameraResult`。取消不 reject(走 `code: 0`)。`ModalView` 自带 `SafeAreaProvider` + `ThemeProvider`,模态内 UI 不依赖宿主的 provider。
 - **配置全在 `OpenConfig`**(`src/utils/interface.ts`,改 API 先看这里):
   - `cameraMode: CameraMode[]` —— 每项 `{ mode: 'single' | 'continuous' | 'video', quality?, type?, flashMode?, recTime? }`。`type`/`flashMode`/`recTime` 是原版 4.x 兼容字段(部分 no-op),实际拍摄参数在相机内 UI 控制。
-  - `dataRetainedMode: 'clear' | 'retain'` —— 用户切换拍摄模式时已拍文件:`clear` 先 `confirm()` 再清空、且「单拍 + clear」拍完直接进确认预览;`retain` 累积不清。
+  - `dataRetainedMode: 'clear' | 'retain'` —— 用户切换拍摄模式时已拍文件:`clear` 先二次确认(相机内本地 `confirm`,见下)再清空、且「单拍 + clear」拍完直接进确认预览;`retain` 累积不清。
   - `watermark?: WatermarkType` —— 见下。
 
 ### Result codes(`CameraResult.code`,在 `Container.tsx` 接线)
@@ -70,9 +70,20 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 - 烧录在快门后**串行逐张**进行(一次只烧 1 张,峰值内存恒定;footer 显示「正在生成水印图片…」)。`burnWatermark.ts` 走 `@dr.pogodin/react-native-fs` 读字节 → Skia 离屏全分辨率 surface 画原图 + 逐行画字 → 编码 JPEG → 写临时文件。
 - **只对照片(`mime === 'image/jpeg'`)生效,录像无水印**。烧录任何异常(解码/分配/读写失败)**都返回原图,绝不阻断保存**。Skia 是 C++ 包装对象,`finally` 里按逆序 `dispose()` 释放原生内存(防大图反复烧 OOM)—— 改这段务必保留 dispose。
 
-### 与 `@unif/react-native-design` 的耦合
+### 与 `@unif/react-native-design` 的耦合(`>=0.8.0`)
 
-`Container.tsx` 直接用了 design 的 `confirm()`(切模式/放弃拍摄的二次确认)、`r()`(缩放),`ModalView` 用了 `ThemeProvider`。因此 design 是必装 peer,且**消费者必须在 App 根挂 `<ConfirmHost/>` + `<ToastHost/>`**(见下)。
+design 是必装 peer,本库从它取:`Button` / `Icon`(图标全用 design,不自绘,详见下「图标」)、`useColors`(暗色 token)、`r()`(缩放)、`ThemeProvider`(`ModalView` 用 `forceScheme="dark"` 强制深色)。
+
+- **确认弹窗 / toast 是相机内部本地实现,不依赖宿主 host**:`src/camera/ui/CameraDialogHost.tsx` 暴露 `CameraDialogProvider` + `useCameraDialog()`(`{ confirm, toast }`)。`Container.tsx` 用 `const { confirm } = useCameraDialog()` 做切模式/放弃拍摄的二次确认;预览页 toast 同源。**Why 本地而非 design 全局 `confirm`/`toast`**:相机是 RN `<Modal>`,design 的 `ConfirmHost`/`ToastHost` 挂在消费者 App 根,App 根的弹窗叠不到已 present 的相机 Modal 之上 → 会被相机盖住。`CameraDialogHost` 用相机 Modal 子树内的高 zIndex absolute overlay(非 RN Modal),正常显示在相机之上。因此**消费者无需为相机挂 `<ConfirmHost/>` + `<ToastHost/>`**(改 dialog 行为只动这个文件)。
+
+### 图标 / 主题 / 取景布局
+
+- **图标全用 design `Icon`,本库不自绘** —— 例如音量按钮用 `name={sound ? 'sound' : 'sound-off'}`(`sound-off` 是为本库新增的 design 图标)。唯一例外:`FocusIndicator`(点击对焦的动画环)是动画图形,留在 camera。
+- **暗色主题走 design dark token** —— `ModalView` 套 `ThemeProvider forceScheme="dark"`,内部组件用 `useColors()` 恒取 dark token。仅 `src/camera/colors/viewfinder.ts` 留几个 design token 无法表达的**取景物理常量**(纯黑 letterbox 底、半透明黑玻璃药丸 ×2、iOS 标准录制红)。
+- **取景画面整屏垂直居中** —— 系统相机式布局:取景器铺满并垂直居中,控件浮层(zIndex)叠在画面上。
+- **画幅比例用文字切换** —— `4:3` / `16:9` 文字按钮(非图标),默认 `4:3`。
+- **0.5x 超广角已启用** —— `Container.tsx` 的 `physicalDevices: ['ultra-wide-angle', 'wide-angle']`(启用超广角后需真机验证不复现 iOS #3773)。
+- **无网格** —— 不提供九宫格构图叠加层。
 
 ## 关键坑
 
@@ -81,10 +92,10 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 - **peerDeps 必须装齐(缺一即崩)** —— 全部声明在 `package.json#peerDependencies`,以它为准。最易漏的两个:
   - `react-native-vision-camera-worklets`:vision-camera 5.x 把 Frame Processor 拆到这个同伴包并内部 `require`,即使本库不用 Frame Processor,Metro 静态解析仍会命中 → 缺它报 `Unable to resolve module react-native-vision-camera-worklets`。vision-camera 把它当可选 peer,本库已显式声明。
   - `@dr.pogodin/react-native-fs`(**不是** `react-native-fs`)—— `burnWatermark.ts` 用的是 dr.pogodin 这个 **fork**,装错成原始 `react-native-fs` 会冲突。
-  - 其余实际用到的 peers:`react-native-nitro-modules` / `react-native-nitro-image` / `@shopify/react-native-skia` / `react-native-video`(7.x) / `react-native-reanimated`(4.x) / `react-native-worklets` / `react-native-reanimated-carousel` / `react-native-gesture-handler` / `react-native-safe-area-context` / `react-native-svg` / `@gorhom/bottom-sheet` / `@sbaiahmed1/react-native-blur` / `@unif/react-native-design`。
+  - 其余实际用到的 peers:`react-native-nitro-modules` / `react-native-nitro-image` / `@shopify/react-native-skia` / `react-native-video`(7.x) / `react-native-reanimated`(4.x) / `react-native-worklets` / `react-native-reanimated-carousel` / `react-native-gesture-handler` / `react-native-safe-area-context` / `react-native-svg` / `@sbaiahmed1/react-native-blur` / `@unif/react-native-design`(`>=0.8.0`)。`@gorhom/bottom-sheet` **已不再是 peer**(design 0.6 起改纯 RN Modal、本库 `src` 本就没直接用,已移除)。
   - `package.json#peerDependencies` 另声明了 `react-native-webview`(历史保留,`src` 未直接引用),并含 `react` / `react-native`;**完整清单以 `package.json` 为准,以上仅列运行时实际依赖的包**。
 - **升级 native peer 后必须 `pod install`** —— `react-native-video` 7.x / Skia / fs 都有原生代码,升级后不重跑 `cd ios && bundle exec pod install` 会在编译/运行时报原生符号缺失。Android 端 Gradle 自动同步,无需额外配置。
-- **必须挂 `<ConfirmHost/>` + `<ToastHost/>`** —— 预览页的二次确认弹窗 / 提示来自 design 的命令式 API;App 根没挂 host 时弹窗/Toast 静默失效(缺 ConfirmHost → 用户无法确认照片)。已用 design 其他组件挂过则无需重复。
+- **相机弹窗 / toast 自洽,无需为相机挂 host** —— 二次确认 / toast 由相机内部 `CameraDialogHost`(`useCameraDialog()`)在相机 Modal 子树内渲染,不依赖 App 根的 design `<ConfirmHost/>` / `<ToastHost/>`(见上「与 design 的耦合」)。若消费者用 design 其它命令式组件(本库之外),仍按 design 文档自行挂 host。
 - **必须真机调试** —— 相机 + 水印需要真机摄像头硬件 + Skia GPU。iOS 模拟器 / Android 模拟器 / web 都跑不起来,这是**预期行为,不是 bug**。
 - **仅新架构** —— 依赖 Nitro / vision-camera 5.x,旧架构(Bridge)不支持。iOS 14+ / Android API 24+。
 - **权限键别漏** —— iOS Info.plist:`NSCameraUsageDescription` / `NSMicrophoneUsageDescription` / `NSPhotoLibraryAddUsageDescription`;Android Manifest:`CAMERA` / `RECORD_AUDIO` / `READ_MEDIA_IMAGES`(13+)。缺则 `code: 403` 或运行崩。
@@ -92,7 +103,7 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 ## 测试
 
 - jest 用 `@react-native/jest-preset`(RN env,**不是** design 那种 node 覆盖)。`jest.setup.ts` mock 掉 vision-camera 的 hooks(`useCameraPermission`/`useCameraDevice`/`usePhotoOutput`/`useVideoOutput`…)、nitro modules,使纯逻辑/组件测试能在无原生环境下跑。
-- 测试**与源码 colocate**(`src/**/X.test.tsx`),另有 `src/__tests__/`(useCamera / mock / contract / types 等)。覆盖 hook 行为、组件渲染、水印 layout、纯工具函数 —— 不测真实相机(那要真机)。
+- 测试**统一在 `src/__tests__/`,镜像源码结构**(不再与源码 colocate)—— 如 `src/camera/footer/Shutter.tsx` → `src/__tests__/camera/footer/Shutter.test.tsx`,根级 `src/__tests__/{useCamera,mock,contract,types,...}.test.tsx`。覆盖 hook 行为、组件渲染、水印 layout、纯工具函数 —— 不测真实相机(那要真机)。
 - **消费者用包内官方 mock**(给下游,不是本仓测试):
   ```ts
   jest.mock('@unif/react-native-camera', () => require('@unif/react-native-camera/mock'));
@@ -114,4 +125,4 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 
 ## 仓库内注释风格
 
-现有代码用中文记录非显而易见决策的 **why** —— 比如为什么 `requestPermission` 必须 `.catch` 兜底(vision-camera #3834 Android coroutine leak)、为什么 `physicalDevices: ['wide-angle']` 规避 iOS #3773、为什么水印 Skia 对象要逆序 dispose、为什么 photo id 用「时间戳 + 计数器」(防同毫秒撞 id)。保持这个标准:能不写注释就不写,但当读者会想「为什么要这样写」时,就写一句把 why 讲清楚。
+现有代码用中文记录非显而易见决策的 **why** —— 比如为什么 `requestPermission` 必须 `.catch` 兜底(vision-camera #3834 Android coroutine leak)、为什么启用 `ultra-wide-angle` 超广角后仍要真机验证不复现 iOS #3773、为什么相机弹窗走本地 `CameraDialogHost` 而非 design 全局 host(会被相机 Modal 盖住)、为什么水印 Skia 对象要逆序 dispose、为什么 photo id 用「时间戳 + 计数器」(防同毫秒撞 id)。保持这个标准:能不写注释就不写,但当读者会想「为什么要这样写」时,就写一句把 why 讲清楚。
