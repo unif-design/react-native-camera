@@ -1,5 +1,13 @@
 # Changelog
 
+# [2.10.0](https://github.com/unif-design/react-native-camera/compare/v2.9.0...v2.10.0) (2026-06-08)
+
+
+### Features
+
+* **llms:** sync generator (index desc/TOC/LiveDemo/order) ([#45](https://github.com/unif-design/react-native-camera/issues/45)) ([2f44f9a](https://github.com/unif-design/react-native-camera/commit/2f44f9afb89fc3f59512beb1711ff002c0e028ab))
+* **ui:** 预览统一黑底 + 主界面左侧返回/保存 + 上下安全区适配 ([#51](https://github.com/unif-design/react-native-camera/issues/51)) ([7057f4b](https://github.com/unif-design/react-native-camera/commit/7057f4bfabf9210d25feadde618206d9552c76ca))
+
 # [2.9.0](https://github.com/unif-design/react-native-camera/compare/v2.8.3...v2.9.0) (2026-06-03)
 
 
