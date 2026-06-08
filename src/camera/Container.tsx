@@ -23,6 +23,13 @@ import { RecordingTimer } from './footer/RecordingTimer';
 import { WatermarkStamp, burnWatermark } from './watermark';
 import { DARK } from './colors/dark';
 
+// 控件浮层需让出底部 footer:footer 高度 ≈ 内容(快门 r(72) + 模式行)+ 安全区。
+// 这里取一个基线常量,zoomChips 紧贴其上、sideRail 再高一档;真机按需微调(改一处联动两者)。
+const FOOTER_CLEARANCE = r(120);
+
+// absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
+const Z = { overlay: 7, sideRail: 9, footer: 10 };
+
 type Props = {
   config: OpenConfig;
   onSettle: (r: CameraResult) => void;
@@ -388,23 +395,24 @@ const styles = StyleSheet.create({
     right: r(6),
     top: r(12),
     maxWidth: r(230),
-    zIndex: 7,
+    zIndex: Z.overlay,
   },
-  // 控件浮层 bottom 现以整屏底为参照,需抬到 footer 浮层之上(真机微调)。
+  // 控件浮层 bottom 以整屏底为参照,需让出 footer:zoomChips 紧贴 FOOTER_CLEARANCE,
+  // sideRail 再高一档(+r(30));两者由同一基线联动,改 FOOTER_CLEARANCE 即可。
   sideRail: {
     position: 'absolute',
     left: r(12),
-    bottom: r(150),
+    bottom: FOOTER_CLEARANCE + r(30),
     gap: r(10),
-    zIndex: 9,
+    zIndex: Z.sideRail,
   },
   zoomChips: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: r(120),
+    bottom: FOOTER_CLEARANCE,
     alignItems: 'center',
-    zIndex: 7,
+    zIndex: Z.overlay,
   },
   // footer 浮在取景之上:半透明黑保护底让控件可读,zIndex 最高保证可点。
   bottom: {
@@ -415,7 +423,7 @@ const styles = StyleSheet.create({
     paddingTop: r(14),
     gap: r(16),
     backgroundColor: DARK.black45,
-    zIndex: 10,
+    zIndex: Z.footer,
   },
   center: { alignItems: 'center' },
   burningFooter: {
