@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -26,7 +25,6 @@ import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
 import { capturePhotoToFile } from './capturePhotoHelper';
 import { FocusIndicator } from './FocusIndicator';
-import { DARK } from './colors/dark';
 import type { AspectRatio, FlashMode } from './setup';
 
 const NEUTRAL_ZOOM = 1;
@@ -45,7 +43,6 @@ type Props = {
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
   sound?: boolean;
-  grid?: boolean;
   flipNonce?: number;
 };
 
@@ -58,7 +55,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     aspectRatio,
     zoomShared,
     sound,
-    grid,
     flipNonce,
   },
   ref
@@ -286,7 +282,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
               nativeID="vision-camera"
             />
-            {grid && <GridOverlay />}
             {focusPoint && (
               <FocusIndicator
                 key={`${focusPoint.x}-${focusPoint.y}`}
@@ -300,46 +295,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     </View>
   );
 });
-
-// 网格叠加:2 竖 2 横线把取景框 3 等分(rule-of-thirds 九宫格)。pointerEvents=none 不挡手势。
-function GridOverlay() {
-  return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Line
-        x1="33.33%"
-        y1="0%"
-        x2="33.33%"
-        y2="100%"
-        stroke={DARK.white25}
-        strokeWidth={0.5}
-      />
-      <Line
-        x1="66.66%"
-        y1="0%"
-        x2="66.66%"
-        y2="100%"
-        stroke={DARK.white25}
-        strokeWidth={0.5}
-      />
-      <Line
-        x1="0%"
-        y1="33.33%"
-        x2="100%"
-        y2="33.33%"
-        stroke={DARK.white25}
-        strokeWidth={0.5}
-      />
-      <Line
-        x1="0%"
-        y1="66.66%"
-        x2="100%"
-        y2="66.66%"
-        stroke={DARK.white25}
-        strokeWidth={0.5}
-      />
-    </Svg>
-  );
-}
 
 const styles = StyleSheet.create({
   // 全屏黑底,把取景框居中 → 框外区域是黑边(letterbox)。

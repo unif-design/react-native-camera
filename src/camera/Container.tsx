@@ -105,7 +105,6 @@ export function Container({ config, onSettle }: Props) {
     config.cameraMode[0]?.flashMode ?? 'off'
   );
   const [sound, setSound] = useState(true);
-  const [grid, setGrid] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('4:3');
   const [flashNonce, setFlashNonce] = useState(0);
   const [recSeconds, setRecSeconds] = useState(0);
@@ -288,7 +287,6 @@ export function Container({ config, onSettle }: Props) {
           aspectRatio={aspectRatio}
           zoomShared={zoomShared}
           sound={sound}
-          grid={grid}
           flipNonce={flipNonce}
         />
 
@@ -304,11 +302,9 @@ export function Container({ config, onSettle }: Props) {
               flash={flash}
               aspectRatio={aspectRatio}
               sound={sound}
-              grid={grid}
               onChangeFlash={setFlash}
               onChangeAspectRatio={setAspectRatio}
               onToggleSound={() => setSound((v) => !v)}
-              onToggleGrid={() => setGrid((v) => !v)}
             />
             <SideActions
               canSave={photos.length > 0}

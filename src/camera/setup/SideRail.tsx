@@ -11,11 +11,9 @@ type Props = {
   flash: FlashMode;
   aspectRatio: AspectRatio;
   sound: boolean;
-  grid: boolean;
   onChangeFlash: (m: FlashMode) => void;
   onChangeAspectRatio: (r: AspectRatio) => void;
   onToggleSound: () => void;
-  onToggleGrid: () => void;
 };
 
 const flashIcon: Record<FlashMode, IconName> = {
@@ -34,11 +32,9 @@ export function SideRail({
   flash,
   aspectRatio,
   sound,
-  grid,
   onChangeFlash,
   onChangeAspectRatio,
   onToggleSound,
-  onToggleGrid,
 }: Props) {
   const [flashOpen, setFlashOpen] = useState(false);
   return (
@@ -107,18 +103,6 @@ export function SideRail({
           on={sound}
           size={r(20)}
           color={sound ? DARK.white : DARK.white95}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        testID="grid-btn"
-        style={[styles.btn, grid && styles.btnActive]}
-        onPress={onToggleGrid}
-      >
-        <Icon
-          name="grid"
-          size={r(18)}
-          color={grid ? DARK.white : DARK.white95}
         />
       </TouchableOpacity>
     </View>
