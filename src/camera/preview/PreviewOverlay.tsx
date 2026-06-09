@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { r, fw, type as t } from '@unif/react-native-design';
 import type { CustomPhotoFile, CameraModeName } from '../../utils';
+import type { SlideResizeMode } from '../../components/Carousel/SlideItem';
 import { useCameraDialog } from '../ui/CameraDialogHost';
 import { Carousel } from '../../components/Carousel';
 import { VIEWFINDER } from '../colors/viewfinder';
@@ -33,6 +35,8 @@ export function PreviewOverlay({
     types[0] ?? 'single'
   );
   const [index, setIndex] = useState(0);
+  // TODO(临时·测完删):真机对比 resizeMode 效果用,点击循环切换。
+  const [resizeMode, setResizeMode] = useState<SlideResizeMode>('cover');
 
   // 删除回收:当前类型被删空 → 切到剩余首个类型(无则关由 Container 处理)
   useEffect(() => {
@@ -75,7 +79,31 @@ export function PreviewOverlay({
         }}
       />
       <View style={styles.pager}>
-        <Carousel data={data} index={index} onIndexChange={setIndex} />
+        <Carousel
+          data={data}
+          index={index}
+          onIndexChange={setIndex}
+          resizeMode={resizeMode}
+        />
+        {/* TODO(临时·测完连同 state/样式一起删):resizeMode 切换器 —— 点击循环 cover/contain/stretch/center 真机对比。 */}
+        <Pressable
+          style={styles.resizeProbe}
+          onPress={() =>
+            setResizeMode((m) => {
+              const modes: SlideResizeMode[] = [
+                'cover',
+                'contain',
+                'stretch',
+                'center',
+              ];
+              return modes[(modes.indexOf(m) + 1) % modes.length] ?? 'cover';
+            })
+          }
+        >
+          <Text style={styles.resizeProbeText}>
+            resizeMode: {resizeMode}(点击切换·临时)
+          </Text>
+        </Pressable>
       </View>
       <PreviewBottomBar
         variant={variant}
@@ -99,4 +127,15 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   pager: { flex: 1 },
+  // TODO(临时·测完删):resizeMode 探针样式。
+  resizeProbe: {
+    position: 'absolute',
+    top: r(8),
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: r(12),
+    paddingVertical: r(6),
+    borderRadius: r(8),
+  },
+  resizeProbeText: { color: '#fff', fontSize: t.sm, fontWeight: fw.medium },
 });

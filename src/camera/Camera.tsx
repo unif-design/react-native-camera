@@ -219,9 +219,10 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     () => ({
       capture: async () => {
         try {
-          // 前摄常无物理闪光(device.hasFlash=false),此时 flashMode:'on' 会 throw,
-          // 故据 hasFlash guard:无闪光设备一律 'off'(对齐 docs 的 hasFlash 约束)。
-          const flashMode = flash === 'on' && device.hasFlash ? 'on' : 'off';
+          // flash('on'/'auto'/'off')直传给 capturePhoto —— 我们的 FlashMode 与 vision-camera 取值一致。
+          // 仅做 hasFlash guard:前摄等无物理闪光设备给 'on'/'auto' 会 throw,故无闪光一律 'off'。
+          // (旧实现只认 'on' → 把 'auto' 也吞成 'off',导致「自动」闪光失效;这里改为全模式直传。)
+          const flashMode = device.hasFlash ? (flash ?? 'off') : 'off';
           const raw = await captureToTempFile(photoOutput, {
             flashMode,
             enableShutterSound: sound ?? true,

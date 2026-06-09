@@ -2,7 +2,18 @@ import { Image, StyleSheet, View } from 'react-native';
 import type { CustomPhotoFile } from '../../utils';
 import { VideoPlayer } from '../VideoPlayer';
 
-export function SlideItem({ file }: { file: CustomPhotoFile }) {
+// 预览 resizeMode 临时控件的取值(测完去掉控件、固定 cover);只用这 4 种。
+export type SlideResizeMode = 'cover' | 'contain' | 'stretch' | 'center';
+
+// resizeMode 由预览页临时控件传入,用于真机对比 cover/contain/stretch/center —— 选定后
+// 会去掉控件、固定一种。缺省 cover = 与取景一致(满宽铺满、按比例裁上下,取景本就是 cover)。
+export function SlideItem({
+  file,
+  resizeMode = 'cover',
+}: {
+  file: CustomPhotoFile;
+  resizeMode?: SlideResizeMode;
+}) {
   return (
     <View style={styles.root}>
       {file.mime === 'video/mp4' ? (
@@ -11,10 +22,7 @@ export function SlideItem({ file }: { file: CustomPhotoFile }) {
         <Image
           source={{ uri: file.uri }}
           style={StyleSheet.absoluteFill}
-          // cover = 取景所见:Camera.tsx 取景框 width:100%×aspectRatio + VisionCamera
-          // resizeMode="cover"(满宽铺满、按比例裁掉上下超出)。预览这里同样 cover → 与取景
-          // 完全一致;裁切是预期(取景就是 cover),不是 contain 的「完整照片 + 左右黑边」。
-          resizeMode="cover"
+          resizeMode={resizeMode}
         />
       )}
     </View>
