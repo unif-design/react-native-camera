@@ -117,6 +117,15 @@ export function Container({ config, onSettle }: Props) {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
 
+  // vision-camera 5.x:device.zoom/minZoom/maxZoom 是 AVFoundation videoZoomFactor(vzf,
+  // 相对设备最广镜头),不是用户倍数。用户倍数 = vzf × displayMul。
+  // displayMul 从 zoomLensSwitchFactors[0]( = virtualDeviceSwitchOverVideoZoomFactors[0],
+  // 即切到下一颗物理镜头/用户 1x 对应的 vzf)反推:iPhone 后置 dual(wide+ultra)switchFactors=[2.0]
+  // → displayMul=0.5(vzf 1.0=minZoom=超广角=用户 0.5x、vzf 2.0=广角=用户 1x)。
+  // 无超广角(前置/单广角机型)switchFactors 为空 → switch0=0 → displayMul=1(无 0.5x,fallback)。
+  const switch0 = device?.zoomLensSwitchFactors?.[0] ?? 0;
+  const displayMul = switch0 > 1 ? 1 / switch0 : 1;
+
   const cameraRef = useRef<CameraHandle>(null);
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
@@ -151,18 +160,6 @@ export function Container({ config, onSettle }: Props) {
       if (prev == null || Math.abs(cur - prev) > 0.02) runOnJS(setZoom)(cur);
     }
   );
-
-  // TODO(临时): 真机确认超广角 minZoom 后移除。帮用户核对前/后置设备的缩放能力(0.5x 是否可用)。
-  // vision-camera 5.x 的 CameraDevice 无 neutralZoom(4.x 字段),物理镜头列表用 physicalDevices。
-  useEffect(() => {
-    if (device)
-      console.log('[camera] device zoom', {
-        position,
-        minZoom: device.minZoom,
-        maxZoom: device.maxZoom,
-        physicalDevices: device.physicalDevices,
-      });
-  }, [device, position]);
 
   useEffect(() => {
     if (!recording) {
@@ -368,16 +365,18 @@ export function Container({ config, onSettle }: Props) {
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
           <ZoomChips
-            zoom={zoom}
-            minZoom={device.minZoom}
-            maxZoom={device.maxZoom}
-            onSelect={(z) => {
-              const clamped = Math.min(
-                Math.max(z, device.minZoom),
+            zoom={zoom * displayMul}
+            minZoom={device.minZoom * displayMul}
+            maxZoom={device.maxZoom * displayMul}
+            onSelect={(displayZ) => {
+              // ZoomChips 边界用 display 空间;内部 zoom state/zoomShared 仍是 vzf。
+              // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
+              const vzf = Math.min(
+                Math.max(displayZ / displayMul, device.minZoom),
                 device.maxZoom
               );
-              setZoom(clamped);
-              zoomShared.value = clamped;
+              setZoom(vzf);
+              zoomShared.value = vzf;
             }}
           />
         </View>

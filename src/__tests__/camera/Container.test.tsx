@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent, within } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
@@ -18,13 +18,19 @@ jest.mock('react-native-vision-camera', () => ({
     hasPermission: true,
     requestPermission: () => Promise.resolve(true),
   }),
+  // back: dual(wide+ultra)→ vzf 范围 [1,8]、switchFactors=[2]( displayMul=0.5 → display 范围 [0.5,4])。
+  // front: 单广角无超广角 → vzf minZoom=1、switchFactors=[]( displayMul=1)。
   useCameraDevice: (position: 'back' | 'front') => ({
     id: `dev-${position}`,
     position,
-    minZoom: 0.5,
+    // vzf 空间:两端最广镜头都是 1.0(back 的 1.0 是超广角=用户 0.5x,见 displayMul)。
+    minZoom: 1,
     maxZoom: 8,
     supportsFocusMetering: true,
-    physicalDevices: ['ultra-wide-angle', 'wide-angle'],
+    isVirtualDevice: position === 'back',
+    zoomLensSwitchFactors: position === 'back' ? [2] : [],
+    physicalDevices:
+      position === 'back' ? ['ultra-wide-angle', 'wide-angle'] : ['wide-angle'],
   }),
   useCameraDevices: () => [],
   usePhotoOutput: () => ({ capturePhoto: jest.fn() }),
@@ -59,6 +65,22 @@ it('后置(back)渲染变焦条', () => {
   expect(getByTestId('device-ready')).toBeTruthy();
   // 0.5/1/2 档随超广角设备出现
   expect(getByTestId('zoom-chip-1')).toBeTruthy();
+});
+
+it('后置 dual:displayMul=0.5 → display 空间出现 0.5 档,默认高亮 0.5x', () => {
+  // mock back: vzf minZoom=1、switchFactors=[2] → displayMul=0.5。
+  // ZoomChips 收到 display 空间:minZoom=0.5 → 0.5 档出现;初始 zoom(vzf 1)×0.5=display 0.5 → 高亮 0.5x。
+  const { getByTestId } = r('back');
+  expect(getByTestId('zoom-chip-0.5')).toBeTruthy();
+  expect(within(getByTestId('zoom-chip-0.5')).getByText('0.5x')).toBeTruthy();
+});
+
+it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 高亮跳到 1x', () => {
+  // 点 display 1x 档:onSelect(1) → vzf = 1/0.5 = 2.0 → setZoom(2.0)。
+  // 重渲后 ZoomChips zoom = 2.0×0.5 = display 1 → 1 档高亮显示 1.0x(印证 display→vzf 反算闭环)。
+  const { getByTestId } = r('back');
+  fireEvent.press(getByTestId('zoom-chip-1'));
+  expect(within(getByTestId('zoom-chip-1')).getByText('1.0x')).toBeTruthy();
 });
 
 it('前置(front)不渲染变焦条', () => {

@@ -247,6 +247,22 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
             }
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+            onStarted={() => {
+              // controller 在 onStarted 后才挂上(vision-camera 文档:set after onStarted)。
+              const c = cameraRef.current?.controller;
+              // TODO(临时): 真机确认 vzf/display 映射(0.5x 是否出现+缩放到超广角)后移除。
+              console.log('[camera] zoom-debug', {
+                position: device.position,
+                deviceMinZoom: device.minZoom,
+                deviceMaxZoom: device.maxZoom,
+                switchFactors: device.zoomLensSwitchFactors, // iPhone dual 后置预期 [2]
+                isVirtual: device.isVirtualDevice,
+                physCount: device.physicalDevices.length,
+                ctrlMinZoom: c?.minZoom,
+                ctrlZoom: c?.zoom,
+                displayableZoomFactor: c?.displayableZoomFactor, // iOS18+: 预期 ~0.5;iOS<18: = ctrlZoom
+              });
+            }}
             nativeID="vision-camera"
           />
           {focusPoint && (
