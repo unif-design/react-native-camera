@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.17.0](https://github.com/unif-design/react-native-camera/compare/v2.16.0...v2.17.0) (2026-06-09)
+
+
+### Features
+
+* **camera:** 真机 UI 调优批 — 药丸动效/闪光灯轮换/预览contain/默认16:9/footer/保留模式分类 ([#65](https://github.com/unif-design/react-native-camera/issues/65)) ([b01a770](https://github.com/unif-design/react-native-camera/commit/b01a770eec8e9a267b3c144bce35a790fc239e5f))
+
 # [2.16.0](https://github.com/unif-design/react-native-camera/compare/v2.15.2...v2.16.0) (2026-06-09)
 
 
