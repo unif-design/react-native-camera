@@ -90,7 +90,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const zoom = zoomShared ?? internalZoom;
   const zoomOffset = useSharedValue(0);
 
+  // 前置摄像头禁双指缩放(前摄定焦、变焦无意义);后置 enabled。tapGesture 对焦保留两端。
   const pinchGesture = Gesture.Pinch()
+    .enabled(cameraType === 'back')
     .onBegin(() => {
       'worklet';
       zoomOffset.value = zoom.value;

@@ -44,6 +44,8 @@ jest.mock('react-native-reanimated', () => ({
   useAnimatedStyle: (fn: () => unknown) => fn(),
   useAnimatedProps: (fn: () => unknown) => fn(),
   useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
+  // jest 下无 SharedValue 更新,reaction 不触发回调 → no-op 即可。
+  useAnimatedReaction: () => {},
   runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
   runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
   withTiming: (v: unknown) => v,
@@ -54,16 +56,18 @@ jest.mock('react-native-reanimated', () => ({
 // Mock gesture handler
 jest.mock('react-native-gesture-handler', () => {
   const { View } = require('react-native');
+  // 链式桩:每个 builder 方法返回自身,支持任意调用顺序(enabled/onBegin/onUpdate/onEnd…)。
+  const chain: any = new Proxy(
+    {},
+    {
+      get: () => () => chain,
+    }
+  );
   return {
     Gesture: {
-      Pinch: () => ({
-        onBegin: () => ({
-          onUpdate: () => ({}),
-        }),
-        onUpdate: () => ({}),
-      }),
-      Tap: () => ({ onEnd: () => ({}) }),
-      Simultaneous: () => ({}),
+      Pinch: () => chain,
+      Tap: () => chain,
+      Simultaneous: () => chain,
     },
     GestureDetector: ({ children }: any) => children,
     GestureHandlerRootView: View,

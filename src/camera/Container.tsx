@@ -4,7 +4,11 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from 'react-native-vision-camera';
-import { useSharedValue } from 'react-native-reanimated';
+import {
+  runOnJS,
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
@@ -136,6 +140,29 @@ export function Container({ config, onSettle }: Props) {
   // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
   const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
   const zoomShared = useSharedValue(1);
+
+  // pinch 实时更新 zoomShared(UI 线程),这里节流回写 zoom state 让变焦条近实时跟手。
+  // 只读 zoomShared、只 setZoom(不回写 zoomShared)→ 不成环:pinch→zoomShared→reaction→
+  // setZoom 到此为止;点击 chip 是另一路(setZoom + zoomShared.value= 一起,见 onSelect)。
+  useAnimatedReaction(
+    () => zoomShared.value,
+    (cur, prev) => {
+      // 节流:变化够大才回写 state,避免每帧 setState。
+      if (prev == null || Math.abs(cur - prev) > 0.02) runOnJS(setZoom)(cur);
+    }
+  );
+
+  // TODO(临时): 真机确认超广角 minZoom 后移除。帮用户核对前/后置设备的缩放能力(0.5x 是否可用)。
+  // vision-camera 5.x 的 CameraDevice 无 neutralZoom(4.x 字段),物理镜头列表用 physicalDevices。
+  useEffect(() => {
+    if (device)
+      console.log('[camera] device zoom', {
+        position,
+        minZoom: device.minZoom,
+        maxZoom: device.maxZoom,
+        physicalDevices: device.physicalDevices,
+      });
+  }, [device, position]);
 
   useEffect(() => {
     if (!recording) {
@@ -335,7 +362,8 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
-      {!recording && (
+      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。 */}
+      {!recording && position === 'back' && (
         <View
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
@@ -428,8 +456,9 @@ const makeStyles = (c: ColorTokens) =>
       alignItems: 'center',
       zIndex: Z.overlay,
     },
-    // footer 浮在取景之上:轻半透明黑遮罩(VIEWFINDER.footerScrim)让控件可读,
-    // zIndex 最高保证可点。不用 design c.scrim(0.7 太深,见 viewfinder.ts)。
+    // footer 透明:原来叠半透明黑遮罩(VIEWFINDER.footerScrim)在取景底缘,
+    // 与下方纯黑 root 底拼出一条"浅灰带 / 一浅一深"分界 —— 改 transparent 让
+    // footer 区直接露统一的 root 黑底,消除深浅分界。zIndex 最高仍保证控件可点。
     bottom: {
       position: 'absolute',
       left: 0,
@@ -437,7 +466,7 @@ const makeStyles = (c: ColorTokens) =>
       bottom: 0,
       paddingTop: r(14),
       gap: r(16),
-      backgroundColor: VIEWFINDER.footerScrim,
+      backgroundColor: 'transparent',
       zIndex: Z.footer,
     },
     center: { alignItems: 'center' },
