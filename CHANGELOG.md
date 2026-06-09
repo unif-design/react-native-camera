@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.15.0](https://github.com/unif-design/react-native-camera/compare/v2.14.1...v2.15.0) (2026-06-09)
+
+
+### Features
+
+* **camera:** onError 顶部非阻塞错误条 + 不再误关相机 ([#60](https://github.com/unif-design/react-native-camera/issues/60)) ([d58cc75](https://github.com/unif-design/react-native-camera/commit/d58cc75d549253b4131bb078cc8f8c82e51a7158))
+
 ## [2.14.1](https://github.com/unif-design/react-native-camera/compare/v2.14.0...v2.14.1) (2026-06-09)
 
 
