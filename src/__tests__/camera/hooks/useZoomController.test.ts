@@ -65,12 +65,13 @@ describe('displayMul / min-maxDisplay 推导', () => {
     expect(result.current.zoom).toBe(1);
   });
 
-  it('暴露 zoomShared / pinching 两个 SharedValue(UI 线程驱动倍数与高亮)', () => {
+  it('暴露 zoomShared SharedValue(UI 线程驱动倍数与高亮),不再暴露 pinching', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
-    // jest 桩:useSharedValue(init) → { value: init }。pinching 初值 0(idle)、zoomShared 初值 1。
+    // jest 桩:useSharedValue(init) → { value: init }。zoomShared 初值 1。
     expect(result.current.zoomShared).toEqual({ value: 1 });
-    expect(result.current.pinching).toEqual({ value: 0 });
+    // pinching 已从对外链路彻底移除(倍数挪进高亮档药丸文字,不再有外部「大号浮层」读它)。
+    expect((result.current as { pinching?: unknown }).pinching).toBeUndefined();
   });
 });
 

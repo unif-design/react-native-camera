@@ -14,9 +14,9 @@ jest.mock('react-native-nitro-image', () => ({ NitroImage: () => null }), {
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const { View, Text } = require('react-native');
-  // Animated.View / Animated.Text / createAnimatedComponent 桩:ZoomChips/ZoomReadout 用
-  // Animated.View(opacity)、Animated.Text(档位高亮色)、createAnimatedComponent(TextInput)
-  // (大号倍数);jest 下渲染成普通 RN 组件(动画不跑,挂载/逻辑可测)。
+  // Animated.View / Animated.Text / createAnimatedComponent 桩:ZoomChips 用
+  // Animated.View(档位高亮底色)、createAnimatedComponent(TextInput)(高亮档实时倍数文字);
+  // jest 下渲染成普通 RN 组件(动画不跑,挂载/逻辑可测)。
   const Animated = Object.assign(View, {
     View,
     Text,

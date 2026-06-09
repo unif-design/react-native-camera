@@ -7,10 +7,9 @@ import { ZoomChips } from '../../../camera/footer/ZoomChips';
 const r = (ui: ReactElement) =>
   render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
 
-// jest 下 useSharedValue 桩返 {value};zoomShared/pinching 直接造对象传入。
+// jest 下 useSharedValue 桩返 {value};zoomShared 直接造对象传入(pinching 已从 props 移除)。
 const base = {
   zoomShared: { value: 2 } as any, // vzf=2 → 后置 display=1.0x
-  pinching: { value: 0 } as any,
   displayMul: 0.5,
 };
 
@@ -51,24 +50,24 @@ test('点 1 档 → onSelect 传用户倍数 1', () => {
   expect(onSelect).toHaveBeenCalledWith(1);
 });
 
-test('档位标签静态:0.5 档显 .5、1 档显 1(实时倍数走大号 readout,不在档内)', () => {
+// 倍数已挪进**当前高亮档**药丸文字本身(删了上方大号 readout 浮层):
+// 高亮档 = display 值(toFixed(1)),非高亮档 = 静态 .5 / 1。
+// chip 文字现为只读 AnimatedTextInput(value 兜底初值,jest 用 getByDisplayValue 取)。
+test('display=1.0(vzf2×0.5):高亮 1 档文字=实时 1.0,0.5 档静态 .5', () => {
   const { getByTestId } = r(
     <ZoomChips {...base} showHalf onSelect={() => {}} />
   );
-  expect(within(getByTestId('zoom-chip-0.5')).getByText('.5')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-1')).getByText('1')).toBeTruthy();
+  // 1 档高亮 → 文字实时 = (2×0.5).toFixed(1) = '1.0'。
+  expect(
+    within(getByTestId('zoom-chip-1')).getByDisplayValue('1.0')
+  ).toBeTruthy();
+  // 0.5 档非高亮 → 静态 '.5'。
+  expect(
+    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('.5')
+  ).toBeTruthy();
 });
 
-test('大号实时倍数(readout):vzf×displayMul 格式 1 位小数+x(vzf=2,mul=0.5→1.0x)', () => {
-  const { getByTestId } = r(
-    <ZoomChips {...base} showHalf onSelect={() => {}} />
-  );
-  // ZoomReadout 内 AnimatedTextInput 的 value 兜底初值 = (2×0.5).toFixed(1)+'x'。
-  const readout = getByTestId('zoom-readout');
-  expect(within(readout).getByDisplayValue('1.0x')).toBeTruthy();
-});
-
-test('readout 反映 0.5x(最广):vzf=1,mul=0.5 → 0.5x', () => {
+test('display=0.5(vzf1×0.5,最广):高亮 0.5 档文字=实时 0.5,1 档静态 1', () => {
   const { getByTestId } = r(
     <ZoomChips
       {...base}
@@ -77,7 +76,34 @@ test('readout 反映 0.5x(最广):vzf=1,mul=0.5 → 0.5x', () => {
       onSelect={() => {}}
     />
   );
+  // 0.5 档高亮 → 文字实时 = (1×0.5).toFixed(1) = '0.5'。
   expect(
-    within(getByTestId('zoom-readout')).getByDisplayValue('0.5x')
+    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.5')
   ).toBeTruthy();
+  // 1 档非高亮 → 静态 '1'。
+  expect(
+    within(getByTestId('zoom-chip-1')).getByDisplayValue('1')
+  ).toBeTruthy();
+});
+
+test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档文字实时 0.7', () => {
+  const { getByTestId } = r(
+    <ZoomChips
+      {...base}
+      zoomShared={{ value: 1.4 } as any}
+      showHalf
+      onSelect={() => {}}
+    />
+  );
+  // display=0.7 < 1 → 0.5 档高亮,文字 = (1.4×0.5).toFixed(1) = '0.7'。
+  expect(
+    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.7')
+  ).toBeTruthy();
+});
+
+test('删除上方大号 readout 浮层(zoom-readout 不再渲染)', () => {
+  const { queryByTestId } = r(
+    <ZoomChips {...base} showHalf onSelect={() => {}} />
+  );
+  expect(queryByTestId('zoom-readout')).toBeNull();
 });

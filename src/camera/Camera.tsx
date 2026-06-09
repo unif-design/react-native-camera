@@ -45,8 +45,6 @@ type Props = {
   flash?: FlashMode;
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
-  // 1=pinch 进行中(浮大号倍数),0=idle;Pinch 在此写,ZoomReadout 读其 opacity。
-  pinching?: SharedValue<number>;
   // 是否启用双指 pinch 变焦:前摄定焦(position==='front')传 false → 只剩点击对焦。
   enableZoom?: boolean;
   // pinch 放大软上限(vzf)= maxDisplay / displayMul(见 useZoomController);clamp 落点用。
@@ -70,7 +68,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     flash,
     aspectRatio,
     zoomShared,
-    pinching,
     enableZoom = true,
     softMaxZoom,
     onZoomEnd,
@@ -148,8 +145,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
-  const internalPinching = useSharedValue(0);
-  const pinchActive = pinching ?? internalPinching;
+  // pinch 进行态仅供手势内部用(onBegin 置 1、onFinalize 淡回 0):倍数已挪进高亮档药丸文字、
+  // 不再有外部「大号浮层」读它,故不再作为 prop 暴露;留着是因 Pinch 回调照常写它(无副作用)。
+  const pinchActive = useSharedValue(0);
   // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
   const pinchStartZoom = useSharedValue(NEUTRAL_ZOOM);
 

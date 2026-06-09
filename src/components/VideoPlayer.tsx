@@ -23,7 +23,8 @@ export function VideoPlayer({ uri }: { uri: string }) {
       <VideoView
         player={player}
         style={StyleSheet.absoluteFill}
-        resizeMode="contain"
+        // cover 与照片 slide(SlideItem)/取景一致:满宽铺满、按比例裁掉上下超出。
+        resizeMode="cover"
       />
     </Pressable>
   );

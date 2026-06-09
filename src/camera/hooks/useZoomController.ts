@@ -13,10 +13,8 @@ export type ZoomController = {
   /** 当前 zoom(vzf 空间,= 用户倍数 / displayMul)。仅手势结束/点击档/设备切换时更新,pinch 全程不刷。 */
   zoom: number;
   setZoom: (z: number) => void;
-  /** UI 线程 zoom(vzf):pinch 实时写、vision-camera 直接消费、大号倍数与档位高亮都由它驱动(0 次 setState)。 */
+  /** UI 线程 zoom(vzf):pinch 实时写、vision-camera 直接消费、档位高亮 + 高亮档实时倍数都由它驱动(0 次 setState)。 */
   zoomShared: SharedValue<number>;
-  /** 1=pinch 进行中(浮大号倍数),0=idle。Camera 的 Pinch 写、大号倍数读其 opacity。 */
-  pinching: SharedValue<number>;
   /** vzf → 用户倍数的乘子(后置超广角 0.5,其余 1)。 */
   displayMul: number;
   /** display 空间下限(设备最广,后置 0.5x)。 */
@@ -30,7 +28,7 @@ export type ZoomController = {
  * device 可选:device==null guard 之前就要算 displayMul/min/maxDisplay,故全程可选链兜底。
  *
  * 性能:zoom 显示全部走 UI 线程 SharedValue(zoomShared)——
- * vision-camera `zoom={zoomShared}`、大号倍数(useAnimatedProps)、档位高亮(useAnimatedStyle)
+ * vision-camera `zoom={zoomShared}`、高亮档实时倍数(useAnimatedProps)、档位高亮(useAnimatedStyle)
  * 都直接读 zoomShared,pinch 期间**不触发任何 JS setState**(早期 useAnimatedReaction→runOnJS(setZoom)
  * 每帧回写 state、整树重渲染 → 放大缩小卡。已删除)。JS 侧 `zoom` 只在手势结束/点击档/设备切换
  * 各回写一次,供档位点击态与设备切换 clamp 用。
@@ -57,7 +55,6 @@ export function useZoomController(
 
   const [zoom, setZoom] = useState(1);
   const zoomShared = useSharedValue(1);
-  const pinching = useSharedValue(0);
 
   // 设备切换(翻转前/后摄)后,把当前 zoom clamp 回新设备的 min/max 范围。
   // 有意只依赖 device:仅在设备切换时 clamp,不随 zoom 变化重跑。
@@ -75,7 +72,6 @@ export function useZoomController(
     zoom,
     setZoom,
     zoomShared,
-    pinching,
     displayMul,
     minDisplay,
     maxDisplay,

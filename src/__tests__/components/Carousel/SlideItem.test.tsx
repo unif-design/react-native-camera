@@ -1,3 +1,4 @@
+import { Image } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { SlideItem } from '../../../components/Carousel/SlideItem';
 import type { CustomPhotoFile } from '../../../utils';
@@ -24,4 +25,9 @@ it('renders image vs video branch', () => {
   expect(() => render(<SlideItem file={img} />)).not.toThrow();
   const { getByTestId } = render(<SlideItem file={vid} />);
   expect(getByTestId('video-player')).toBeTruthy();
+});
+
+it('照片用 resizeMode="cover"(= 取景所见:满宽铺满、裁掉上下超出)', () => {
+  const { UNSAFE_getByType } = render(<SlideItem file={img} />);
+  expect(UNSAFE_getByType(Image).props.resizeMode).toBe('cover');
 });
