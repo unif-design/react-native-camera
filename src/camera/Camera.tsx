@@ -18,11 +18,12 @@ import {
   type FocusOptions,
   type Recorder,
 } from 'react-native-vision-camera';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
+import { pinchVzf } from './footer/zoomMath';
 import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
@@ -43,6 +44,14 @@ type Props = {
   flash?: FlashMode;
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
+  // 1=pinch 进行中(浮大号倍数),0=idle;Pinch 在此写,ZoomReadout 读其 opacity。
+  pinching?: SharedValue<number>;
+  // 是否启用双指 pinch 变焦:前摄定焦(position==='front')传 false → 只剩点击对焦。
+  enableZoom?: boolean;
+  // pinch 放大软上限(vzf)= maxDisplay / displayMul(见 useZoomController);clamp 落点用。
+  softMaxZoom?: number;
+  // pinch 结束回写一次 JS 侧 zoom(vzf):仅手势结束,不 pinch 全程回写(性能根治)。
+  onZoomEnd?: (vzf: number) => void;
   sound?: boolean;
   onCameraError?: (error: Error) => void;
 };
@@ -55,6 +64,10 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     flash,
     aspectRatio,
     zoomShared,
+    pinching,
+    enableZoom = true,
+    softMaxZoom,
+    onZoomEnd,
     sound,
     onCameraError,
   },
@@ -97,6 +110,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
+  const internalPinching = useSharedValue(0);
+  const pinchActive = pinching ?? internalPinching;
+  // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
+  const pinchStartZoom = useSharedValue(NEUTRAL_ZOOM);
+
+  // pinch 软上限(vzf):缺省回退到设备 maxZoom(无软钳),正常由 Container 传 maxDisplay/displayMul。
+  const softMaxVzf = softMaxZoom ?? device.maxZoom;
 
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
 
@@ -117,13 +137,46 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     [device.supportsFocusMetering]
   );
 
-  // 仅保留点击对焦。双指缩放(pinch)已移除:变焦改由 footer 的连续滚条(ZoomSlider)
-  // 驱动受控 zoomShared;vision-camera 的 enableNativeZoomGesture 与受控 zoom 互斥会 throw,
-  // 故全程不开,自己用 Pan 写 zoomShared。
-  const composed = Gesture.Tap().onEnd(({ x, y }) => {
+  // 点击对焦。
+  const tap = Gesture.Tap().onEnd(({ x, y }) => {
     'worklet';
     runOnJS(handleFocus)(x, y);
   });
+
+  // 双指 pinch 变焦:从手势起点 zoom 乘以 e.scale,clamp 到设备 vzf 范围 ∩ 软上限。
+  // 不开 vision-camera 的 enableNativeZoomGesture —— 它与受控 `zoom` 互斥会 throw,故自己在
+  // 回调里写 zoomShared(UI 线程,vision-camera 直接消费 → pinch 全程不触发 JS setState)。
+  // 倍数文字/档位高亮都由 zoomShared 驱动;onEnd 才回写一次 JS 侧 zoom(档位态/设备切换 clamp 用)。
+  const deviceMinZoom = device.minZoom;
+  const deviceMaxZoom = device.maxZoom;
+  const pinch = Gesture.Pinch()
+    .enabled(enableZoom)
+    .onBegin(() => {
+      'worklet';
+      pinchStartZoom.value = zoom.value;
+      pinchActive.value = 1;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      zoom.value = pinchVzf(
+        pinchStartZoom.value,
+        e.scale,
+        deviceMinZoom,
+        deviceMaxZoom,
+        softMaxVzf
+      );
+    })
+    .onEnd(() => {
+      'worklet';
+      if (onZoomEnd) runOnJS(onZoomEnd)(zoom.value);
+    })
+    .onFinalize(() => {
+      'worklet';
+      pinchActive.value = withTiming(0, { duration: 300 });
+    });
+
+  // pinch + 点击对焦同时识别(Simultaneous):双指缩放与单击对焦互不阻断。
+  const composed = Gesture.Simultaneous(tap, pinch);
 
   useImperativeHandle(
     ref,
@@ -281,22 +334,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onCameraError?.(error);
             }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
-            onStarted={() => {
-              // controller 在 onStarted 后才挂上(vision-camera 文档:set after onStarted)。
-              const c = cameraRef.current?.controller;
-              // TODO(临时): 真机确认 vzf/display 映射(0.5x 是否出现+缩放到超广角)后移除。
-              console.log('[camera] zoom-debug', {
-                position: device.position,
-                deviceMinZoom: device.minZoom,
-                deviceMaxZoom: device.maxZoom,
-                switchFactors: device.zoomLensSwitchFactors, // iPhone dual 后置预期 [2]
-                isVirtual: device.isVirtualDevice,
-                physCount: device.physicalDevices.length,
-                ctrlMinZoom: c?.minZoom,
-                ctrlZoom: c?.zoom,
-                displayableZoomFactor: c?.displayableZoomFactor, // iOS18+: 预期 ~0.5;iOS<18: = ctrlZoom
-              });
-            }}
             nativeID="vision-camera"
           />
           {focusPoint && (

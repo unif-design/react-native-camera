@@ -57,7 +57,7 @@ yarn add @unif/react-native-camera \
 | `react-native-reanimated` | `>=4.0.0` | 取景器 / 预览动画 |
 | `react-native-worklets` | `*` | reanimated 4 / vision-camera 的 worklet 运行时 |
 | `react-native-reanimated-carousel` | `>=5.0.0-beta.0` | 预览页轮播 |
-| `react-native-gesture-handler` | `>=2.21.0` | 变焦滚条 / 对焦手势 |
+| `react-native-gesture-handler` | `>=2.21.0` | pinch 变焦 / 对焦手势 |
 | `react-native-safe-area-context` | `>=5.0.0` | 安全区适配 |
 | `react-native-svg` | `>=15` | 矢量绘制(design `Icon` 等) |
 | `@sbaiahmed1/react-native-blur` | `>=4` | 界面毛玻璃 |

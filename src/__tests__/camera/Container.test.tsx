@@ -65,33 +65,39 @@ const r = (position: 'back' | 'front') => {
   return render(ui);
 };
 
-it('后置(back)渲染变焦条', () => {
+it('后置(back)渲染变焦档(0.5/1)', () => {
   const { getByTestId } = r('back');
   expect(getByTestId('device-ready')).toBeTruthy();
-  // 0.5/1/2 档随超广角设备出现
+  // 0.5/1 档随超广角设备出现(2x 已去除)。
   expect(getByTestId('zoom-chip-1')).toBeTruthy();
 });
 
-it('后置 dual:displayMul=0.5 → display 空间出现 0.5 档,默认高亮 0.5x', () => {
+it('后置 dual:displayMul=0.5 → 0.5 档出现,大号倍数初值 0.5x', () => {
   // mock back: vzf minZoom=1、switchFactors=[2] → displayMul=0.5。
-  // ZoomChips 收到 display 空间:minZoom=0.5 → 0.5 档出现;初始 zoom(vzf 1)×0.5=display 0.5 → 高亮 0.5x。
+  // showHalf=true(minDisplay=0.5)→ 0.5 档出现;初始 zoom(vzf 1)×0.5=display 0.5 → readout=0.5x。
+  // 档位标签现为静态(.5/1),实时倍数走大号 readout(SharedValue 直驱,见 ZoomReadout)。
   const { getByTestId } = r('back');
   expect(getByTestId('zoom-chip-0.5')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-0.5')).getByText('0.5x')).toBeTruthy();
+  expect(
+    within(getByTestId('zoom-readout')).getByDisplayValue('0.5x')
+  ).toBeTruthy();
 });
 
-it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 高亮跳到 1x', () => {
-  // 点 display 1x 档:onSelect(1) → vzf = 1/0.5 = 2.0 → setZoom(2.0)。
-  // 重渲后 ZoomChips zoom = 2.0×0.5 = display 1 → 1 档高亮显示 1.0x(印证 display→vzf 反算闭环)。
+it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 大号倍数跳到 1.0x', () => {
+  // 点 display 1x 档:onSelect(1) → vzf = 1/0.5 = 2.0 → setZoom(2.0) + zoomShared.value=2.0。
+  // 重渲后 readout = zoomShared(2.0)×displayMul(0.5) = 1.0x(印证 display→vzf 反算闭环、0.5x 命脉)。
   const { getByTestId } = r('back');
   fireEvent.press(getByTestId('zoom-chip-1'));
-  expect(within(getByTestId('zoom-chip-1')).getByText('1.0x')).toBeTruthy();
+  expect(
+    within(getByTestId('zoom-readout')).getByDisplayValue('1.0x')
+  ).toBeTruthy();
 });
 
-it('前置(front)不渲染变焦条', () => {
+it('前置(front)不渲染变焦档', () => {
   const { getByTestId, queryByTestId } = r('front');
   expect(getByTestId('device-ready')).toBeTruthy();
   expect(queryByTestId('zoom-chip-0.5')).toBeNull();
   expect(queryByTestId('zoom-chip-1')).toBeNull();
-  expect(queryByTestId('zoom-chip-2')).toBeNull();
+  // 前置整块变焦控件不渲染 → readout 也不在。
+  expect(queryByTestId('zoom-readout')).toBeNull();
 });

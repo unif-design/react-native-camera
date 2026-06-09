@@ -1,16 +1,9 @@
-import {
-  clamp,
-  displayToProgress,
-  progressToDisplay,
-  progressToVzf,
-} from '../../../camera/footer/zoomMath';
+import { clamp, pinchVzf } from '../../../camera/footer/zoomMath';
 
 // 标准后置 dual 参数:超广角 0.5x→10x,displayMul=0.5(vzf=display/0.5)。
-const MIN_DISPLAY = 0.5;
-const MAX_DISPLAY = 10;
-const DISPLAY_MUL = 0.5;
 const DEV_MIN = 1; // vzf:超广角 minZoom=1 → display 0.5x
 const DEV_MAX = 20; // vzf:10x / 0.5 = 20
+const SOFT_MAX_VZF = 20; // 软上限 10x / 0.5
 
 describe('clamp', () => {
   test('夹在 [lo,hi]', () => {
@@ -20,95 +13,45 @@ describe('clamp', () => {
   });
 });
 
-describe('progressToDisplay (对数插值)', () => {
-  test('t=0 → minDisplay', () => {
-    expect(progressToDisplay(0, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(0.5, 6);
+describe('pinchVzf (双指 scale → 受控 vzf)', () => {
+  test('scale=1 → 不变(起点 vzf 原样,落在范围内)', () => {
+    expect(pinchVzf(2, 1, DEV_MIN, DEV_MAX, SOFT_MAX_VZF)).toBe(2);
   });
-  test('t=1 → maxDisplay', () => {
-    expect(progressToDisplay(1, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(10, 6);
-  });
-  test('中点对数 → 几何中值 sqrt(min·max)', () => {
-    // 对数曲线中点 = min·(max/min)^0.5 = sqrt(0.5·10) = sqrt(5) ≈ 2.236(非线性中值 5.25)
-    expect(progressToDisplay(0.5, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(
-      Math.sqrt(MIN_DISPLAY * MAX_DISPLAY),
-      6
-    );
-  });
-  test('clamp:t<0/t>1 落到端点', () => {
-    expect(progressToDisplay(-0.5, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(
-      0.5,
-      6
-    );
-    expect(progressToDisplay(2, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(10, 6);
-  });
-});
 
-describe('displayToProgress (progressToDisplay 的逆)', () => {
-  test('端点 0/1', () => {
-    expect(displayToProgress(0.5, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(0, 6);
-    expect(displayToProgress(10, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(1, 6);
+  test('乘性:起点 ×scale(2×2=4,仍在范围内)', () => {
+    expect(pinchVzf(2, 2, DEV_MIN, DEV_MAX, SOFT_MAX_VZF)).toBe(4);
   });
-  test('与 progressToDisplay 互逆', () => {
-    for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-      const d = progressToDisplay(t, MIN_DISPLAY, MAX_DISPLAY);
-      expect(displayToProgress(d, MIN_DISPLAY, MAX_DISPLAY)).toBeCloseTo(t, 6);
-    }
-  });
-});
 
-describe('progressToVzf (进度→受控 vzf)', () => {
-  test('t=0 → vzf=1.0(用户 0.5x)', () => {
-    expect(
-      progressToVzf(0, MIN_DISPLAY, MAX_DISPLAY, DISPLAY_MUL, DEV_MIN, DEV_MAX)
-    ).toBeCloseTo(1.0, 6);
+  test('缩小:scale<1 反向(起点 4 ×0.5=2)', () => {
+    expect(pinchVzf(4, 0.5, DEV_MIN, DEV_MAX, SOFT_MAX_VZF)).toBe(2);
   });
-  test('t=1 → vzf=20(用户 10x)', () => {
-    expect(
-      progressToVzf(1, MIN_DISPLAY, MAX_DISPLAY, DISPLAY_MUL, DEV_MIN, DEV_MAX)
-    ).toBeCloseTo(20, 6);
+
+  test('下限 clamp:缩到比 deviceMinZoom 还小 → deviceMinZoom(用户 0.5x)', () => {
+    // 起点 1(用户 0.5x)再缩 0.5 → 0.5 < deviceMinZoom(1) → clamp 到 1。
+    expect(pinchVzf(1, 0.5, DEV_MIN, DEV_MAX, SOFT_MAX_VZF)).toBe(1);
   });
-  test('中点 → vzf = sqrt(5)/0.5 ≈ 4.472(对数,非线性)', () => {
-    const expected = Math.sqrt(MIN_DISPLAY * MAX_DISPLAY) / DISPLAY_MUL;
-    expect(
-      progressToVzf(
-        0.5,
-        MIN_DISPLAY,
-        MAX_DISPLAY,
-        DISPLAY_MUL,
-        DEV_MIN,
-        DEV_MAX
-      )
-    ).toBeCloseTo(expected, 6);
+
+  test('上限 clamp:放到超软上限 vzf → 软上限(=20,用户 10x)', () => {
+    // 起点 4 ×10=40 > softMaxVzf(20) → clamp 到 20。
+    expect(pinchVzf(4, 10, DEV_MIN, DEV_MAX, SOFT_MAX_VZF)).toBe(20);
   });
-  test('单调递增:t 增大 vzf 增大', () => {
+
+  test('软上限优先于 deviceMaxZoom:设备 vzf 可达 246(123x),仍钳到软上限 20', () => {
+    expect(pinchVzf(10, 100, DEV_MIN, 246, SOFT_MAX_VZF)).toBe(20);
+  });
+
+  test('单调:scale 增大 → vzf 不减', () => {
     let prev = -Infinity;
-    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
-      const v = progressToVzf(
-        t,
-        MIN_DISPLAY,
-        MAX_DISPLAY,
-        DISPLAY_MUL,
-        DEV_MIN,
-        DEV_MAX
-      );
-      expect(v).toBeGreaterThan(prev);
+    for (const s of [0.5, 1, 1.5, 2, 4]) {
+      const v = pinchVzf(2, s, DEV_MIN, DEV_MAX, SOFT_MAX_VZF);
+      expect(v).toBeGreaterThanOrEqual(prev);
       prev = v;
     }
   });
-  test('软上限:deviceMaxZoom 远大于软上限 vzf 时,clamp 到软上限 vzf(=maxDisplay/mul=20)', () => {
-    // 设备 vzf 可达 246(123x 多镜头),但软上限对应 vzf=20,t=1 仍落 20。
-    expect(
-      progressToVzf(1, MIN_DISPLAY, MAX_DISPLAY, DISPLAY_MUL, DEV_MIN, 246)
-    ).toBeCloseTo(20, 6);
-  });
-  test('下限:t<0 clamp 到 deviceMinZoom', () => {
-    expect(
-      progressToVzf(-1, MIN_DISPLAY, MAX_DISPLAY, DISPLAY_MUL, DEV_MIN, DEV_MAX)
-    ).toBeCloseTo(DEV_MIN, 6);
-  });
-  test('无超广角(displayMul=1,min=max=1 设备只有广角):范围退化仍合法', () => {
-    // 单广角:minDisplay=1, maxDisplay=min(8,10)=8, mul=1, devMin=1, devMax=8
-    expect(progressToVzf(0, 1, 8, 1, 1, 8)).toBeCloseTo(1, 6);
-    expect(progressToVzf(1, 1, 8, 1, 1, 8)).toBeCloseTo(8, 6);
+
+  test('无超广角(displayMul=1,设备只有广角 vzf [1,8]):范围退化仍合法', () => {
+    // 单广角:devMin=1, devMax=8, softMaxVzf=min(8,10)=8。
+    expect(pinchVzf(1, 0.5, 1, 8, 8)).toBe(1); // 不能缩到 <1(无 0.5x)
+    expect(pinchVzf(1, 100, 1, 8, 8)).toBe(8); // 放大封顶 8x
   });
 });

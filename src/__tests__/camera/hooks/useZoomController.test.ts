@@ -9,7 +9,9 @@ type DeviceProps = { device: CameraDevice | undefined };
 
 // useZoomController 只用 device 的 minZoom/maxZoom/zoomLensSwitchFactors,造最小桩即可。
 // 这里不依赖 vision-camera mock(直接传 device 对象),只复用全局 reanimated 桩
-// (useSharedValue→{value}、useAnimatedReaction no-op):故重点测 displayMul 数学 + clamp。
+// (useSharedValue→{value}):故重点测 displayMul 数学 + 设备切换 clamp。
+// 注:pinch 实时回写已不走 useAnimatedReaction→setZoom(性能根治,见 useZoomController),
+// zoom state 仅手势结束/点击档/设备切换更新。
 function makeDevice(p: {
   minZoom: number;
   maxZoom: number;
@@ -60,6 +62,14 @@ describe('displayMul / min-maxDisplay 推导', () => {
     expect(result.current.minDisplay).toBe(1);
     expect(result.current.maxDisplay).toBe(1);
     expect(result.current.zoom).toBe(1);
+  });
+
+  it('暴露 zoomShared / pinching 两个 SharedValue(UI 线程驱动倍数与高亮)', () => {
+    const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
+    const { result } = renderHook(() => useZoomController(dev));
+    // jest 桩:useSharedValue(init) → { value: init }。pinching 初值 0(idle)、zoomShared 初值 1。
+    expect(result.current.zoomShared).toEqual({ value: 1 });
+    expect(result.current.pinching).toEqual({ value: 0 });
   });
 });
 

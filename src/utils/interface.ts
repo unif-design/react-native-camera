@@ -17,7 +17,10 @@ export type CameraMode = {
   mode: CameraModeName;
   /** JPEG 压缩 0~1,缺省 0.9。内部速度优先级写死 'speed'(对齐原版 4.x photoQualityBalance)。 */
   quality?: number;
-  /** 录制时长上限(秒),video 模式。原版字段,保留;未用到则 no-op。 */
+  /**
+   * 录制时长上限(秒),video 模式。**保留字段,当前 no-op**:录像不会到点自动停,
+   * 录制由用户手动结束。原版 4.x 兼容字段,接线后续按需。
+   */
   recTime?: number;
 };
 

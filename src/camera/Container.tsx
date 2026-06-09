@@ -22,7 +22,7 @@ import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
 import { SideActions } from './setup/SideActions';
-import { ZoomSlider } from './footer/ZoomSlider';
+import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
@@ -89,8 +89,9 @@ export function Container({ config, onSettle }: Props) {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
 
-  // 变焦控制器:vzf↔display 推导、zoom state/shared、节流回写、设备切换 clamp 全在 hook 内。
-  const { zoom, setZoom, zoomShared, displayMul, minDisplay, maxDisplay } =
+  // 变焦控制器:vzf↔display 推导、zoom state/shared、设备切换 clamp 全在 hook 内。
+  // zoom 显示全程走 UI 线程 zoomShared(pinch 不刷 state);setZoom 仅点击档/手势结束/设备切换回写。
+  const { setZoom, zoomShared, pinching, displayMul, minDisplay, maxDisplay } =
     useZoomController(device);
 
   const cameraRef = useRef<CameraHandle>(null);
@@ -215,6 +216,13 @@ export function Container({ config, onSettle }: Props) {
         flash={flash}
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
+        pinching={pinching}
+        // 前摄定焦 → 关 pinch(只留点击对焦),与下方「前置不渲染变焦档」一致。
+        enableZoom={position === 'back'}
+        // pinch 放大软上限(vzf):maxDisplay 已并入 SOFT_MAX_DISPLAY,÷displayMul 回 vzf。
+        softMaxZoom={maxDisplay / displayMul}
+        // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
+        onZoomEnd={setZoom}
         sound={sound}
         // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
         // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
@@ -250,24 +258,21 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
-      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
-          ZoomSlider = 档位药丸(点击跳档)+ 其上 Pan 连续变焦(对数曲线,拖动浮大号倍数)。 */}
+      {/* 前置(front)不渲染变焦档:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
+          ZoomChips = 0.5/1 档位药丸(点击跳档,高亮当前档)+ pinch 时浮现的大号实时倍数。
+          变焦本身由 Camera 的双指 pinch 写 zoomShared 驱动(见 Camera.tsx)。 */}
       {!recording && position === 'back' && (
         <View
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
-          <ZoomSlider
+          <ZoomChips
             zoomShared={zoomShared}
-            displayZoom={zoom * displayMul}
+            pinching={pinching}
             displayMul={displayMul}
-            minDisplay={minDisplay}
-            maxDisplay={maxDisplay}
-            deviceMinZoom={device.minZoom}
-            deviceMaxZoom={device.maxZoom}
-            minZoom={device.minZoom * displayMul}
-            maxZoom={device.maxZoom * displayMul}
+            // 0.5 档仅超广角机型有:设备最广(minDisplay)≤ 0.5x 才渲染(±1e-3 容浮点漂移)。
+            showHalf={minDisplay <= 0.5 + 1e-3}
             onSelect={(displayZ) => {
-              // 边界用 display 空间;内部 zoom state/zoomShared 仍是 vzf。
+              // 点击档:边界用 display 空间,内部 zoom/zoomShared 仍是 vzf。
               // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
               const vzf = Math.min(
                 Math.max(displayZ / displayMul, device.minZoom),

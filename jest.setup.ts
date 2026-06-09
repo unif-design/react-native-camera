@@ -41,17 +41,26 @@ jest.mock('react-native-nitro-image', () => ({ NitroImage: () => null }), {
 
 // Mock reanimated（gesture handler 也需要）
 jest.mock('react-native-reanimated', () => {
-  const { View } = require('react-native');
-  // Animated.View / createAnimatedComponent 桩:ZoomSlider 用 reanimated 的 Animated.View
-  // 承载 useAnimatedStyle 的 opacity；jest 下渲染成普通 View(动画不跑,挂载/逻辑可测)。
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  // Animated.View / Animated.Text / createAnimatedComponent 桩:ZoomChips/ZoomReadout 用
+  // Animated.View(opacity)、Animated.Text(档位高亮色)、createAnimatedComponent(TextInput)
+  // (大号倍数);jest 下渲染成普通 RN 组件(动画不跑,挂载/逻辑可测)。
   const Animated = Object.assign(View, {
     View,
+    Text,
     createAnimatedComponent: (Comp: unknown) => Comp,
   });
   return {
     __esModule: true,
     default: Animated,
-    useSharedValue: (init: unknown) => ({ value: init }),
+    // useRef 持久化 SharedValue 对象:对齐真实 reanimated(跨重渲身份稳定),否则
+    // `shared.value = x` 的写入会被下次重渲的新对象丢掉 —— 点击跳档后读 zoomShared 的断言要靠它。
+    useSharedValue: (init: unknown) => {
+      const ref = React.useRef(null) as { current: { value: unknown } | null };
+      if (ref.current === null) ref.current = { value: init };
+      return ref.current;
+    },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useAnimatedProps: (fn: () => unknown) => fn(),
     useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
