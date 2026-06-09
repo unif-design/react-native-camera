@@ -69,23 +69,23 @@ describe('displayMul / min-maxDisplay 推导', () => {
   it('暴露 zoomShared SharedValue(UI 线程驱动倍数与高亮),不再暴露 pinching', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
-    // 设备 effect 首帧落定默认档=用户 1.0x:dual(displayMul=0.5)→ vzf=1/0.5=2,zoomShared 同步设。
-    expect(result.current.zoomShared).toEqual({ value: 2 });
+    // 默认档 = 设备最广(vzf 初值 1,clamp 不动):dual(displayMul=0.5)→ 用户 0.5x,zoomShared=1。
+    expect(result.current.zoomShared).toEqual({ value: 1 });
     // pinching 已从对外链路彻底移除(倍数挪进高亮档药丸文字,不再有外部「大号浮层」读它)。
     expect((result.current as { pinching?: unknown }).pinching).toBeUndefined();
   });
 });
 
 describe('zoom state + 设备切换 clamp', () => {
-  it('默认档 = 用户 1.0x:后置 dual(displayMul=0.5)→ 初始 vzf=2', () => {
-    // 设备 effect 首帧落定默认档:vzf = clamp(1/displayMul, min, max) = 1/0.5 = 2(用户 1.0x=广角)。
+  it('默认档 = 设备最广:后置 dual(displayMul=0.5)→ 初始 vzf=1(用户 0.5x)', () => {
+    // 初值 vzf=1 = 最广镜头;设备 effect 仅 clamp(1 在 [min,max] 内不动),不改默认档为 1.0x。
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
-    expect(result.current.zoom).toBe(2);
-    expect(result.current.zoomShared).toEqual({ value: 2 });
+    expect(result.current.zoom).toBe(1);
+    expect(result.current.zoomShared).toEqual({ value: 1 });
   });
 
-  it('默认档 = 用户 1.0x:无超广角(displayMul=1)→ 初始 vzf=1', () => {
+  it('默认档 = 设备最广:无超广角(displayMul=1)→ 初始 vzf=1(用户 1x)', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [] });
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.zoom).toBe(1);
@@ -121,7 +121,7 @@ describe('zoom state + 设备切换 clamp', () => {
       ({ device }) => useZoomController(device),
       { initialProps: { device: ultra } }
     );
-    // 初始默认档落定 vzf=2(ultra displayMul=0.5);手动 setZoom(1) 模拟用户已在最广。
+    // 默认档 = 最广 vzf=1;手动 setZoom(1) 显式确保用户停在最广。
     act(() => result.current.setZoom(1));
     // 1 < teleOnly.minZoom(3) → 切换后 clamp 到 3(翻转走原 clamp 分支,不重置)。
     rerender({ device: teleOnly });

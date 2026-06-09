@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type { CameraDevice } from 'react-native-vision-camera';
 
@@ -53,31 +53,16 @@ export function useZoomController(
     SOFT_MAX_DISPLAY
   );
 
-  // 初值定型用 1(vzf):首帧 device 常为 undefined(异步加载)→ displayMul 还是 fallback 1,
-  // 此刻无法算出正确的「用户 1.0x 对应 vzf」。故初值占位、真正的默认档在下方设备 effect 首帧落定。
+  // 初值 1(vzf)= 设备最广镜头 = 默认档:后置超广角机型 displayMul=0.5 → 用户 0.5x;
+  // 前置/无超广角 displayMul=1 → 用户 1x。不在首帧改默认档(device 异步、首帧 displayMul 未 ready,
+  // 强设「用户 1.0x 的 vzf」会落空仍停在 0.5x);默认就用最广,用户要更近自行滚条/点档。
   const [zoom, setZoom] = useState(1);
   const zoomShared = useSharedValue(1);
 
-  // 默认档只设一次:device 首帧 undefined,要等它非空才能用 displayMul 反推「用户 1.0x 的 vzf」。
-  // 不能改 useState/useSharedValue 初值(初值定型后 device 再变也不重算),故用 ref 守卫 + 设备 effect。
-  const initializedRef = useRef(false);
-
-  // 设备 effect(只依赖 device,翻转/首帧加载都触发):
-  // 1) **首次**非空 → 设默认档为用户 1.0x = vzf(1/displayMul) clamp 回设备范围
-  //    (后置超广角 displayMul=0.5 → vzf=2.0=广角=用户 1x;前置/无超广角 displayMul=1 → vzf=1.0)。
-  // 2) **后续**翻转 → 保当前 zoom、只 clamp 回新设备 min/max(不重置,前后摄切换不丢用户当前倍数)。
+  // 设备切换(翻转前/后摄)后,把当前 zoom clamp 回新设备的 min/max 范围。
+  // 有意只依赖 device:仅在设备切换时 clamp,不随 zoom 变化重跑。
   useEffect(() => {
     if (device == null) return;
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      const initial = Math.min(
-        Math.max(1 / displayMul, device.minZoom),
-        device.maxZoom
-      );
-      setZoom(initial);
-      zoomShared.value = initial;
-      return;
-    }
     const z = Math.min(Math.max(zoom, device.minZoom), device.maxZoom);
     if (z !== zoom) {
       setZoom(z);

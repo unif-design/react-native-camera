@@ -40,13 +40,7 @@ export function ModeSwitcherPill({
   }, [currentIndex, itemW, slide]);
 
   if (items.length === 1) {
-    // 单一模式:只读,但样式对齐 ≥2 模式的**选中态**(橙 tint 胶囊底 + 主色字 + t.body),
-    // 让用户一眼看到当前是 单拍/连拍/视频(此前 muted 灰 + t.sm 太弱,真机不明显)。
-    return (
-      <View style={styles.singlePill}>
-        <Text style={styles.singleLabel}>{items[0]!.label}</Text>
-      </View>
-    );
+    return <Text style={styles.singleLabel}>{items[0]!.label}</Text>;
   }
   return (
     <View
@@ -102,20 +96,10 @@ const makeStyles = (c: ColorTokens) =>
       letterSpacing: 1,
     },
     txtSel: { color: c.primary, fontWeight: fw.semi },
-    // 单一模式胶囊:对齐选中段的橙 tint 底(c.brandTint10)+ 与 item 一致的内边距,读作填充药丸。
-    singlePill: {
-      alignSelf: 'center',
-      paddingVertical: r(8),
-      paddingHorizontal: r(22),
-      borderRadius: r(999),
-      backgroundColor: c.brandTint10,
-    },
-    // 主色(橙)字 + t.body:与选中态 txtSel 同等显著,远比此前 muted 灰 + t.sm 明显。
     singleLabel: {
-      color: c.primary,
-      fontSize: t.body,
-      fontWeight: fw.semi,
+      color: c.foregroundMuted,
+      fontSize: t.sm,
       letterSpacing: 2,
-      textAlign: 'center',
+      alignSelf: 'center',
     },
   });

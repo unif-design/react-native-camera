@@ -23,8 +23,8 @@ const f = (
   mode: cameraMode,
 });
 
-it('confirm 变体显示类型 label', () => {
-  const { getByText } = r(
+it('confirm 变体不显示类型分类(未保留不分类)', () => {
+  const { queryByText, queryByTestId } = r(
     <PreviewTopBar
       variant="confirm"
       files={[f('single', 'a')]}
@@ -32,7 +32,22 @@ it('confirm 变体显示类型 label', () => {
       onSelectType={() => {}}
     />
   );
-  expect(getByText('单拍')).toBeTruthy();
+  // 未保留(confirm)顶部不显示类型标签,也不显示任何类型 tab。
+  expect(queryByText('单拍')).toBeNull();
+  expect(queryByTestId('type-tab-single')).toBeNull();
+});
+
+it('gallery 单一类型也显示该类型 tab', () => {
+  const { getByTestId } = r(
+    <PreviewTopBar
+      variant="gallery"
+      files={[f('single', 'a'), f('single', 'b')]}
+      activeType="single"
+      onSelectType={() => {}}
+    />
+  );
+  // 保留(gallery)只要有类型就显示 tab —— 只拍单拍也显示「单拍」tab。
+  expect(getByTestId('type-tab-single')).toBeTruthy();
 });
 
 it('gallery 多类型显示 tab,点 tab 回调', () => {

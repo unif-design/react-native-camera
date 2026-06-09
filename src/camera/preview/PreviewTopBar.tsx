@@ -33,17 +33,15 @@ export function PreviewTopBar({
   const styles = useThemedStyles(makeStyles);
   // 顶部安全区(刘海 / 状态栏)+ 基础 14
   const rootStyle = [styles.root, { paddingTop: insets.top + r(14) }];
+  // 未保留(confirm,单张确认)不显示类型分类 —— 顶部仅保留空容器(安全区 + minHeight 占位),布局不塌。
   if (variant === 'confirm') {
-    return (
-      <View style={rootStyle}>
-        <Text style={styles.label}>{LABEL[activeType]}</Text>
-      </View>
-    );
+    return <View style={rootStyle} />;
   }
+  // 保留(gallery,累积多张)按类型分 tab —— 只要有类型就显示,单类型也显示其 tab。
   const types = distinctTypes(files);
   return (
     <View style={rootStyle}>
-      {types.length > 1 && (
+      {types.length > 0 && (
         <View style={styles.tabs}>
           {types.map((ty) => {
             const sel = ty === activeType;
@@ -78,7 +76,6 @@ const makeStyles = (c: ColorTokens) =>
       gap: r(10),
       paddingHorizontal: r(14),
     },
-    label: { color: c.foreground, fontSize: t.sm, fontWeight: fw.medium },
     tabs: {
       flexDirection: 'row',
       gap: r(4),
