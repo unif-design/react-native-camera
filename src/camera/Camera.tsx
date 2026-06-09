@@ -12,6 +12,7 @@ import {
   useMicrophonePermission,
   usePhotoOutput,
   useVideoOutput,
+  CommonResolutions,
   type CameraRef,
   type CameraDevice,
   type CameraOutput,
@@ -77,18 +78,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const cameraType = device.position === 'front' ? 'front' : 'back';
 
-  // 抽象上 RN aspectRatio=宽/高,frame 宽固定 100% → 竖屏 3/4 给 4:3 取景、9/16 给更高更窄的
-  // 16:9 取景。但真机实测发现按这个抽象映射接线后,标签与画面是**反的**(选「4:3」却得更高更满
-  // 的 16:9 观感、选「16:9」反得 4:3)—— 应是相机原生帧方向 × resizeMode:'cover' 裁切的实机表现
-  // 与裸 aspectRatio 推断相反。故按真机把两端对调:让标签 '4:3' 落在实机渲染成 4:3 的那个值
-  // (9/16)、'16:9' 落在渲染成 16:9 的值(3/4),使「标签 ↔ 实际画面」一致。
-  // frameAspect(取景框)与 targetResolution(出图)必须同向对调,保证取景比例与出图比例不脱节。
-  const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 9 / 16 : 3 / 4;
+  // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
+  const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
 
+  // 出图分辨率走 vision-camera 预设(CommonResolutions),别写死低分辨率:
+  // targetResolution 是「目标」—— 相机会 negotiate,达不到时**比例(w/h)优先于像素数**(见
+  // CameraPhotoOutput d.ts)。此前写死 1080×1440(≈1.5MP)把照片锁在低分辨率;改用 UHD 档让相机
+  // 出全质量(4:3→3024×4032 ≈12MP、16:9→2160×3840 4K),对齐官方 example 的 UHD_4_3 用法。
   const targetResolution =
     (aspectRatio ?? '4:3') === '4:3'
-      ? { width: 1080, height: 1920 }
-      : { width: 1080, height: 1440 };
+      ? CommonResolutions.UHD_4_3
+      : CommonResolutions.UHD_16_9;
 
   const photoOutput = usePhotoOutput({
     // 速度优先级对齐原版 4.x photoQualityBalance='speed'(写死);quality 用回原版字段。

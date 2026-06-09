@@ -42,6 +42,10 @@ jest.mock('react-native-vision-camera', () => ({
   }),
   useFrameOutput: () => ({}),
   Camera: ({ children }: { children?: unknown }) => children ?? null,
+  CommonResolutions: {
+    UHD_4_3: { width: 3024, height: 4032 },
+    UHD_16_9: { width: 2160, height: 3840 },
+  },
 }));
 
 const baseConfig = {
