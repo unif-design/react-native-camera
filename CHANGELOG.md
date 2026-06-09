@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.14.0](https://github.com/unif-design/react-native-camera/compare/v2.13.0...v2.14.0) (2026-06-09)
+
+
+### Features
+
+* **camera:** 变焦滚条 + 0.5x修复 + 按钮/字体token + design 0.8.1 + iOS 15.1 ([#58](https://github.com/unif-design/react-native-camera/issues/58)) ([903286d](https://github.com/unif-design/react-native-camera/commit/903286d0227616a9a2cf3d5c0c7eaa33fcdf9255))
+
 # [2.13.0](https://github.com/unif-design/react-native-camera/compare/v2.12.0...v2.13.0) (2026-06-09)
 
 
