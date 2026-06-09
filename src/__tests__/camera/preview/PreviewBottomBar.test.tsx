@@ -19,7 +19,6 @@ it('confirm 变体: 重拍/保存', () => {
       onSave={onSave}
       onBack={() => {}}
       onDelete={() => {}}
-      onComplete={() => {}}
     />
   );
   fireEvent.press(getByTestId('retake-btn'));
@@ -40,7 +39,6 @@ it('gallery 变体: 第X/Y张 + 返回/删除', () => {
       onSave={() => {}}
       onBack={onBack}
       onDelete={onDelete}
-      onComplete={() => {}}
     />
   );
   expect(getByText('第 2/3 张')).toBeTruthy();
@@ -50,9 +48,8 @@ it('gallery 变体: 第X/Y张 + 返回/删除', () => {
   expect(onDelete).toHaveBeenCalled();
 });
 
-test('gallery 含返回/删除/完成三按钮,完成可点', () => {
-  const onComplete = jest.fn();
-  const { getByTestId } = r(
+test('gallery 只含返回/删除,无完成按钮', () => {
+  const { getByTestId, queryByTestId } = r(
     <PreviewBottomBar
       variant="gallery"
       index={0}
@@ -61,11 +58,9 @@ test('gallery 含返回/删除/完成三按钮,完成可点', () => {
       onSave={() => {}}
       onBack={() => {}}
       onDelete={() => {}}
-      onComplete={onComplete}
     />
   );
   expect(getByTestId('back-btn')).toBeTruthy();
   expect(getByTestId('delete-btn')).toBeTruthy();
-  fireEvent.press(getByTestId('complete-btn'));
-  expect(onComplete).toHaveBeenCalledTimes(1);
+  expect(queryByTestId('complete-btn')).toBeNull();
 });

@@ -15,7 +15,6 @@ type Props = {
   onSave: () => void;
   onBack: () => void;
   onDelete: () => void;
-  onComplete: () => void;
 };
 
 export function PreviewBottomBar({
@@ -26,7 +25,6 @@ export function PreviewBottomBar({
   onSave,
   onBack,
   onDelete,
-  onComplete,
 }: Props) {
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
@@ -41,7 +39,7 @@ export function PreviewBottomBar({
         {variant === 'confirm' ? (
           <>
             <Button
-              variant="ghost"
+              variant="secondary"
               label="重拍"
               onPress={onRetake}
               testID="retake-btn"
@@ -56,7 +54,7 @@ export function PreviewBottomBar({
         ) : (
           <>
             <Button
-              variant="ghost"
+              variant="secondary"
               label="返回"
               onPress={onBack}
               testID="back-btn"
@@ -66,12 +64,6 @@ export function PreviewBottomBar({
               label="删除"
               onPress={onDelete}
               testID="delete-btn"
-            />
-            <Button
-              variant="primary"
-              label="完成"
-              onPress={onComplete}
-              testID="complete-btn"
             />
           </>
         )}

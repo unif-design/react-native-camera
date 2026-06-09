@@ -16,11 +16,16 @@ it('返回按钮触发 onBack', () => {
   expect(onBack).toHaveBeenCalled();
 });
 
-it('canSave=false 不渲染保存按钮', () => {
-  const { queryByTestId } = r(
-    <SideActions canSave={false} onBack={() => {}} onSave={() => {}} />
+it('canSave=false 保存按钮常显但 disabled,点击不触发 onSave', () => {
+  const onSave = jest.fn();
+  const { getByTestId } = r(
+    <SideActions canSave={false} onBack={() => {}} onSave={onSave} />
   );
-  expect(queryByTestId('side-save-btn')).toBeNull();
+  const save = getByTestId('side-save-btn');
+  expect(save).toBeTruthy();
+  expect(save.props.accessibilityState?.disabled).toBe(true);
+  fireEvent.press(save);
+  expect(onSave).not.toHaveBeenCalled();
 });
 
 it('canSave=true 渲染保存按钮并触发 onSave', () => {
@@ -28,6 +33,8 @@ it('canSave=true 渲染保存按钮并触发 onSave', () => {
   const { getByTestId } = r(
     <SideActions canSave onBack={() => {}} onSave={onSave} />
   );
-  fireEvent.press(getByTestId('side-save-btn'));
+  const save = getByTestId('side-save-btn');
+  expect(save.props.accessibilityState?.disabled).toBeFalsy();
+  fireEvent.press(save);
   expect(onSave).toHaveBeenCalled();
 });
