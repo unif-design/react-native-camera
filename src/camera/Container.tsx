@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
-import {
-  useCameraDevice,
-  useCameraPermission,
-} from 'react-native-vision-camera';
-import {
-  runOnJS,
-  useAnimatedReaction,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { useCameraDevice } from 'react-native-vision-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
@@ -16,9 +8,12 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
+import type { CameraResult, OpenConfig } from '../utils';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { useAppActive } from './hooks/useAppActive';
+import { usePermissionFlow } from './hooks/usePermissionFlow';
+import { useZoomController } from './hooks/useZoomController';
+import { useCaptureFlow } from './hooks/useCaptureFlow';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
@@ -31,7 +26,7 @@ import { ZoomSlider } from './footer/ZoomSlider';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
-import { WatermarkStamp, burnWatermark } from './watermark';
+import { WatermarkStamp } from './watermark';
 import { VIEWFINDER } from './colors/viewfinder';
 
 // 控件浮层需让出底部 footer。footer 高度由内容(快门/模式行)+ 安全区决定、随语言/机型变,
@@ -43,17 +38,10 @@ const CONTROL_GAP = r(12);
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
 
-// 变焦滚条软上限(用户倍数 display 空间):官方 4.x example 用 MAX_ZOOM_FACTOR=10。
-// device.maxZoom 在多镜头机型可达 ~123x,但 >10x 是纯数字裁切(画质崩、不实用),
-// 故连续滚条上限软钳到 10x(下限仍是设备 minZoom×displayMul,后置 0.5x)。
-const SOFT_MAX_DISPLAY = 10;
-
 type Props = {
   config: OpenConfig;
   onSettle: (r: CameraResult) => void;
 };
-
-type PermissionState = 'pending' | 'granted' | 'denied';
 
 export function Container({ config, onSettle }: Props) {
   // 本地弹窗:切模式/放弃拍摄的二次确认走相机 Modal 内部 host(见 ui/CameraDialogHost),
@@ -83,38 +71,13 @@ export function Container({ config, onSettle }: Props) {
     [onSettle]
   );
 
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const [state, setState] = useState<PermissionState>(
-    hasPermission ? 'granted' : 'pending'
-  );
-
-  useEffect(() => {
-    if (hasPermission) {
-      setState('granted');
-      return;
-    }
-    let cancelled = false;
-    // 5.x：Android 并行 requestPermission 调用会 leak coroutine（issue #3834），
-    //      必须 .catch(() => {}) 兜底；依赖 hasPermission 作为 source of truth
-    requestPermission()
-      .then((ok) => {
-        if (cancelled) return;
-        setState(ok ? 'granted' : 'denied');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setState('denied');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasPermission, requestPermission]);
+  const state = usePermissionFlow();
 
   const insets = useSafeAreaInsets();
   // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
   // 运行时翻转(S7):直接切 position state(无翻转动画,真机反馈奇怪故移除)。
   // 5.x：physicalDevices 字符串不带 -camera。请求 ultra-wide-angle + wide-angle
-  // 换取 0.5x 超广角档(0.5x 的「用户倍数」经下方 displayMul 转换,见下;不是 minZoom≤0.5)。
+  // 换取 0.5x 超广角档(0.5x 的「用户倍数」经下方 displayMul 转换,见 useZoomController;不是 minZoom≤0.5)。
   // physicalDevices 是 best-match 排序、非硬过滤(vision-camera 文档:「filter
   // never excludes cameras」):不支持超广角的机型会自动 fallback 到 wide-angle
   // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null;真正的
@@ -126,32 +89,39 @@ export function Container({ config, onSettle }: Props) {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
 
-  // vision-camera 5.x:device.zoom/minZoom/maxZoom 是 AVFoundation videoZoomFactor(vzf,
-  // 相对设备最广镜头),不是用户倍数。用户倍数 = vzf × displayMul。
-  // displayMul 从 zoomLensSwitchFactors[0]( = virtualDeviceSwitchOverVideoZoomFactors[0],
-  // 即切到下一颗物理镜头/用户 1x 对应的 vzf)反推:iPhone 后置 dual(wide+ultra)switchFactors=[2.0]
-  // → displayMul=0.5(vzf 1.0=minZoom=超广角=用户 0.5x、vzf 2.0=广角=用户 1x)。
-  // 无超广角(前置/单广角机型)switchFactors 为空 → switch0=0 → displayMul=1(无 0.5x,fallback)。
-  const switch0 = device?.zoomLensSwitchFactors?.[0] ?? 0;
-  const displayMul = switch0 > 1 ? 1 / switch0 : 1;
-
-  // 连续滚条的 display 空间范围:下限 = 设备最广(后置 0.5x),上限软钳到 SOFT_MAX_DISPLAY。
-  // 在 device==null guard 之前用,故全程可选链兜底(guard 后 device 必非空,值会重算正确)。
-  const minDisplay = (device?.minZoom ?? 1) * displayMul;
-  const maxDisplay = Math.min(
-    (device?.maxZoom ?? 1) * displayMul,
-    SOFT_MAX_DISPLAY
-  );
+  // 变焦控制器:vzf↔display 推导、zoom state/shared、节流回写、设备切换 clamp 全在 hook 内。
+  const { zoom, setZoom, zoomShared, displayMul, minDisplay, maxDisplay } =
+    useZoomController(device);
 
   const cameraRef = useRef<CameraHandle>(null);
-  const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
-  const [previewing, setPreviewing] = useState(false);
-  const [previewVariant, setPreviewVariant] = useState<'confirm' | 'gallery'>(
-    'gallery'
-  );
-  const [recording, setRecording] = useState(false);
   const [modeIndex, setModeIndex] = useState(0);
   const currentMode = config.cameraMode[modeIndex];
+
+  // 拍摄编排:photos / 预览态 / 快门(照片+视频)/ 保存取消 / 切模式 / 录像状态全在 hook 内。
+  const {
+    photos,
+    setPhotos,
+    previewing,
+    setPreviewing,
+    previewVariant,
+    setPreviewVariant,
+    flashNonce,
+    burning,
+    recording,
+    recSeconds,
+    onShutter,
+    handleSave,
+    handleCancel,
+    onSelectMode,
+  } = useCaptureFlow({
+    cameraRef,
+    config,
+    currentMode,
+    modeIndex,
+    setModeIndex,
+    settle,
+    confirm,
+  });
 
   // 初始闪光从 config 首个 mode 接线(API 兼容),缺省 off。
   const [flash, setFlash] = useState<FlashMode>(
@@ -159,115 +129,12 @@ export function Container({ config, onSettle }: Props) {
   );
   const [sound, setSound] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('4:3');
-  const [flashNonce, setFlashNonce] = useState(0);
-  const [recSeconds, setRecSeconds] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [burning, setBurning] = useState(false);
   // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
   const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
-  const zoomShared = useSharedValue(1);
 
-  // pinch 实时更新 zoomShared(UI 线程),这里节流回写 zoom state 让变焦条近实时跟手。
-  // 只读 zoomShared、只 setZoom(不回写 zoomShared)→ 不成环:pinch→zoomShared→reaction→
-  // setZoom 到此为止;点击 chip 是另一路(setZoom + zoomShared.value= 一起,见 onSelect)。
-  useAnimatedReaction(
-    () => zoomShared.value,
-    (cur, prev) => {
-      // 节流:变化够大才回写 state,避免每帧 setState。
-      if (prev == null || Math.abs(cur - prev) > 0.02) runOnJS(setZoom)(cur);
-    }
-  );
-
-  useEffect(() => {
-    if (!recording) {
-      setRecSeconds(0);
-      return;
-    }
-    const id = setInterval(() => setRecSeconds((s) => s + 1), 1000);
-    return () => clearInterval(id);
-  }, [recording]);
-
-  const onShutter = async () => {
-    if (currentMode?.mode === 'video') {
-      if (!recording) {
-        await cameraRef.current?.startVideo();
-        setRecording(true);
-      } else {
-        const f = await cameraRef.current?.stopVideo();
-        setRecording(false);
-        if (f) setPhotos((prev) => [...prev, f]);
-        else settle({ code: 503, data: [], message: 'video_failed' });
-      }
-      return;
-    }
-    const f = await cameraRef.current?.capture();
-    if (!f) {
-      settle({ code: 500, data: photos, message: 'capture_failed' });
-      return;
-    }
-    setFlashNonce((n) => n + 1);
-    // 快门后立刻烧这一张(串行:一次只烧 1 张,峰值内存恒定);烧时 footer 显示"正在生成水印图片"
-    let saved = f;
-    if (config.watermark && f.mime === 'image/jpeg') {
-      setBurning(true);
-      try {
-        saved = await burnWatermark(f, config.watermark);
-      } finally {
-        setBurning(false);
-      }
-    }
-    setPhotos((prev) => [...prev, saved]);
-    // 自动预览规则:仅「非保留(clear) + 单拍」拍完进预览;其余累积
-    if (currentMode?.mode === 'single' && config.dataRetainedMode === 'clear') {
-      setPreviewVariant('confirm');
-      setPreviewing(true);
-    }
-  };
-
-  // 翻转前/后摄:直接切 position(device 随之更新,zoom 在下方 effect clamp);无视觉动画。
+  // 翻转前/后摄:直接切 position(device 随之更新,zoom 在 useZoomController 内 clamp);无视觉动画。
   const onFlip = () => {
     setPosition((p) => (p === 'back' ? 'front' : 'back'));
-  };
-
-  // 设备切换(翻转前/后摄)后,把当前 zoom clamp 回新设备的 min/max 范围。
-  // 有意只依赖 device:仅在设备切换时 clamp,不随 zoom 变化重跑。
-  useEffect(() => {
-    if (device == null) return;
-    const z = Math.min(Math.max(zoom, device.minZoom), device.maxZoom);
-    if (z !== zoom) {
-      setZoom(z);
-      zoomShared.value = z;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [device]);
-
-  const onSelectMode = async (i: number) => {
-    if (i === modeIndex) return;
-    if (config.dataRetainedMode === 'clear' && photos.length > 0) {
-      const ok = await confirm({
-        title: '切换拍摄模式',
-        message: '切换将清空已拍摄的照片,是否继续?',
-      });
-      if (!ok) return;
-      setPhotos([]);
-    }
-    setModeIndex(i);
-  };
-
-  // 照片在快门后已逐张烧好,保存直接返回。
-  const handleSave = () => {
-    settle({ code: 200, data: photos, message: 'ok' });
-  };
-
-  const handleCancel = async () => {
-    if (photos.length > 0) {
-      const ok = await confirm({
-        title: '放弃拍摄',
-        message: `放弃已拍 ${photos.length} 张?`,
-      });
-      if (!ok) return;
-    }
-    settle({ code: 0, data: [], message: 'cancelled' });
   };
 
   if (state === 'denied') {
