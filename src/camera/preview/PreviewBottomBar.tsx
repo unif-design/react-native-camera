@@ -39,7 +39,7 @@ export function PreviewBottomBar({
         {variant === 'confirm' ? (
           <>
             <Button
-              variant="ghost"
+              variant="secondary"
               label="重拍"
               onPress={onRetake}
               testID="retake-btn"
@@ -54,7 +54,7 @@ export function PreviewBottomBar({
         ) : (
           <>
             <Button
-              variant="ghost"
+              variant="secondary"
               label="返回"
               onPress={onBack}
               testID="back-btn"
