@@ -89,3 +89,6 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# Claude Code 本地工作区(worktree 元数据 / settings.local)
+.claude/
