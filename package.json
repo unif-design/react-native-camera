@@ -196,7 +196,8 @@
     "testPathIgnorePatterns": [
       "<rootDir>/node_modules/",
       "<rootDir>/website/",
-      "<rootDir>/lib/"
+      "<rootDir>/lib/",
+      "<rootDir>/src/__tests__/__helpers__/"
     ]
   },
   "prettier": {

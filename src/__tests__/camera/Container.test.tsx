@@ -9,44 +9,38 @@ import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
 // 按请求方向返回超广角设备,验证"前置(front)不渲染变焦条、后置(back)渲染"的 JSX 守护(点1)。
 // Container 的 position 由 config.cameraMode[0].type 决定,经 state 传入 useCameraDevice。
 // 注:jest.mock 被 babel 提升到 import 之上;工厂里内联建 device(不引外部变量,避免 mock 提升越界)。
-jest.mock('react-native-vision-camera', () => ({
-  useCameraPermission: () => ({
-    hasPermission: true,
-    requestPermission: () => Promise.resolve(true),
-  }),
-  useMicrophonePermission: () => ({
-    hasPermission: true,
-    requestPermission: () => Promise.resolve(true),
-  }),
-  // back: dual(wide+ultra)→ vzf 范围 [1,8]、switchFactors=[2]( displayMul=0.5 → display 范围 [0.5,4])。
-  // front: 单广角无超广角 → vzf minZoom=1、switchFactors=[]( displayMul=1)。
-  useCameraDevice: (position: 'back' | 'front') => ({
-    id: `dev-${position}`,
-    position,
-    // vzf 空间:两端最广镜头都是 1.0(back 的 1.0 是超广角=用户 0.5x,见 displayMul)。
-    minZoom: 1,
-    maxZoom: 8,
-    supportsFocusMetering: true,
-    // back 有物理闪光+支持 speed 质量;front 无闪光(对齐真机:前摄常无 flash)。
-    hasFlash: position === 'back',
-    supportsSpeedQualityPrioritization: true,
-    isVirtualDevice: position === 'back',
-    zoomLensSwitchFactors: position === 'back' ? [2] : [],
-    physicalDevices:
-      position === 'back' ? ['ultra-wide-angle', 'wide-angle'] : ['wide-angle'],
-  }),
-  useCameraDevices: () => [],
-  usePhotoOutput: () => ({ capturePhoto: jest.fn() }),
-  useVideoOutput: (_opts?: { enableAudio?: boolean }) => ({
-    createRecorder: jest.fn(),
-  }),
-  useFrameOutput: () => ({}),
-  Camera: ({ children }: { children?: unknown }) => children ?? null,
-  CommonResolutions: {
-    UHD_4_3: { width: 3024, height: 4032 },
-    UHD_16_9: { width: 2160, height: 3840 },
-  },
-}));
+// 覆盖基底:granted permission + back/front device(其余 hook / CommonResolutions 走 helper 基底)。
+jest.mock('react-native-vision-camera', () =>
+  require('../__helpers__/visionCameraMock').makeVisionCameraMock({
+    useCameraPermission: () => ({
+      hasPermission: true,
+      requestPermission: () => Promise.resolve(true),
+    }),
+    useMicrophonePermission: () => ({
+      hasPermission: true,
+      requestPermission: () => Promise.resolve(true),
+    }),
+    // back: dual(wide+ultra)→ vzf 范围 [1,8]、switchFactors=[2]( displayMul=0.5 → display 范围 [0.5,4])。
+    // front: 单广角无超广角 → vzf minZoom=1、switchFactors=[]( displayMul=1)。
+    useCameraDevice: (position: 'back' | 'front') => ({
+      id: `dev-${position}`,
+      position,
+      // vzf 空间:两端最广镜头都是 1.0(back 的 1.0 是超广角=用户 0.5x,见 displayMul)。
+      minZoom: 1,
+      maxZoom: 8,
+      supportsFocusMetering: true,
+      // back 有物理闪光+支持 speed 质量;front 无闪光(对齐真机:前摄常无 flash)。
+      hasFlash: position === 'back',
+      supportsSpeedQualityPrioritization: true,
+      isVirtualDevice: position === 'back',
+      zoomLensSwitchFactors: position === 'back' ? [2] : [],
+      physicalDevices:
+        position === 'back'
+          ? ['ultra-wide-angle', 'wide-angle']
+          : ['wide-angle'],
+    }),
+  })
+);
 
 const baseConfig = {
   dataRetainedMode: 'retain' as const,

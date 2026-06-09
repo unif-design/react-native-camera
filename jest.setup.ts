@@ -1,42 +1,8 @@
-// Mock vision-camera 主要 hooks 给 jest 环境
-jest.mock('react-native-vision-camera', () => ({
-  useCameraPermission: () => ({
-    hasPermission: false,
-    requestPermission: () => Promise.resolve(false),
-  }),
-  useMicrophonePermission: () => ({
-    hasPermission: false,
-    requestPermission: () => Promise.resolve(false),
-  }),
-  useCameraDevice: () => undefined,
-  useCameraDevices: () => [],
-  usePhotoOutput: () => ({
-    capturePhoto: jest.fn(),
-    capturePhotoToFile: jest.fn(),
-  }),
-  useVideoOutput: (_opts?: { enableAudio?: boolean }) => ({
-    createRecorder: jest.fn().mockResolvedValue({
-      startRecording: jest.fn(),
-      stopRecording: jest.fn(),
-      pauseRecording: jest.fn(),
-      resumeRecording: jest.fn(),
-      cancelRecording: jest.fn().mockResolvedValue(undefined),
-      dispose: jest.fn(),
-      isRecording: false,
-      isPaused: false,
-      recordedDuration: 0,
-      recordedFileSize: 0,
-      filePath: '',
-    }),
-  }),
-  useFrameOutput: () => ({}),
-  Camera: ({ children }: any) => children ?? null,
-  // Camera.tsx 用 CommonResolutions.UHD_* 作 targetResolution 目标(见那里注释)。
-  CommonResolutions: {
-    UHD_4_3: { width: 3024, height: 4032 },
-    UHD_16_9: { width: 2160, height: 3840 },
-  },
-}));
+// Mock vision-camera 给 jest 环境(官方未提供 mock,见 visionCameraMock helper)。
+// 全局默认:device=undefined、permission=false;需要 device/granted 的测试各自 jest.mock 覆盖。
+jest.mock('react-native-vision-camera', () =>
+  require('./src/__tests__/__helpers__/visionCameraMock').makeVisionCameraMock()
+);
 
 // Mock nitro modules（仅类型解析需要）
 jest.mock('react-native-nitro-modules', () => ({}), { virtual: true });
