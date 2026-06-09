@@ -17,8 +17,11 @@ export type CapturedPhotoRaw = {
  *   2. await photo.saveToTemporaryFileAsync()
  *   3. 读 photo.width / photo.height / photo.orientation
  *   4. photo.dispose() (try/finally 保护)
+ *
+ * 命名为 captureToTempFile（而非 capturePhotoToFile）以避开与 native
+ * CameraPhotoOutput.capturePhotoToFile 的同名混淆。
  */
-export async function capturePhotoToFile(
+export async function captureToTempFile(
   photoOutput: CameraPhotoOutput,
   settings: CapturePhotoSettings
 ): Promise<CapturedPhotoRaw> {

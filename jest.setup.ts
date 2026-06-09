@@ -14,13 +14,14 @@ jest.mock('react-native-vision-camera', () => ({
     capturePhoto: jest.fn(),
     capturePhotoToFile: jest.fn(),
   }),
-  useVideoOutput: () => ({
+  useVideoOutput: (_opts?: { enableAudio?: boolean }) => ({
     createRecorder: jest.fn().mockResolvedValue({
       startRecording: jest.fn(),
       stopRecording: jest.fn(),
       pauseRecording: jest.fn(),
       resumeRecording: jest.fn(),
-      cancelRecording: jest.fn(),
+      cancelRecording: jest.fn().mockResolvedValue(undefined),
+      dispose: jest.fn(),
       isRecording: false,
       isPaused: false,
       recordedDuration: 0,

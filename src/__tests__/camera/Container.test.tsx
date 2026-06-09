@@ -27,6 +27,9 @@ jest.mock('react-native-vision-camera', () => ({
     minZoom: 1,
     maxZoom: 8,
     supportsFocusMetering: true,
+    // back 有物理闪光+支持 speed 质量;front 无闪光(对齐真机:前摄常无 flash)。
+    hasFlash: position === 'back',
+    supportsSpeedQualityPrioritization: true,
     isVirtualDevice: position === 'back',
     zoomLensSwitchFactors: position === 'back' ? [2] : [],
     physicalDevices:
@@ -34,7 +37,9 @@ jest.mock('react-native-vision-camera', () => ({
   }),
   useCameraDevices: () => [],
   usePhotoOutput: () => ({ capturePhoto: jest.fn() }),
-  useVideoOutput: () => ({ createRecorder: jest.fn() }),
+  useVideoOutput: (_opts?: { enableAudio?: boolean }) => ({
+    createRecorder: jest.fn(),
+  }),
   useFrameOutput: () => ({}),
   Camera: ({ children }: { children?: unknown }) => children ?? null,
 }));
