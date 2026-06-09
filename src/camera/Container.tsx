@@ -99,7 +99,7 @@ export function Container({ config, onSettle }: Props) {
 
   const insets = useSafeAreaInsets();
   // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
-  // 运行时翻转(S7):position state + flipNonce 触发 rotateY 动画。
+  // 运行时翻转(S7):直接切 position state(无翻转动画,真机反馈奇怪故移除)。
   // 5.x：physicalDevices 字符串不带 -camera。请求 ultra-wide-angle + wide-angle
   // 换取 0.5x 超广角档(device.minZoom≤0.5 → ZoomChips 自动显示 0.5)。
   // physicalDevices 是 best-match 排序、非硬过滤(vision-camera 文档:「filter
@@ -109,7 +109,6 @@ export function Container({ config, onSettle }: Props) {
   // 历史上单 'wide-angle' 为规避 iOS #3773,启用超广角后需真机验证不复现。
   const initialPosition = config.cameraMode[0]?.type ?? 'back';
   const [position, setPosition] = useState<'back' | 'front'>(initialPosition);
-  const [flipNonce, setFlipNonce] = useState(0);
   const device = useCameraDevice(position, {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
@@ -128,7 +127,7 @@ export function Container({ config, onSettle }: Props) {
   const [flash, setFlash] = useState<FlashMode>(
     config.cameraMode[0]?.flashMode ?? 'off'
   );
-  const [sound, setSound] = useState(true);
+  const [sound, setSound] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('4:3');
   const [flashNonce, setFlashNonce] = useState(0);
   const [recSeconds, setRecSeconds] = useState(0);
@@ -184,17 +183,9 @@ export function Container({ config, onSettle }: Props) {
     }
   };
 
-  const flippingRef = useRef(false);
+  // 翻转前/后摄:直接切 position(device 随之更新,zoom 在下方 effect clamp);无视觉动画。
   const onFlip = () => {
-    if (flippingRef.current) return;
-    flippingRef.current = true;
-    setFlipNonce((n) => n + 1);
-    setTimeout(() => {
-      setPosition((p) => (p === 'back' ? 'front' : 'back'));
-    }, 180);
-    setTimeout(() => {
-      flippingRef.current = false;
-    }, 380);
+    setPosition((p) => (p === 'back' ? 'front' : 'back'));
   };
 
   // 设备切换(翻转前/后摄)后,把当前 zoom clamp 回新设备的 min/max 范围。
@@ -267,7 +258,6 @@ export function Container({ config, onSettle }: Props) {
           setPreviewing(false);
         }}
         onSave={handleSave}
-        onComplete={handleSave}
         onBack={() => setPreviewing(false)}
         onDelete={(f) => {
           const next = photos.filter((x) => x !== f);
@@ -314,7 +304,6 @@ export function Container({ config, onSettle }: Props) {
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
         sound={sound}
-        flipNonce={flipNonce}
       />
 
       {!recording && config.watermark && (
@@ -439,7 +428,8 @@ const makeStyles = (c: ColorTokens) =>
       alignItems: 'center',
       zIndex: Z.overlay,
     },
-    // footer 浮在取景之上:design scrim token 作半透明遮罩让控件可读,zIndex 最高保证可点。
+    // footer 浮在取景之上:轻半透明黑遮罩(VIEWFINDER.footerScrim)让控件可读,
+    // zIndex 最高保证可点。不用 design c.scrim(0.7 太深,见 viewfinder.ts)。
     bottom: {
       position: 'absolute',
       left: 0,
@@ -447,7 +437,7 @@ const makeStyles = (c: ColorTokens) =>
       bottom: 0,
       paddingTop: r(14),
       gap: r(16),
-      backgroundColor: c.scrim,
+      backgroundColor: VIEWFINDER.footerScrim,
       zIndex: Z.footer,
     },
     center: { alignItems: 'center' },

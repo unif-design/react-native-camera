@@ -1,12 +1,11 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useRef,
   useState,
 } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -44,7 +43,6 @@ type Props = {
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
   sound?: boolean;
-  flipNonce?: number;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
@@ -56,7 +54,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     aspectRatio,
     zoomShared,
     sound,
-    flipNonce,
   },
   ref
 ) {
@@ -103,25 +100,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       const z = zoomOffset.value * e.scale;
       zoom.value = Math.min(Math.max(z, device.minZoom), device.maxZoom);
     });
-
-  // 翻转动画:flipNonce 变化时播一次 rotateY 0→180→0(前后摄切换的 3D 翻转视觉)。
-  const flipAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!flipNonce) return;
-    Animated.sequence([
-      Animated.timing(flipAnim, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(flipAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [flipNonce, flipAnim]);
 
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
 
@@ -253,45 +231,30 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   return (
     <View style={styles.root}>
       <GestureDetector gesture={composed}>
-        <Animated.View
-          style={{
-            backfaceVisibility: 'hidden',
-            transform: [
-              { perspective: 1000 },
-              {
-                rotateY: flipAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '180deg'],
-                }),
-              },
-            ],
-          }}
-        >
-          <View style={[styles.frame, { aspectRatio: frameAspect }]}>
-            <VisionCamera
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-              device={device}
-              isActive={isActive}
-              outputs={outputs as CameraProps['outputs']}
-              constraints={[{ photoHDR: false }]}
-              zoom={zoom}
-              torchMode={
-                currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
-              }
-              onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
-              nativeID="vision-camera"
+        <View style={[styles.frame, { aspectRatio: frameAspect }]}>
+          <VisionCamera
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            device={device}
+            isActive={isActive}
+            outputs={outputs as CameraProps['outputs']}
+            constraints={[{ photoHDR: false }]}
+            zoom={zoom}
+            torchMode={
+              currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
+            }
+            onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+            nativeID="vision-camera"
+          />
+          {focusPoint && (
+            <FocusIndicator
+              key={`${focusPoint.x}-${focusPoint.y}`}
+              point={focusPoint}
+              onAnimationEnd={() => setFocusPoint(null)}
             />
-            {focusPoint && (
-              <FocusIndicator
-                key={`${focusPoint.x}-${focusPoint.y}`}
-                point={focusPoint}
-                onAnimationEnd={() => setFocusPoint(null)}
-              />
-            )}
-          </View>
-        </Animated.View>
+          )}
+        </View>
       </GestureDetector>
     </View>
   );

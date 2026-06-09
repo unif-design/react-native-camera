@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import { PreviewOverlay } from '../../../camera/preview/PreviewOverlay';
 import { CameraDialogProvider } from '../../../camera/ui/CameraDialogHost';
@@ -35,7 +35,6 @@ const noop = {
   onSave: () => {},
   onBack: () => {},
   onDelete: () => {},
-  onComplete: () => {},
 };
 
 it('confirm 变体: 重拍/保存 在', () => {
@@ -58,16 +57,13 @@ it('gallery 变体: 返回/删除 在', () => {
   expect(getByTestId('delete-btn')).toBeTruthy();
 });
 
-it('gallery 完成按钮触发 onComplete', () => {
-  const onComplete = jest.fn();
-  const { getByTestId } = renderPreview(
+it('gallery 无完成按钮(保存统一走相机界面)', () => {
+  const { queryByTestId } = renderPreview(
     <PreviewOverlay
       files={[f('single', 'a'), f('single', 'b')]}
       variant="gallery"
       {...noop}
-      onComplete={onComplete}
     />
   );
-  fireEvent.press(getByTestId('complete-btn'));
-  expect(onComplete).toHaveBeenCalledTimes(1);
+  expect(queryByTestId('complete-btn')).toBeNull();
 });

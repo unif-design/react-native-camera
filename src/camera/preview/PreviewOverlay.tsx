@@ -15,7 +15,6 @@ type Props = {
   onSave: () => void;
   onBack: () => void;
   onDelete: (f: CustomPhotoFile) => void;
-  onComplete: () => void;
 };
 
 export function PreviewOverlay({
@@ -25,7 +24,6 @@ export function PreviewOverlay({
   onSave,
   onBack,
   onDelete,
-  onComplete,
 }: Props) {
   // 本地弹窗:删除二次确认 + "已保存" toast 走相机 Modal 内部 host
   // (见 ../ui/CameraDialogHost),不走 design 全局 —— 后者会被相机 Modal 盖住。
@@ -87,7 +85,6 @@ export function PreviewOverlay({
         onSave={handleSave}
         onBack={onBack}
         onDelete={handleDelete}
-        onComplete={onComplete}
       />
     </View>
   );
