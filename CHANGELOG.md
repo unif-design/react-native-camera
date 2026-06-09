@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.13.0](https://github.com/unif-design/react-native-camera/compare/v2.12.0...v2.13.0) (2026-06-09)
+
+
+### Features
+
+* **camera:** UX 迭代3 — 前置禁变焦/后置动态变焦/footer透明/预览按钮 ([#57](https://github.com/unif-design/react-native-camera/issues/57)) ([ac229a5](https://github.com/unif-design/react-native-camera/commit/ac229a5238649553ac741388630953521577ee3d))
+
 # [2.12.0](https://github.com/unif-design/react-native-camera/compare/v2.11.0...v2.12.0) (2026-06-09)
 
 
