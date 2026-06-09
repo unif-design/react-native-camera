@@ -25,7 +25,7 @@ import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
 import { SideActions } from './setup/SideActions';
-import { ZoomChips } from './footer/ZoomChips';
+import { ZoomSlider } from './footer/ZoomSlider';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
@@ -40,6 +40,11 @@ const CONTROL_GAP = r(12);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
+
+// 变焦滚条软上限(用户倍数 display 空间):官方 4.x example 用 MAX_ZOOM_FACTOR=10。
+// device.maxZoom 在多镜头机型可达 ~123x,但 >10x 是纯数字裁切(画质崩、不实用),
+// 故连续滚条上限软钳到 10x(下限仍是设备 minZoom×displayMul,后置 0.5x)。
+const SOFT_MAX_DISPLAY = 10;
 
 type Props = {
   config: OpenConfig;
@@ -125,6 +130,14 @@ export function Container({ config, onSettle }: Props) {
   // 无超广角(前置/单广角机型)switchFactors 为空 → switch0=0 → displayMul=1(无 0.5x,fallback)。
   const switch0 = device?.zoomLensSwitchFactors?.[0] ?? 0;
   const displayMul = switch0 > 1 ? 1 / switch0 : 1;
+
+  // 连续滚条的 display 空间范围:下限 = 设备最广(后置 0.5x),上限软钳到 SOFT_MAX_DISPLAY。
+  // 在 device==null guard 之前用,故全程可选链兜底(guard 后 device 必非空,值会重算正确)。
+  const minDisplay = (device?.minZoom ?? 1) * displayMul;
+  const maxDisplay = Math.min(
+    (device?.maxZoom ?? 1) * displayMul,
+    SOFT_MAX_DISPLAY
+  );
 
   const cameraRef = useRef<CameraHandle>(null);
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
@@ -359,17 +372,24 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
-      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。 */}
+      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
+          ZoomSlider = 档位药丸(点击跳档)+ 其上 Pan 连续变焦(对数曲线,拖动浮大号倍数)。 */}
       {!recording && position === 'back' && (
         <View
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
-          <ZoomChips
-            zoom={zoom * displayMul}
+          <ZoomSlider
+            zoomShared={zoomShared}
+            displayZoom={zoom * displayMul}
+            displayMul={displayMul}
+            minDisplay={minDisplay}
+            maxDisplay={maxDisplay}
+            deviceMinZoom={device.minZoom}
+            deviceMaxZoom={device.maxZoom}
             minZoom={device.minZoom * displayMul}
             maxZoom={device.maxZoom * displayMul}
             onSelect={(displayZ) => {
-              // ZoomChips 边界用 display 空间;内部 zoom state/zoomShared 仍是 vzf。
+              // 边界用 display 空间;内部 zoom state/zoomShared 仍是 vzf。
               // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
               const vzf = Math.min(
                 Math.max(displayZ / displayMul, device.minZoom),

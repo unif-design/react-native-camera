@@ -88,20 +88,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
-  const zoomOffset = useSharedValue(0);
-
-  // 前置摄像头禁双指缩放(前摄定焦、变焦无意义);后置 enabled。tapGesture 对焦保留两端。
-  const pinchGesture = Gesture.Pinch()
-    .enabled(cameraType === 'back')
-    .onBegin(() => {
-      'worklet';
-      zoomOffset.value = zoom.value;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      const z = zoomOffset.value * e.scale;
-      zoom.value = Math.min(Math.max(z, device.minZoom), device.maxZoom);
-    });
 
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
 
@@ -122,12 +108,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     [device.supportsFocusMetering]
   );
 
-  const tapGesture = Gesture.Tap().onEnd(({ x, y }) => {
+  // 仅保留点击对焦。双指缩放(pinch)已移除:变焦改由 footer 的连续滚条(ZoomSlider)
+  // 驱动受控 zoomShared;vision-camera 的 enableNativeZoomGesture 与受控 zoom 互斥会 throw,
+  // 故全程不开,自己用 Pan 写 zoomShared。
+  const composed = Gesture.Tap().onEnd(({ x, y }) => {
     'worklet';
     runOnJS(handleFocus)(x, y);
   });
-
-  const composed = Gesture.Simultaneous(pinchGesture, tapGesture);
 
   useImperativeHandle(
     ref,
