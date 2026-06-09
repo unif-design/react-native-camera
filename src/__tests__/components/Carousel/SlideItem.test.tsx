@@ -27,7 +27,7 @@ it('renders image vs video branch', () => {
   expect(getByTestId('video-player')).toBeTruthy();
 });
 
-it('照片用 resizeMode="cover"(= 取景所见:满宽铺满、裁掉上下超出)', () => {
+it('照片用 resizeMode="contain"(与取景一致:完整画面、按比例留边、不裁切)', () => {
   const { UNSAFE_getByType } = render(<SlideItem file={img} />);
-  expect(UNSAFE_getByType(Image).props.resizeMode).toBe('cover');
+  expect(UNSAFE_getByType(Image).props.resizeMode).toBe('contain');
 });

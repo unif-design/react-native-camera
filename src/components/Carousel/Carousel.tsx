@@ -7,23 +7,16 @@ import {
 } from 'react-native';
 import RNCarousel from 'react-native-reanimated-carousel';
 import type { CustomPhotoFile } from '../../utils';
-import { SlideItem, type SlideResizeMode } from './SlideItem';
+import { SlideItem } from './SlideItem';
 
 type Props = {
   data: CustomPhotoFile[];
   /** 受控当前下标(删除后由父级 clamp);用作 defaultIndex,删除 remount 后落回正确张。 */
   index?: number;
   onIndexChange?: (i: number) => void;
-  /** 预览图 resizeMode(预览页临时控件用,默认 cover)。 */
-  resizeMode?: SlideResizeMode;
 };
 
-export function Carousel({
-  data,
-  index = 0,
-  onIndexChange,
-  resizeMode,
-}: Props) {
+export function Carousel({ data, index = 0, onIndexChange }: Props) {
   const { width } = useWindowDimensions();
   // 高度按实际容器(预览页 pager,夹在 top/bottom bar 之间)onLayout 实测,
   // 不再用整屏 useWindowDimensions().height —— 后者比 pager 高,RNCarousel 撑出
@@ -47,9 +40,7 @@ export function Carousel({
           height={trackHeight}
           loop={false}
           onSnapToItem={onIndexChange}
-          renderItem={({ item }) => (
-            <SlideItem file={item} resizeMode={resizeMode} />
-          )}
+          renderItem={({ item }) => <SlideItem file={item} />}
         />
       )}
     </View>

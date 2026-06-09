@@ -96,10 +96,12 @@ function ZoomChip({
     return { color: isActive ? c.primary : c.foreground };
   });
 
-  // 本档文字:仅**当前高亮档**实时显示 display 值(.5→.6→…→1.0→1.5…),其余档静态 .5 / 1。
+  // 本档文字:仅**当前高亮档**实时显示 display 值(0.5→0.6→…→1.0→1.5…),其余档静态 0.5 / 1.0。
   // 全程 worklet 读 zoomShared → 0 次 setState;worklet 内只 toFixed + 字符串(JS 内置),
   // 绝不调 design r()/rf()(会触发 worklets「同步调 Remote Function」fatal,2.15.1 踩过)。
-  const staticLabel = stop === 0.5 ? '.5' : '1';
+  // 静态档也用一位小数 → 与实时值 toFixed(1) **等长(恒 3 字符)**,静态↔实时切换时 TextInput
+  // 不因字符数变化重新测量布局,消除「先隐藏再显示」的闪(配合下方 txt 固定宽度)。
+  const staticLabel = stop === 0.5 ? '0.5' : '1.0';
   const animatedProps = useAnimatedProps<TextInputProps & { text?: string }>(
     () => {
       'worklet';
@@ -160,5 +162,8 @@ const makeStyles = (c: ColorTokens) =>
       textAlign: 'center',
       // TextInput 自带 padding,清零避免文字在小药丸里被截/偏移。
       padding: 0,
+      // 固定宽度(够 "3.0" 三字符):0.5/1.0 档实时变化时 TextInput 都不随字符数重新测量布局 →
+      // 文字在固定宽度内居中变,丝滑、不闪、不抖(配合上方等长 staticLabel)。
+      width: r(30),
     },
   });

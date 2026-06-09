@@ -352,7 +352,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
           <VisionCamera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            resizeMode="contain"
             device={device}
             isActive={isActive}
             outputs={outputs}

@@ -51,9 +51,9 @@ test('点 1 档 → onSelect 传用户倍数 1', () => {
 });
 
 // 倍数已挪进**当前高亮档**药丸文字本身(删了上方大号 readout 浮层):
-// 高亮档 = display 值(toFixed(1)),非高亮档 = 静态 .5 / 1。
+// 高亮档 = display 值(toFixed(1)),非高亮档 = 静态 0.5 / 1.0(等长一位小数,消除闪烁)。
 // chip 文字现为只读 AnimatedTextInput(value 兜底初值,jest 用 getByDisplayValue 取)。
-test('display=1.0(vzf2×0.5):高亮 1 档文字=实时 1.0,0.5 档静态 .5', () => {
+test('display=1.0(vzf2×0.5):高亮 1 档文字=实时 1.0,0.5 档静态 0.5', () => {
   const { getByTestId } = r(
     <ZoomChips {...base} showHalf onSelect={() => {}} />
   );
@@ -61,9 +61,9 @@ test('display=1.0(vzf2×0.5):高亮 1 档文字=实时 1.0,0.5 档静态 .5', ()
   expect(
     within(getByTestId('zoom-chip-1')).getByDisplayValue('1.0')
   ).toBeTruthy();
-  // 0.5 档非高亮 → 静态 '.5'。
+  // 0.5 档非高亮 → 静态 '0.5'。
   expect(
-    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('.5')
+    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.5')
   ).toBeTruthy();
 });
 
@@ -80,9 +80,9 @@ test('display=0.5(vzf1×0.5,最广):高亮 0.5 档文字=实时 0.5,1 档静态 
   expect(
     within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.5')
   ).toBeTruthy();
-  // 1 档非高亮 → 静态 '1'。
+  // 1 档非高亮 → 静态 '1.0'。
   expect(
-    within(getByTestId('zoom-chip-1')).getByDisplayValue('1')
+    within(getByTestId('zoom-chip-1')).getByDisplayValue('1.0')
   ).toBeTruthy();
 });
 
