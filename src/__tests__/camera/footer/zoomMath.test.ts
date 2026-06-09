@@ -1,9 +1,11 @@
 import { clamp, pinchVzf } from '../../../camera/footer/zoomMath';
 
-// 标准后置 dual 参数:超广角 0.5x→10x,displayMul=0.5(vzf=display/0.5)。
+// pinchVzf 对具体上限不敏感(softMaxVzf 是入参),这里用一组「样本」参数验证 clamp 数学本身,
+// 不绑应用实际软上限(实际为 SOFT_MAX_DISPLAY=3,由 useZoomController.test 覆盖)。
+// 样本设定:超广角 displayMul=0.5,softMaxVzf=20 表示某个上限,只为测乘性/封顶/单调。
 const DEV_MIN = 1; // vzf:超广角 minZoom=1 → display 0.5x
-const DEV_MAX = 20; // vzf:10x / 0.5 = 20
-const SOFT_MAX_VZF = 20; // 软上限 10x / 0.5
+const DEV_MAX = 20; // vzf 上界样本
+const SOFT_MAX_VZF = 20; // 软上限样本(vzf)
 
 describe('clamp', () => {
   test('夹在 [lo,hi]', () => {

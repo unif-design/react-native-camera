@@ -33,7 +33,10 @@ export function PreviewBottomBar({
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom + r(20) }]}>
       {variant === 'gallery' && (
-        <Text style={[styles.counter, { color: c.foreground }]}>
+        <Text
+          testID="preview-counter"
+          style={[styles.counter, { color: c.foreground }]}
+        >
           第 {index + 1}/{total} 张
         </Text>
       )}

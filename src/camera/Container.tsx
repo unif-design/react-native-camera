@@ -32,8 +32,13 @@ import { VIEWFINDER } from './colors/viewfinder';
 // 控件浮层需让出底部 footer。footer 高度由内容(快门/模式行)+ 安全区决定、随语言/机型变,
 // 故用 onLayout 实测(见 footerHeight);此处只留估值,兜底 onLayout 测得前的首帧防跳动。
 const FOOTER_FALLBACK = r(120);
-// 浮层底与 footer 顶的间隔:zoomChips 离 footer 顶 CONTROL_GAP,sideRail 再高一档(+r(30))。
-const CONTROL_GAP = r(12);
+// zoomChips 离 footer 顶(模式行)的间隔。收紧到 r(8) 让倍数药丸更贴近单拍/连拍行。
+// (真机可再微调:布局常量、非 worklet。)
+const CONTROL_GAP = r(8);
+// 左侧竖栏(SideRail/SideActions)下沉:以 footer 顶为基准上抬 SIDE_RAIL_LIFT,使其底缘落在
+// 模式行(单拍/连拍)附近、与之大致水平对齐(此前 +r(30) 偏高,见 IMG_1193)。
+// 取小正值让竖栏底缘略高于 footer 顶、贴住模式行;真机按观感再调(布局常量、非 worklet)。
+const SIDE_RAIL_LIFT = r(4);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
@@ -237,10 +242,7 @@ export function Container({ config, onSettle }: Props) {
 
       {!recording && (
         <View
-          style={[
-            styles.sideRail,
-            { bottom: footerHeight + CONTROL_GAP + r(30) },
-          ]}
+          style={[styles.sideRail, { bottom: footerHeight + SIDE_RAIL_LIFT }]}
         >
           <SideRail
             flash={flash}
@@ -288,7 +290,7 @@ export function Container({ config, onSettle }: Props) {
       <CaptureFlash trigger={flashNonce} />
 
       <View
-        style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}
+        style={[styles.bottom, { paddingBottom: insets.bottom + r(6) }]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
         {burning ? (
@@ -361,13 +363,15 @@ const makeStyles = (c: ColorTokens) =>
     // footer 透明:早期叠半透明黑遮罩在取景底缘,与下方纯黑 root 底拼出一条
     // "浅灰带 / 一浅一深"分界 —— 改 transparent 让 footer 区直接露统一的 root
     // 黑底,消除深浅分界。zIndex 最高仍保证控件可点。
+    // footer 整体下沉、更贴底:paddingBottom 只留 home-indicator 间距(见 JSX insets.bottom+r(6)),
+    // paddingTop 收紧;gap = 模式行(单拍/连拍)与快门行的间距,缩小让模式行更贴近快门。
     bottom: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
-      paddingTop: r(14),
-      gap: r(16),
+      paddingTop: r(8),
+      gap: r(10),
       backgroundColor: 'transparent',
       zIndex: Z.footer,
     },

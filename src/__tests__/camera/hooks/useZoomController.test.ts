@@ -25,13 +25,13 @@ function makeDevice(p: {
 }
 
 describe('displayMul / min-maxDisplay 推导', () => {
-  it('后置 dual(switchFactors=[2])→ displayMul=0.5,display 范围 [0.5, 4]', () => {
+  it('后置 dual(switchFactors=[2])→ displayMul=0.5,display 范围 [0.5, 3](软上限 3x)', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.displayMul).toBe(0.5);
-    // minDisplay = minZoom(1) × 0.5 = 0.5;maxDisplay = min(maxZoom(8)×0.5, 10) = 4
+    // minDisplay = minZoom(1) × 0.5 = 0.5;maxDisplay = min(maxZoom(8)×0.5=4, 软上限 3) = 3
     expect(result.current.minDisplay).toBe(0.5);
-    expect(result.current.maxDisplay).toBe(4);
+    expect(result.current.maxDisplay).toBe(3);
   });
 
   it('无超广角(switchFactors=[])→ displayMul=1(fallback)', () => {
@@ -39,7 +39,8 @@ describe('displayMul / min-maxDisplay 推导', () => {
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.displayMul).toBe(1);
     expect(result.current.minDisplay).toBe(1);
-    expect(result.current.maxDisplay).toBe(8);
+    // maxDisplay = min(maxZoom(8)×1, 软上限 3) = 3
+    expect(result.current.maxDisplay).toBe(3);
   });
 
   it('switch0 ≤ 1 视为无效 → displayMul=1', () => {
@@ -49,11 +50,11 @@ describe('displayMul / min-maxDisplay 推导', () => {
     expect(result.current.displayMul).toBe(1);
   });
 
-  it('maxZoom×displayMul 超 10x → maxDisplay 软钳到 SOFT_MAX_DISPLAY(10)', () => {
-    // maxZoom=123、switchFactors=[]( displayMul=1)→ 123 被软钳到 10。
+  it('maxZoom×displayMul 超软上限 → maxDisplay 软钳到 SOFT_MAX_DISPLAY(3)', () => {
+    // maxZoom=123、switchFactors=[]( displayMul=1)→ 123 被软钳到 3。
     const dev = makeDevice({ minZoom: 1, maxZoom: 123, switchFactors: [] });
     const { result } = renderHook(() => useZoomController(dev));
-    expect(result.current.maxDisplay).toBe(10);
+    expect(result.current.maxDisplay).toBe(3);
   });
 
   it('device 为 undefined → 全程可选链兜底(displayMul=1、min/max=1)', () => {

@@ -11,7 +11,8 @@ export function clamp(v: number, lo: number, hi: number): number {
 }
 
 // pinch:从手势起点 vzf 乘以双指 scale,再 clamp 到 [deviceMinZoom, min(deviceMaxZoom, 软上限 vzf)]。
-// softMaxVzf = maxDisplay / displayMul(软上限 10x 对应的 vzf);见 useZoomController 的 maxDisplay。
+// softMaxVzf = maxDisplay / displayMul(软上限对应 vzf;见 useZoomController.SOFT_MAX_DISPLAY=3)。
+// 本函数对 cap 值不敏感(softMaxVzf 是入参)—— 单测用任意样本值验证 clamp 行为即可,不绑具体上限。
 // 系统相机式直觉:scale=2 → 倍数翻倍(乘性),无需对数曲线(pinch 手指间距比例天然是乘性)。
 export function pinchVzf(
   startVzf: number,
