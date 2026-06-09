@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.12.0](https://github.com/unif-design/react-native-camera/compare/v2.11.0...v2.12.0) (2026-06-09)
+
+
+### Features
+
+* **camera:** UX 迭代2 — 保存常显/footer 调浅/默认静音/去翻转/预览按钮 ([#55](https://github.com/unif-design/react-native-camera/issues/55)) ([0bd5d31](https://github.com/unif-design/react-native-camera/commit/0bd5d31b801ffdf13ea2d94c8ff0acfa8243810d))
+
 # [2.11.0](https://github.com/unif-design/react-native-camera/compare/v2.10.1...v2.11.0) (2026-06-08)
 
 
