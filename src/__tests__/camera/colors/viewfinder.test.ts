@@ -6,4 +6,6 @@ it('exposes viewfinder physical constants', () => {
   expect(VIEWFINDER.glassPillStrong).toBe('rgba(0,0,0,0.45)');
   expect(VIEWFINDER.footerScrim).toBe('rgba(0,0,0,0.4)');
   expect(VIEWFINDER.recRed).toBe('#ff3b30');
+  expect(VIEWFINDER.recordingTint).toBe('rgba(255,59,48,0.18)');
+  expect(VIEWFINDER.watermarkShadow).toBe('rgba(0,0,0,0.7)');
 });

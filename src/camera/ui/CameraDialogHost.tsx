@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
-import { Button, useColors, r } from '@unif/react-native-design';
+import { Button, useColors, r, fw, type as t } from '@unif/react-native-design';
 
 type ConfirmOpts = {
   title: string;
@@ -125,7 +125,14 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
           pointerEvents="none"
           testID="camera-toast"
         >
-          <Text style={styles.toast}>{toastMsg}</Text>
+          <Text
+            style={[
+              styles.toast,
+              { color: c.foreground, backgroundColor: c.scrim },
+            ]}
+          >
+            {toastMsg}
+          </Text>
         </View>
       ) : null}
     </DialogCtx.Provider>
@@ -145,8 +152,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: r(16),
     gap: r(12),
   },
-  title: { fontSize: r(17), fontWeight: '600' },
-  msg: { fontSize: r(14) },
+  title: { fontSize: t.h2, fontWeight: fw.semi },
+  msg: { fontSize: t.sm },
   actions: { flexDirection: 'row', gap: r(12), marginTop: r(8) },
   toastWrap: {
     position: 'absolute',
@@ -156,15 +163,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 101,
   },
-  // toast 物理常量级配色(白字黑底半透):toast 浮在相机/预览深色之上,
-  // 跟随主题反而会在浅色态变浅看不清,故固定深色胶囊。
+  // toast 浮在相机/预览深色之上:配色走 dark token —— color=c.foreground(#fff)、
+  // 底=c.scrim(rgba(0,0,0,0.7))。相机 Modal forceScheme="dark" 恒为深色胶囊,
+  // 不会在浅色态变浅看不清(color/bg 内联设置,见 JSX)。
   toast: {
     paddingHorizontal: r(16),
     paddingVertical: r(10),
     borderRadius: r(10),
     overflow: 'hidden',
-    fontSize: r(14),
-    color: '#fff',
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    fontSize: t.sm,
   },
 });

@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -25,7 +26,7 @@ import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
 import { SideActions } from './setup/SideActions';
-import { ZoomChips } from './footer/ZoomChips';
+import { ZoomSlider } from './footer/ZoomSlider';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
@@ -40,6 +41,11 @@ const CONTROL_GAP = r(12);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
+
+// 变焦滚条软上限(用户倍数 display 空间):官方 4.x example 用 MAX_ZOOM_FACTOR=10。
+// device.maxZoom 在多镜头机型可达 ~123x,但 >10x 是纯数字裁切(画质崩、不实用),
+// 故连续滚条上限软钳到 10x(下限仍是设备 minZoom×displayMul,后置 0.5x)。
+const SOFT_MAX_DISPLAY = 10;
 
 type Props = {
   config: OpenConfig;
@@ -105,7 +111,7 @@ export function Container({ config, onSettle }: Props) {
   // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
   // 运行时翻转(S7):直接切 position state(无翻转动画,真机反馈奇怪故移除)。
   // 5.x：physicalDevices 字符串不带 -camera。请求 ultra-wide-angle + wide-angle
-  // 换取 0.5x 超广角档(device.minZoom≤0.5 → ZoomChips 自动显示 0.5)。
+  // 换取 0.5x 超广角档(0.5x 的「用户倍数」经下方 displayMul 转换,见下;不是 minZoom≤0.5)。
   // physicalDevices 是 best-match 排序、非硬过滤(vision-camera 文档:「filter
   // never excludes cameras」):不支持超广角的机型会自动 fallback 到 wide-angle
   // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null;真正的
@@ -116,6 +122,23 @@ export function Container({ config, onSettle }: Props) {
   const device = useCameraDevice(position, {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
+
+  // vision-camera 5.x:device.zoom/minZoom/maxZoom 是 AVFoundation videoZoomFactor(vzf,
+  // 相对设备最广镜头),不是用户倍数。用户倍数 = vzf × displayMul。
+  // displayMul 从 zoomLensSwitchFactors[0]( = virtualDeviceSwitchOverVideoZoomFactors[0],
+  // 即切到下一颗物理镜头/用户 1x 对应的 vzf)反推:iPhone 后置 dual(wide+ultra)switchFactors=[2.0]
+  // → displayMul=0.5(vzf 1.0=minZoom=超广角=用户 0.5x、vzf 2.0=广角=用户 1x)。
+  // 无超广角(前置/单广角机型)switchFactors 为空 → switch0=0 → displayMul=1(无 0.5x,fallback)。
+  const switch0 = device?.zoomLensSwitchFactors?.[0] ?? 0;
+  const displayMul = switch0 > 1 ? 1 / switch0 : 1;
+
+  // 连续滚条的 display 空间范围:下限 = 设备最广(后置 0.5x),上限软钳到 SOFT_MAX_DISPLAY。
+  // 在 device==null guard 之前用,故全程可选链兜底(guard 后 device 必非空,值会重算正确)。
+  const minDisplay = (device?.minZoom ?? 1) * displayMul;
+  const maxDisplay = Math.min(
+    (device?.maxZoom ?? 1) * displayMul,
+    SOFT_MAX_DISPLAY
+  );
 
   const cameraRef = useRef<CameraHandle>(null);
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
@@ -151,18 +174,6 @@ export function Container({ config, onSettle }: Props) {
       if (prev == null || Math.abs(cur - prev) > 0.02) runOnJS(setZoom)(cur);
     }
   );
-
-  // TODO(临时): 真机确认超广角 minZoom 后移除。帮用户核对前/后置设备的缩放能力(0.5x 是否可用)。
-  // vision-camera 5.x 的 CameraDevice 无 neutralZoom(4.x 字段),物理镜头列表用 physicalDevices。
-  useEffect(() => {
-    if (device)
-      console.log('[camera] device zoom', {
-        position,
-        minZoom: device.minZoom,
-        maxZoom: device.maxZoom,
-        physicalDevices: device.physicalDevices,
-      });
-  }, [device, position]);
 
   useEffect(() => {
     if (!recording) {
@@ -362,22 +373,31 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
-      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。 */}
+      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
+          ZoomSlider = 档位药丸(点击跳档)+ 其上 Pan 连续变焦(对数曲线,拖动浮大号倍数)。 */}
       {!recording && position === 'back' && (
         <View
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
-          <ZoomChips
-            zoom={zoom}
-            minZoom={device.minZoom}
-            maxZoom={device.maxZoom}
-            onSelect={(z) => {
-              const clamped = Math.min(
-                Math.max(z, device.minZoom),
+          <ZoomSlider
+            zoomShared={zoomShared}
+            displayZoom={zoom * displayMul}
+            displayMul={displayMul}
+            minDisplay={minDisplay}
+            maxDisplay={maxDisplay}
+            deviceMinZoom={device.minZoom}
+            deviceMaxZoom={device.maxZoom}
+            minZoom={device.minZoom * displayMul}
+            maxZoom={device.maxZoom * displayMul}
+            onSelect={(displayZ) => {
+              // 边界用 display 空间;内部 zoom state/zoomShared 仍是 vzf。
+              // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
+              const vzf = Math.min(
+                Math.max(displayZ / displayMul, device.minZoom),
                 device.maxZoom
               );
-              setZoom(clamped);
-              zoomShared.value = clamped;
+              setZoom(vzf);
+              zoomShared.value = vzf;
             }}
           />
         </View>
@@ -476,5 +496,5 @@ const makeStyles = (c: ColorTokens) =>
       gap: r(8),
       paddingVertical: r(16),
     },
-    burningText: { color: c.foreground, fontSize: r(14) },
+    burningText: { color: c.foreground, fontSize: t.sm },
   });

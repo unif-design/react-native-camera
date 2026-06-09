@@ -39,19 +39,29 @@ jest.mock('react-native-nitro-image', () => ({ NitroImage: () => null }), {
 });
 
 // Mock reanimated（gesture handler 也需要）
-jest.mock('react-native-reanimated', () => ({
-  useSharedValue: (init: unknown) => ({ value: init }),
-  useAnimatedStyle: (fn: () => unknown) => fn(),
-  useAnimatedProps: (fn: () => unknown) => fn(),
-  useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
-  // jest 下无 SharedValue 更新,reaction 不触发回调 → no-op 即可。
-  useAnimatedReaction: () => {},
-  runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
-  runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
-  withTiming: (v: unknown) => v,
-  withSpring: (v: unknown) => v,
-  default: {},
-}));
+jest.mock('react-native-reanimated', () => {
+  const { View } = require('react-native');
+  // Animated.View / createAnimatedComponent 桩:ZoomSlider 用 reanimated 的 Animated.View
+  // 承载 useAnimatedStyle 的 opacity；jest 下渲染成普通 View(动画不跑,挂载/逻辑可测)。
+  const Animated = Object.assign(View, {
+    View,
+    createAnimatedComponent: (Comp: unknown) => Comp,
+  });
+  return {
+    __esModule: true,
+    default: Animated,
+    useSharedValue: (init: unknown) => ({ value: init }),
+    useAnimatedStyle: (fn: () => unknown) => fn(),
+    useAnimatedProps: (fn: () => unknown) => fn(),
+    useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
+    // jest 下无 SharedValue 更新,reaction 不触发回调 → no-op 即可。
+    useAnimatedReaction: () => {},
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
+    runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
+    withTiming: (v: unknown) => v,
+    withSpring: (v: unknown) => v,
+  };
+});
 
 // Mock gesture handler
 jest.mock('react-native-gesture-handler', () => {
@@ -67,6 +77,7 @@ jest.mock('react-native-gesture-handler', () => {
     Gesture: {
       Pinch: () => chain,
       Tap: () => chain,
+      Pan: () => chain,
       Simultaneous: () => chain,
     },
     GestureDetector: ({ children }: any) => children,

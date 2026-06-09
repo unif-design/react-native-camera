@@ -11,7 +11,7 @@
 
 - **单拍 / 连拍 / 视频录制** — 一个 `useCamera()` Hook 统一编排
 - **弹窗式交互** — `await api.open(config)`,拍完 / 取消后 Promise resolve `CameraResult`
-- **手势** — 双指变焦、点击对焦、前后摄翻转
+- **手势** — 滚条变焦(连续、对数曲线、含 0.5x 超广角档)、点击对焦、前后摄翻转
 - **Skia 水印** — 拍照后将文字水印离屏烧入成片(仅照片,录像无水印)
 - **公开面极简** — 唯一入口 `useCamera()`,不直接暴露 vision-camera 的 `<Camera>`
 
@@ -78,7 +78,7 @@ function PhotoScreen() {
 | --- | --- |
 | React Native | **0.85+**(仅新架构 Fabric + Nitro;旧架构不支持) |
 | React | 19+ |
-| iOS / Android | iOS 14+ / Android API 24+ |
+| iOS / Android | iOS 15.1+ / Android API 24+ |
 
 ## 许可
 
