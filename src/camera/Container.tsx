@@ -57,8 +57,8 @@ type PermissionState = 'pending' | 'granted' | 'denied';
 
 export function Container({ config, onSettle }: Props) {
   // 本地弹窗:切模式/放弃拍摄的二次确认走相机 Modal 内部 host(见 ui/CameraDialogHost),
-  // 不走 design 全局 confirm —— 后者会被相机 Modal 盖住。
-  const { confirm } = useCameraDialog();
+  // 不走 design 全局 confirm —— 后者会被相机 Modal 盖住。showError 同源(顶部非阻塞错误条)。
+  const { confirm, showError } = useCameraDialog();
   const styles = useThemedStyles(makeStyles);
   const settledRef = useRef(false);
   // App 前后台:切后台时停取景(对齐官方 isActive=isAppActive&&isScreenFocused)。
@@ -349,9 +349,9 @@ export function Container({ config, onSettle }: Props) {
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
         sound={sound}
-        onCameraError={() =>
-          settle({ code: 500, data: photos, message: 'camera_error' })
-        }
+        // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
+        // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
+        onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
       />
 
       {!recording && config.watermark && (

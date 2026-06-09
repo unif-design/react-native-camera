@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Text, Pressable } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import {
   CameraDialogProvider,
@@ -39,6 +39,16 @@ function ToastTrigger({ msg }: { msg: string }) {
     toast(msg);
   }, [toast, msg]);
   return null;
+}
+
+// 触发 showError 的测试宿主:点按钮弹错误条(可点多次验证去抖)。
+function ErrorTrigger({ msg }: { msg: string }) {
+  const { showError } = useCameraDialog();
+  return (
+    <Pressable testID="trigger-error" onPress={() => showError(msg)}>
+      <Text>err</Text>
+    </Pressable>
+  );
 }
 
 function wrap(children: React.ReactNode) {
@@ -116,5 +126,88 @@ describe('CameraDialogHost', () => {
     );
     expect(getByTestId('camera-toast')).toBeTruthy();
     expect(getByText('已保存')).toBeTruthy();
+  });
+
+  describe('showError 顶部错误条', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      act(() => jest.runOnlyPendingTimers());
+      jest.useRealTimers();
+    });
+
+    it('触发后显示错误条 + "相机异常:" 前缀文案', () => {
+      const { getByTestId, getByText, queryByTestId } = render(
+        wrap(<ErrorTrigger msg="session 中断" />)
+      );
+      expect(queryByTestId('camera-error-bar')).toBeNull();
+      fireEvent.press(getByTestId('trigger-error'));
+      expect(getByTestId('camera-error-bar')).toBeTruthy();
+      expect(getByText('相机异常:session 中断')).toBeTruthy();
+    });
+
+    it('4s 后自动消失', () => {
+      const { getByTestId, queryByTestId } = render(
+        wrap(<ErrorTrigger msg="掉线了" />)
+      );
+      fireEvent.press(getByTestId('trigger-error'));
+      expect(getByTestId('camera-error-bar')).toBeTruthy();
+      act(() => jest.advanceTimersByTime(4000));
+      expect(queryByTestId('camera-error-bar')).toBeNull();
+    });
+
+    it('手动 ✕ 立即关闭', () => {
+      const { getByTestId, queryByTestId } = render(
+        wrap(<ErrorTrigger msg="点叉关掉" />)
+      );
+      fireEvent.press(getByTestId('trigger-error'));
+      expect(getByTestId('camera-error-bar')).toBeTruthy();
+      fireEvent.press(getByTestId('camera-error-close'));
+      expect(queryByTestId('camera-error-bar')).toBeNull();
+    });
+
+    it('去抖:同 message 短时间内连发,关掉后再发仍被抑制(不重弹)', () => {
+      const { getByTestId, queryByTestId } = render(
+        wrap(<ErrorTrigger msg="重复错误" />)
+      );
+      fireEvent.press(getByTestId('trigger-error'));
+      expect(getByTestId('camera-error-bar')).toBeTruthy();
+      // 手动关掉后立刻再发同 message:距上次 < 去抖窗口 → 抑制,不重弹。
+      fireEvent.press(getByTestId('camera-error-close'));
+      fireEvent.press(getByTestId('trigger-error'));
+      expect(queryByTestId('camera-error-bar')).toBeNull();
+    });
+
+    it('去抖:超过 5s 后同 message 可再次显示', () => {
+      const { getByTestId, queryByTestId } = render(
+        wrap(<ErrorTrigger msg="过窗口" />)
+      );
+      fireEvent.press(getByTestId('trigger-error'));
+      // 等过自动消失(4s)+ 去抖窗口(5s):>5s 后同 message 不再被抑制。
+      act(() => jest.advanceTimersByTime(6000));
+      expect(queryByTestId('camera-error-bar')).toBeNull();
+      fireEvent.press(getByTestId('trigger-error'));
+      expect(getByTestId('camera-error-bar')).toBeTruthy();
+    });
+
+    it('不同 message 即使紧接着也照常显示', () => {
+      function TwoErrors() {
+        const { showError } = useCameraDialog();
+        return (
+          <>
+            <Pressable testID="err-a" onPress={() => showError('A')}>
+              <Text>a</Text>
+            </Pressable>
+            <Pressable testID="err-b" onPress={() => showError('B')}>
+              <Text>b</Text>
+            </Pressable>
+          </>
+        );
+      }
+      const { getByTestId, getByText } = render(wrap(<TwoErrors />));
+      fireEvent.press(getByTestId('err-a'));
+      expect(getByText('相机异常:A')).toBeTruthy();
+      fireEvent.press(getByTestId('err-b'));
+      expect(getByText('相机异常:B')).toBeTruthy();
+    });
   });
 });
