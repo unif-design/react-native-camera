@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.1](https://github.com/unif-design/react-native-camera/compare/v2.14.0...v2.14.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* **camera:** align with vision-camera official example + drop dead code ([#59](https://github.com/unif-design/react-native-camera/issues/59)) ([2713890](https://github.com/unif-design/react-native-camera/commit/2713890d7e8b735cb82c1ce22ef9a62ef9b22129))
+
 # [2.14.0](https://github.com/unif-design/react-native-camera/compare/v2.13.0...v2.14.0) (2026-06-09)
 
 
