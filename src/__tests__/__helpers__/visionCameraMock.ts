@@ -14,7 +14,13 @@ export const VC_COMMON_RESOLUTIONS = {
 
 type VcOverrides = Record<string, unknown>;
 
-/** vision-camera 的 jest mock 基底;传 overrides 覆盖需要定制的 hook(device/permission 等)。 */
+/**
+ * vision-camera 的 jest mock 基底;传 overrides 覆盖需要定制的 hook(device/permission 等)。
+ *
+ * usePhotoOutput / useVideoOutput 用 **jest.fn 实现**(记录入参),让接线测试能断言被调用的 options
+ * (如 `qualityPrioritization` 按需加键 / `targetBitRate` 缺省不加)——读 `mod.usePhotoOutput.mock.calls`。
+ * 入参形态变更只改这一处,避免各处重复整份 mock。
+ */
 export function makeVisionCameraMock(overrides: VcOverrides = {}) {
   return {
     useCameraPermission: () => ({
@@ -27,11 +33,12 @@ export function makeVisionCameraMock(overrides: VcOverrides = {}) {
     }),
     useCameraDevice: () => undefined,
     useCameraDevices: () => [],
-    usePhotoOutput: () => ({
+    // jest.fn(实现):返回输出对象 + 记录入参(opts),供接线测试断言按需加键。
+    usePhotoOutput: jest.fn((_opts?: Record<string, unknown>) => ({
       capturePhoto: jest.fn(),
       capturePhotoToFile: jest.fn(),
-    }),
-    useVideoOutput: (_opts?: { enableAudio?: boolean }) => ({
+    })),
+    useVideoOutput: jest.fn((_opts?: Record<string, unknown>) => ({
       createRecorder: jest.fn().mockResolvedValue({
         startRecording: jest.fn(),
         stopRecording: jest.fn(),
@@ -45,7 +52,7 @@ export function makeVisionCameraMock(overrides: VcOverrides = {}) {
         recordedFileSize: 0,
         filePath: '',
       }),
-    }),
+    })),
     useFrameOutput: () => ({}),
     Camera: ({ children }: { children?: unknown }) => children ?? null,
     // 出图分辨率目标常量(Camera.tsx 用 CommonResolutions.UHD_*);此前各 mock 漏它导致 undefined。

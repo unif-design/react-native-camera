@@ -15,7 +15,7 @@ export type CameraMode = {
   flashMode?: FlashMode;
   /** 拍摄模式。 */
   mode: CameraModeName;
-  /** JPEG 压缩 0~1,缺省 0.9。内部速度优先级写死 'speed'(对齐原版 4.x photoQualityBalance)。 */
+  /** JPEG 压缩 0~1,缺省 0.9。质量优先级见 OpenConfig.photoQualityPrioritization(缺省走 SDK 默认 'balanced')。 */
   quality?: number;
   /**
    * 录制时长上限(秒),video 模式。**保留字段,当前 no-op**:录像不会到点自动停,
@@ -42,6 +42,25 @@ export type OpenConfig = {
   dataRetainedMode: DataRetainedMode;
   /** 水印,缺省不加;传入则取景显示戳记 + 保存时烧入成片 */
   watermark?: WatermarkType;
+  /**
+   * 照片质量优先级(全局,作用于所有照片模式)。
+   * **缺省 undefined = 不传该字段,走 SDK 默认 'balanced'**(不替消费者写死取舍)。
+   * 传 'speed'/'quality' 在不支持的设备会被安全降级为 'balanced'(不 throw,见 Camera.tsx
+   * 的 supportsSpeedQualityPrioritization guard);'balanced' 任何设备可传。
+   */
+  photoQualityPrioritization?: 'speed' | 'balanced' | 'quality';
+  /**
+   * 是否启用照片 HDR(多帧融合,更宽动态范围)。
+   * **缺省 undefined = 不加 photoHDR 约束,由相机 negotiate 决定**(不强制开/关)。
+   * 传 boolean 才作为 `{ photoHDR: <值> }` 约束下发。
+   */
+  photoHDR?: boolean;
+  /**
+   * 录像目标码率(bps,全局,作用于 video 模式)。
+   * **缺省 undefined = 不传,由编码器按分辨率自适应**(不写死,避免高/低分辨率配错码率)。
+   * 仅在需要明确控制时传(如 4K 约 20–40Mbps)。
+   */
+  videoBitRate?: number;
 };
 
 export type CustomPhotoFile = {

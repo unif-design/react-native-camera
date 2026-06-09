@@ -54,6 +54,11 @@ type Props = {
   // pinch 结束回写一次 JS 侧 zoom(vzf):仅手势结束,不 pinch 全程回写(性能根治)。
   onZoomEnd?: (vzf: number) => void;
   sound?: boolean;
+  // 拍摄质量参数(从 Container 透传自 OpenConfig)。三者**缺省 undefined = 走 SDK 默认**:
+  // 缺省时一律不写入对应 option/constraint,让 vision-camera 用其默认值,不替消费者写死取舍。
+  photoQualityPrioritization?: 'speed' | 'balanced' | 'quality';
+  photoHDR?: boolean;
+  videoBitRate?: number;
   onCameraError?: (error: Error) => void;
 };
 
@@ -70,6 +75,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     softMaxZoom,
     onZoomEnd,
     sound,
+    photoQualityPrioritization,
+    photoHDR,
+    videoBitRate,
     onCameraError,
   },
   ref
@@ -90,20 +98,45 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       ? CommonResolutions.UHD_4_3
       : CommonResolutions.UHD_16_9;
 
+  // 照片质量优先级:**缺省(未传)= 不写入该 option,让 SDK 用默认 'balanced'**(不替消费者写死)。
+  // 安全降级:d.ts 明确 'speed' 在不支持的设备 capture 会 throw;'quality' 一般都支持,但稳妥起见
+  // 同样在不支持 speed-prioritization 的老设备上保守降级。'balanced' 任何设备可传 → 直传。
+  // → 不支持时降级 'balanced' 而非 throw;返回 undefined 表示「不传该键」(下方按需展开,避免传 undefined)。
+  const resolvedQualityPrioritization =
+    photoQualityPrioritization == null
+      ? undefined
+      : photoQualityPrioritization === 'balanced'
+        ? 'balanced'
+        : device.supportsSpeedQualityPrioritization
+          ? photoQualityPrioritization
+          : 'balanced';
+
   const photoOutput = usePhotoOutput({
-    // 速度优先级对齐原版 4.x photoQualityBalance='speed'(写死);quality 用回原版字段。
-    // docs:device must support 'speed' otherwise capture throws —— 故按设备能力 guard,
-    // 不支持的机型 fallback 'balanced'(见 device.supportsSpeedQualityPrioritization)。
-    qualityPrioritization: device.supportsSpeedQualityPrioritization
-      ? 'speed'
-      : 'balanced',
     quality: currentMode.quality ?? 0.9,
     targetResolution,
+    // 按需加键:仅在 config 显式传了优先级时写入,缺省不传 → SDK 默认。
+    // 用对象展开按需加键(而非 `qualityPrioritization: undefined`):避免把 undefined 灌进 options。
+    ...(resolvedQualityPrioritization
+      ? { qualityPrioritization: resolvedQualityPrioritization }
+      : {}),
   });
 
   // enableAudio:true —— 对齐官方 example,录像带声音(docs:启用 audio 需麦克风权限,
   // 已在 startVideo 前 requestMic())。缺它录的是无声视频。
-  const videoOutput = useVideoOutput({ enableAudio: true });
+  // 录像分辨率随 aspectRatio 走 UHD,不吃 useVideoOutput 默认的 FHD_16_9(1080p)——与照片
+  // targetResolution 同理(目标值,比例优先 negotiate,低端机兜底不崩);照片已升 UHD,录像同步。
+  // targetBitRate:**缺省(未传)= 不写入,由编码器按分辨率自适应**(不写死,避免配错码率);
+  // config 显式传了才按需加键(下方展开,不传 undefined 进 options)。
+  const videoOutput = useVideoOutput({
+    enableAudio: true,
+    targetResolution:
+      (aspectRatio ?? '4:3') === '4:3'
+        ? CommonResolutions.UHD_4_3
+        : CommonResolutions.UHD_16_9,
+    ...(typeof videoBitRate === 'number'
+      ? { targetBitRate: videoBitRate }
+      : {}),
+  });
   const { hasPermission: hasMic, requestPermission: requestMic } =
     useMicrophonePermission();
 
@@ -324,7 +357,12 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             device={device}
             isActive={isActive}
             outputs={outputs}
-            constraints={[{ photoHDR: false }]}
+            // photoHDR:**缺省(未传)= 不下发 photoHDR 约束 → 由相机 negotiate 决定**(不强制开/关)。
+            // config 传了 boolean 才作为 `{ photoHDR: <值> }` 约束;constraints? 可选,传 undefined 即完全省略。
+            // (不加 resolutionBias:outputs 按 mode 单挂,photo/video 不共存,无被拖低问题。)
+            constraints={
+              typeof photoHDR === 'boolean' ? [{ photoHDR }] : undefined
+            }
             zoom={zoom}
             torchMode={
               currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'

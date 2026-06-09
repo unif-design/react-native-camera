@@ -229,6 +229,10 @@ export function Container({ config, onSettle }: Props) {
         // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
         onZoomEnd={setZoom}
         sound={sound}
+        // 拍摄质量参数从 OpenConfig 透传;三者缺省 undefined → Camera 内按需加键、不传则走 SDK 默认。
+        photoQualityPrioritization={config.photoQualityPrioritization}
+        photoHDR={config.photoHDR}
+        videoBitRate={config.videoBitRate}
         // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
         // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
         onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
