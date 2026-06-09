@@ -10,7 +10,7 @@ const r = (ui: ReactElement) =>
 it('confirm 变体: 重拍/保存', () => {
   const onRetake = jest.fn();
   const onSave = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId, getByText } = r(
     <PreviewBottomBar
       variant="confirm"
       index={0}
@@ -21,6 +21,9 @@ it('confirm 变体: 重拍/保存', () => {
       onDelete={() => {}}
     />
   );
+  // 扫一扫式按钮:圆 icon 下方带文字标签。
+  expect(getByText('重拍')).toBeTruthy();
+  expect(getByText('保存')).toBeTruthy();
   fireEvent.press(getByTestId('retake-btn'));
   expect(onRetake).toHaveBeenCalled();
   fireEvent.press(getByTestId('save-btn'));
@@ -42,6 +45,8 @@ it('gallery 变体: 第X/Y张 + 返回/删除', () => {
     />
   );
   expect(getByText('第 2/3 张')).toBeTruthy();
+  expect(getByText('返回')).toBeTruthy();
+  expect(getByText('删除')).toBeTruthy();
   fireEvent.press(getByTestId('back-btn'));
   expect(onBack).toHaveBeenCalled();
   fireEvent.press(getByTestId('delete-btn'));
