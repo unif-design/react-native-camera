@@ -349,9 +349,6 @@ export function Container({ config, onSettle }: Props) {
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
         sound={sound}
-        onCameraError={() =>
-          settle({ code: 500, data: photos, message: 'camera_error' })
-        }
       />
 
       {!recording && config.watermark && (

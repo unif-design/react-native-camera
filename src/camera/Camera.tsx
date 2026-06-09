@@ -44,8 +44,6 @@ type Props = {
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
   sound?: boolean;
-  // session 致命错误冒泡给 Container 上报(code 500)。对齐官方 example 接 <Camera onError>。
-  onCameraError?: (error: Error) => void;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
@@ -57,7 +55,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     aspectRatio,
     zoomShared,
     sound,
-    onCameraError,
   },
   ref
 ) {
@@ -241,7 +238,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       }
       const prepared = preparedRecorderRef.current;
       if (prepared != null) {
-        prepared.dispose();
+        // dispose() 同步释放原生资源,对象已处异常状态时可能 throw —— unmount cleanup
+        // 里 throw 会红屏,故吞掉(资源最终由 GC 兜底)。
+        try {
+          prepared.dispose();
+        } catch (e) {
+          console.warn('recorder dispose failed', e);
+        }
         preparedRecorderRef.current = null;
       }
     };
@@ -267,9 +270,12 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
             }
             onError={(error) => {
-              // session 致命错误:warn + 冒泡给 Container settle(code 500)。
+              // onError = "session 遇到任何错误" 的诊断回调:error 是普通 Error(无 code
+              // 可判致命性),且含重开/激活时 session 重启这类**可恢复**瞬时错误 —— vision-camera
+              // 会自行恢复。故仅 warn 诊断,绝不据此关相机:早期无条件 settle(500) 会把
+              // 重开时的瞬时 session 错误误当致命 → 第二次打开即报错关闭(临时中断另走
+              // onInterruptionStarted/Ended,不进这里)。
               console.warn('camera session error', error);
-              onCameraError?.(error);
             }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
             onStarted={() => {
