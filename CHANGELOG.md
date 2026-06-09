@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.16.0](https://github.com/unif-design/react-native-camera/compare/v2.15.2...v2.16.0) (2026-06-09)
+
+
+### Features
+
+* **camera:** 变焦回归 pinch + 0.5/1 档位 + 实时倍数(SharedValue 直驱根治卡顿) ([#64](https://github.com/unif-design/react-native-camera/issues/64)) ([7904862](https://github.com/unif-design/react-native-camera/commit/79048622774158f615f9691223e4518c57e5bc94))
+
 ## [2.15.2](https://github.com/unif-design/react-native-camera/compare/v2.15.1...v2.15.2) (2026-06-09)
 
 ## [2.15.1](https://github.com/unif-design/react-native-camera/compare/v2.15.0...v2.15.1) (2026-06-09)
