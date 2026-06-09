@@ -1,63 +1,114 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import {
   r,
   fw,
   type as t,
   useThemedStyles,
+  useColors,
   type ColorTokens,
 } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
+import { ZoomReadout } from './ZoomReadout';
 
-const ALL_STOPS = [0.5, 1, 2] as const;
+// 仅 0.5x / 1x 两档(用户拍板去掉 2x):0.5 仅超广角机型有,1x 恒有。
+const ALL_STOPS = [0.5, 1] as const;
+// 当前档判定阈值(display 空间):display ≥ 1 → 1 档高亮,否则 0.5 档高亮(到最广=0.5x 时 0.5 档亮)。
+const ACTIVE_THRESHOLD = 1;
+
+type Props = {
+  // UI 线程当前 zoom(vzf);高亮 + 大号倍数全程由它驱动,不走 setState。
+  zoomShared: SharedValue<number>;
+  // 1=pinch 中(浮大号倍数),0=idle;Camera 的 Pinch 写,ZoomReadout 读其 opacity。
+  pinching: SharedValue<number>;
+  // vzf → 用户倍数乘子(后置 0.5):display = vzf × displayMul,判档与点击跳档都在 display 空间。
+  displayMul: number;
+  // 是否渲染 0.5 档:设备最广 ≤ 0.5x(超广角)才显示;无超广角(前置/单广角)只剩 1 档。
+  showHalf: boolean;
+  // 点击跳档:传该档**用户倍数**(0.5 / 1),Container 反算 vzf = displayZ / displayMul。
+  onSelect: (displayZ: number) => void;
+};
 
 export function ZoomChips({
-  zoom,
+  zoomShared,
+  pinching,
+  displayMul,
+  showHalf,
   onSelect,
-  minZoom = 1,
-  maxZoom = Infinity,
-}: {
-  zoom: number;
-  onSelect: (z: number) => void;
-  minZoom?: number;
-  maxZoom?: number;
-}) {
+}: Props) {
   const styles = useThemedStyles(makeStyles);
-  // 仅渲染设备支持的档位:0.5 需 minZoom≤0.5（超广角），2 需 maxZoom≥2。
-  // ±1e-3 容差:device.minZoom/maxZoom 可能带浮点漂移,避免严格比较的边界漏判。
-  const stops = ALL_STOPS.filter(
-    (z) => z >= minZoom - 1e-3 && z <= maxZoom + 1e-3
-  );
-  // 区间高亮:当前 zoom 落在哪个档区间,那一档(且仅那一档)高亮并显示"实际倍数"。
-  // 当前档 = stops 中 ≤ zoom 的最大者(zoom 比所有档都小则取最小档);例如 0.5/1/2 三档时
-  // zoom<1→0.5 档、1≤zoom<2→1 档、zoom≥2→2 档(无 2 档则归最大可用档)。
-  const activeStop =
-    [...stops].reverse().find((s) => zoom >= s - 1e-3) ?? stops[0];
+  const stops = showHalf ? ALL_STOPS : ([1] as const);
   return (
-    <View style={styles.row}>
-      {stops.map((z) => {
-        const isActive = z === activeStop;
-        const base = z === 0.5 ? '.5' : `${z}`;
-        // 当前档显示实际倍数(1 位小数,如 0.9x/1.5x);非当前档显示标称(.5/1/2)。
-        const label = isActive ? `${zoom.toFixed(1)}x` : base;
-        return (
-          <TouchableOpacity
-            key={z}
-            testID={`zoom-chip-${z}`}
-            onPress={() => onSelect(z)}
-            style={[styles.chip, isActive && styles.chipActive]}
-          >
-            <Text style={[styles.txt, isActive && styles.txtActive]}>
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+    <View style={styles.container}>
+      {/* pinch 中浮在档位药丸正上方的大号实时倍数(absolute,不占布局)。 */}
+      <ZoomReadout
+        zoomShared={zoomShared}
+        pinching={pinching}
+        displayMul={displayMul}
+      />
+      <View style={styles.row}>
+        {stops.map((stop) => (
+          <ZoomChip
+            key={stop}
+            stop={stop}
+            zoomShared={zoomShared}
+            displayMul={displayMul}
+            onPress={() => onSelect(stop)}
+          />
+        ))}
+      </View>
     </View>
+  );
+}
+
+function ZoomChip({
+  stop,
+  zoomShared,
+  displayMul,
+  onPress,
+}: {
+  stop: number;
+  zoomShared: SharedValue<number>;
+  displayMul: number;
+  onPress: () => void;
+}) {
+  const c = useColors();
+  const styles = useThemedStyles(makeStyles);
+
+  // 当前档高亮:display = zoomShared × displayMul,≥ 阈值算 1 档当前,否则 0.5 档当前。
+  // 全在 worklet 读 zoomShared → UI 线程驱动药丸底色/字色,pinch 全程 0 次 setState。
+  const chipStyle = useAnimatedStyle(() => {
+    const display = zoomShared.value * displayMul;
+    const active = display >= ACTIVE_THRESHOLD ? 1 : 0.5;
+    const isActive = active === stop;
+    return { backgroundColor: isActive ? c.foreground : 'transparent' };
+  });
+  const txtStyle = useAnimatedStyle(() => {
+    const display = zoomShared.value * displayMul;
+    const active = display >= ACTIVE_THRESHOLD ? 1 : 0.5;
+    const isActive = active === stop;
+    return { color: isActive ? c.primary : c.foreground };
+  });
+
+  const label = stop === 0.5 ? '.5' : `${stop}`;
+  return (
+    <TouchableOpacity
+      testID={`zoom-chip-${stop}`}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Animated.View style={[styles.chip, chipStyle]}>
+        <Animated.Text style={[styles.txt, txtStyle]}>{label}</Animated.Text>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
 const makeStyles = (c: ColorTokens) =>
   StyleSheet.create({
+    // 居中放档位药丸;大号倍数 absolute 浮其上方(bottom 偏移),不占布局、药丸不跳。
+    container: { alignItems: 'center', justifyContent: 'center' },
     row: {
       flexDirection: 'row',
       gap: r(8),
@@ -66,13 +117,11 @@ const makeStyles = (c: ColorTokens) =>
       backgroundColor: VIEWFINDER.glassPillStrong,
     },
     chip: {
-      width: r(32),
-      height: r(32),
-      borderRadius: r(16),
+      width: r(36),
+      height: r(36),
+      borderRadius: r(18),
       alignItems: 'center',
       justifyContent: 'center',
     },
-    chipActive: { backgroundColor: c.foreground },
-    txt: { color: c.foreground, fontSize: t.xxs, fontWeight: fw.medium },
-    txtActive: { color: c.primary, fontSize: t.micro, fontWeight: fw.bold },
+    txt: { color: c.foreground, fontSize: t.xs, fontWeight: fw.semi },
   });

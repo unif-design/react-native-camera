@@ -22,7 +22,7 @@ import { PreviewOverlay } from './preview';
 import { CaptureFlash } from './CaptureFlash';
 import { SideRail, type AspectRatio, type FlashMode } from './setup';
 import { SideActions } from './setup/SideActions';
-import { ZoomSlider } from './footer/ZoomSlider';
+import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
 import { RecordingTimer } from './footer/RecordingTimer';
@@ -32,8 +32,13 @@ import { VIEWFINDER } from './colors/viewfinder';
 // 控件浮层需让出底部 footer。footer 高度由内容(快门/模式行)+ 安全区决定、随语言/机型变,
 // 故用 onLayout 实测(见 footerHeight);此处只留估值,兜底 onLayout 测得前的首帧防跳动。
 const FOOTER_FALLBACK = r(120);
-// 浮层底与 footer 顶的间隔:zoomChips 离 footer 顶 CONTROL_GAP,sideRail 再高一档(+r(30))。
-const CONTROL_GAP = r(12);
+// zoomChips 离 footer 顶(模式行)的间隔。收紧到 r(8) 让倍数药丸更贴近单拍/连拍行。
+// (真机可再微调:布局常量、非 worklet。)
+const CONTROL_GAP = r(8);
+// 左侧竖栏(SideRail/SideActions)下沉:以 footer 顶为基准上抬 SIDE_RAIL_LIFT,使其底缘落在
+// 模式行(单拍/连拍)附近、与之大致水平对齐(此前 +r(30) 偏高,见 IMG_1193)。
+// 取小正值让竖栏底缘略高于 footer 顶、贴住模式行;真机按观感再调(布局常量、非 worklet)。
+const SIDE_RAIL_LIFT = r(4);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
@@ -89,8 +94,9 @@ export function Container({ config, onSettle }: Props) {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
 
-  // 变焦控制器:vzf↔display 推导、zoom state/shared、节流回写、设备切换 clamp 全在 hook 内。
-  const { zoom, setZoom, zoomShared, displayMul, minDisplay, maxDisplay } =
+  // 变焦控制器:vzf↔display 推导、zoom state/shared、设备切换 clamp 全在 hook 内。
+  // zoom 显示全程走 UI 线程 zoomShared(pinch 不刷 state);setZoom 仅点击档/手势结束/设备切换回写。
+  const { setZoom, zoomShared, pinching, displayMul, minDisplay, maxDisplay } =
     useZoomController(device);
 
   const cameraRef = useRef<CameraHandle>(null);
@@ -215,7 +221,18 @@ export function Container({ config, onSettle }: Props) {
         flash={flash}
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
+        pinching={pinching}
+        // 前摄定焦 → 关 pinch(只留点击对焦),与下方「前置不渲染变焦档」一致。
+        enableZoom={position === 'back'}
+        // pinch 放大软上限(vzf):maxDisplay 已并入 SOFT_MAX_DISPLAY,÷displayMul 回 vzf。
+        softMaxZoom={maxDisplay / displayMul}
+        // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
+        onZoomEnd={setZoom}
         sound={sound}
+        // 拍摄质量参数从 OpenConfig 透传;三者缺省 undefined → Camera 内按需加键、不传则走 SDK 默认。
+        photoQualityPrioritization={config.photoQualityPrioritization}
+        photoHDR={config.photoHDR}
+        videoBitRate={config.videoBitRate}
         // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
         // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
         onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
@@ -229,10 +246,7 @@ export function Container({ config, onSettle }: Props) {
 
       {!recording && (
         <View
-          style={[
-            styles.sideRail,
-            { bottom: footerHeight + CONTROL_GAP + r(30) },
-          ]}
+          style={[styles.sideRail, { bottom: footerHeight + SIDE_RAIL_LIFT }]}
         >
           <SideRail
             flash={flash}
@@ -250,24 +264,21 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
-      {/* 前置(front)不渲染变焦条:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
-          ZoomSlider = 档位药丸(点击跳档)+ 其上 Pan 连续变焦(对数曲线,拖动浮大号倍数)。 */}
+      {/* 前置(front)不渲染变焦档:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
+          ZoomChips = 0.5/1 档位药丸(点击跳档,高亮当前档)+ pinch 时浮现的大号实时倍数。
+          变焦本身由 Camera 的双指 pinch 写 zoomShared 驱动(见 Camera.tsx)。 */}
       {!recording && position === 'back' && (
         <View
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
-          <ZoomSlider
+          <ZoomChips
             zoomShared={zoomShared}
-            displayZoom={zoom * displayMul}
+            pinching={pinching}
             displayMul={displayMul}
-            minDisplay={minDisplay}
-            maxDisplay={maxDisplay}
-            deviceMinZoom={device.minZoom}
-            deviceMaxZoom={device.maxZoom}
-            minZoom={device.minZoom * displayMul}
-            maxZoom={device.maxZoom * displayMul}
+            // 0.5 档仅超广角机型有:设备最广(minDisplay)≤ 0.5x 才渲染(±1e-3 容浮点漂移)。
+            showHalf={minDisplay <= 0.5 + 1e-3}
             onSelect={(displayZ) => {
-              // 边界用 display 空间;内部 zoom state/zoomShared 仍是 vzf。
+              // 点击档:边界用 display 空间,内部 zoom/zoomShared 仍是 vzf。
               // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
               const vzf = Math.min(
                 Math.max(displayZ / displayMul, device.minZoom),
@@ -283,7 +294,7 @@ export function Container({ config, onSettle }: Props) {
       <CaptureFlash trigger={flashNonce} />
 
       <View
-        style={[styles.bottom, { paddingBottom: insets.bottom + r(20) }]}
+        style={[styles.bottom, { paddingBottom: insets.bottom + r(6) }]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
         {burning ? (
@@ -356,13 +367,15 @@ const makeStyles = (c: ColorTokens) =>
     // footer 透明:早期叠半透明黑遮罩在取景底缘,与下方纯黑 root 底拼出一条
     // "浅灰带 / 一浅一深"分界 —— 改 transparent 让 footer 区直接露统一的 root
     // 黑底,消除深浅分界。zIndex 最高仍保证控件可点。
+    // footer 整体下沉、更贴底:paddingBottom 只留 home-indicator 间距(见 JSX insets.bottom+r(6)),
+    // paddingTop 收紧;gap = 模式行(单拍/连拍)与快门行的间距,缩小让模式行更贴近快门。
     bottom: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
-      paddingTop: r(14),
-      gap: r(16),
+      paddingTop: r(8),
+      gap: r(10),
       backgroundColor: 'transparent',
       zIndex: Z.footer,
     },

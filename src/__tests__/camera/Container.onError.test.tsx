@@ -5,34 +5,35 @@ import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
 
 // 已授权 + 有后置设备 → Container 走到 device-ready,渲染 <Camera>。
-jest.mock('react-native-vision-camera', () => ({
-  useCameraPermission: () => ({
-    hasPermission: true,
-    requestPermission: () => Promise.resolve(true),
-  }),
-  useMicrophonePermission: () => ({
-    hasPermission: true,
-    requestPermission: () => Promise.resolve(true),
-  }),
-  useCameraDevice: (position: 'back' | 'front') => ({
-    id: `dev-${position}`,
-    position,
-    minZoom: 1,
-    maxZoom: 8,
-    supportsFocusMetering: true,
-    hasFlash: position === 'back',
-    supportsSpeedQualityPrioritization: true,
-    isVirtualDevice: position === 'back',
-    zoomLensSwitchFactors: position === 'back' ? [2] : [],
-    physicalDevices:
-      position === 'back' ? ['ultra-wide-angle', 'wide-angle'] : ['wide-angle'],
-  }),
-  useCameraDevices: () => [],
-  usePhotoOutput: () => ({ capturePhoto: jest.fn() }),
-  useVideoOutput: () => ({ createRecorder: jest.fn() }),
-  useFrameOutput: () => ({}),
-  Camera: ({ children }: { children?: unknown }) => children ?? null,
-}));
+// 覆盖基底:granted permission + device(其余 hook / CommonResolutions 走 helper);
+// <Camera> 另被下方桩替换以触发 onCameraError。
+jest.mock('react-native-vision-camera', () =>
+  require('../__helpers__/visionCameraMock').makeVisionCameraMock({
+    useCameraPermission: () => ({
+      hasPermission: true,
+      requestPermission: () => Promise.resolve(true),
+    }),
+    useMicrophonePermission: () => ({
+      hasPermission: true,
+      requestPermission: () => Promise.resolve(true),
+    }),
+    useCameraDevice: (position: 'back' | 'front') => ({
+      id: `dev-${position}`,
+      position,
+      minZoom: 1,
+      maxZoom: 8,
+      supportsFocusMetering: true,
+      hasFlash: position === 'back',
+      supportsSpeedQualityPrioritization: true,
+      isVirtualDevice: position === 'back',
+      zoomLensSwitchFactors: position === 'back' ? [2] : [],
+      physicalDevices:
+        position === 'back'
+          ? ['ultra-wide-angle', 'wide-angle']
+          : ['wide-angle'],
+    }),
+  })
+);
 
 // 把 <Camera> 替换成可手动触发 onCameraError 的桩:点 trigger-camera-error 即冒泡
 // 一个普通 Error,验证 Container 把它接到 showError(顶部错误条),且不 settle。

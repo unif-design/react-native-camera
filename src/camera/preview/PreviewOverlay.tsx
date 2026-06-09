@@ -75,7 +75,7 @@ export function PreviewOverlay({
         }}
       />
       <View style={styles.pager}>
-        <Carousel data={data} onIndexChange={setIndex} />
+        <Carousel data={data} index={index} onIndexChange={setIndex} />
       </View>
       <PreviewBottomBar
         variant={variant}

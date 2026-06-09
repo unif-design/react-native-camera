@@ -12,17 +12,19 @@ import {
   useMicrophonePermission,
   usePhotoOutput,
   useVideoOutput,
+  CommonResolutions,
   type CameraRef,
   type CameraDevice,
   type CameraOutput,
   type FocusOptions,
   type Recorder,
 } from 'react-native-vision-camera';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
+import { pinchVzf } from './footer/zoomMath';
 import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
@@ -43,7 +45,20 @@ type Props = {
   flash?: FlashMode;
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
+  // 1=pinch 进行中(浮大号倍数),0=idle;Pinch 在此写,ZoomReadout 读其 opacity。
+  pinching?: SharedValue<number>;
+  // 是否启用双指 pinch 变焦:前摄定焦(position==='front')传 false → 只剩点击对焦。
+  enableZoom?: boolean;
+  // pinch 放大软上限(vzf)= maxDisplay / displayMul(见 useZoomController);clamp 落点用。
+  softMaxZoom?: number;
+  // pinch 结束回写一次 JS 侧 zoom(vzf):仅手势结束,不 pinch 全程回写(性能根治)。
+  onZoomEnd?: (vzf: number) => void;
   sound?: boolean;
+  // 拍摄质量参数(从 Container 透传自 OpenConfig)。三者**缺省 undefined = 走 SDK 默认**:
+  // 缺省时一律不写入对应 option/constraint,让 vision-camera 用其默认值,不替消费者写死取舍。
+  photoQualityPrioritization?: 'speed' | 'balanced' | 'quality';
+  photoHDR?: boolean;
+  videoBitRate?: number;
   onCameraError?: (error: Error) => void;
 };
 
@@ -55,7 +70,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     flash,
     aspectRatio,
     zoomShared,
+    pinching,
+    enableZoom = true,
+    softMaxZoom,
+    onZoomEnd,
     sound,
+    photoQualityPrioritization,
+    photoHDR,
+    videoBitRate,
     onCameraError,
   },
   ref
@@ -67,25 +89,54 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
   const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
 
+  // 出图分辨率走 vision-camera 预设(CommonResolutions),别写死低分辨率:
+  // targetResolution 是「目标」—— 相机会 negotiate,达不到时**比例(w/h)优先于像素数**(见
+  // CameraPhotoOutput d.ts)。此前写死 1080×1440(≈1.5MP)把照片锁在低分辨率;改用 UHD 档让相机
+  // 出全质量(4:3→3024×4032 ≈12MP、16:9→2160×3840 4K),对齐官方 example 的 UHD_4_3 用法。
   const targetResolution =
     (aspectRatio ?? '4:3') === '4:3'
-      ? { width: 1080, height: 1440 }
-      : { width: 1080, height: 1920 };
+      ? CommonResolutions.UHD_4_3
+      : CommonResolutions.UHD_16_9;
+
+  // 照片质量优先级:**缺省(未传)= 不写入该 option,让 SDK 用默认 'balanced'**(不替消费者写死)。
+  // 安全降级:d.ts 明确 'speed' 在不支持的设备 capture 会 throw;'quality' 一般都支持,但稳妥起见
+  // 同样在不支持 speed-prioritization 的老设备上保守降级。'balanced' 任何设备可传 → 直传。
+  // → 不支持时降级 'balanced' 而非 throw;返回 undefined 表示「不传该键」(下方按需展开,避免传 undefined)。
+  const resolvedQualityPrioritization =
+    photoQualityPrioritization == null
+      ? undefined
+      : photoQualityPrioritization === 'balanced'
+        ? 'balanced'
+        : device.supportsSpeedQualityPrioritization
+          ? photoQualityPrioritization
+          : 'balanced';
 
   const photoOutput = usePhotoOutput({
-    // 速度优先级对齐原版 4.x photoQualityBalance='speed'(写死);quality 用回原版字段。
-    // docs:device must support 'speed' otherwise capture throws —— 故按设备能力 guard,
-    // 不支持的机型 fallback 'balanced'(见 device.supportsSpeedQualityPrioritization)。
-    qualityPrioritization: device.supportsSpeedQualityPrioritization
-      ? 'speed'
-      : 'balanced',
     quality: currentMode.quality ?? 0.9,
     targetResolution,
+    // 按需加键:仅在 config 显式传了优先级时写入,缺省不传 → SDK 默认。
+    // 用对象展开按需加键(而非 `qualityPrioritization: undefined`):避免把 undefined 灌进 options。
+    ...(resolvedQualityPrioritization
+      ? { qualityPrioritization: resolvedQualityPrioritization }
+      : {}),
   });
 
   // enableAudio:true —— 对齐官方 example,录像带声音(docs:启用 audio 需麦克风权限,
   // 已在 startVideo 前 requestMic())。缺它录的是无声视频。
-  const videoOutput = useVideoOutput({ enableAudio: true });
+  // 录像分辨率随 aspectRatio 走 UHD,不吃 useVideoOutput 默认的 FHD_16_9(1080p)——与照片
+  // targetResolution 同理(目标值,比例优先 negotiate,低端机兜底不崩);照片已升 UHD,录像同步。
+  // targetBitRate:**缺省(未传)= 不写入,由编码器按分辨率自适应**(不写死,避免配错码率);
+  // config 显式传了才按需加键(下方展开,不传 undefined 进 options)。
+  const videoOutput = useVideoOutput({
+    enableAudio: true,
+    targetResolution:
+      (aspectRatio ?? '4:3') === '4:3'
+        ? CommonResolutions.UHD_4_3
+        : CommonResolutions.UHD_16_9,
+    ...(typeof videoBitRate === 'number'
+      ? { targetBitRate: videoBitRate }
+      : {}),
+  });
   const { hasPermission: hasMic, requestPermission: requestMic } =
     useMicrophonePermission();
 
@@ -97,6 +148,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
+  const internalPinching = useSharedValue(0);
+  const pinchActive = pinching ?? internalPinching;
+  // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
+  const pinchStartZoom = useSharedValue(NEUTRAL_ZOOM);
+
+  // pinch 软上限(vzf):缺省回退到设备 maxZoom(无软钳),正常由 Container 传 maxDisplay/displayMul。
+  const softMaxVzf = softMaxZoom ?? device.maxZoom;
 
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
 
@@ -117,13 +175,46 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     [device.supportsFocusMetering]
   );
 
-  // 仅保留点击对焦。双指缩放(pinch)已移除:变焦改由 footer 的连续滚条(ZoomSlider)
-  // 驱动受控 zoomShared;vision-camera 的 enableNativeZoomGesture 与受控 zoom 互斥会 throw,
-  // 故全程不开,自己用 Pan 写 zoomShared。
-  const composed = Gesture.Tap().onEnd(({ x, y }) => {
+  // 点击对焦。
+  const tap = Gesture.Tap().onEnd(({ x, y }) => {
     'worklet';
     runOnJS(handleFocus)(x, y);
   });
+
+  // 双指 pinch 变焦:从手势起点 zoom 乘以 e.scale,clamp 到设备 vzf 范围 ∩ 软上限。
+  // 不开 vision-camera 的 enableNativeZoomGesture —— 它与受控 `zoom` 互斥会 throw,故自己在
+  // 回调里写 zoomShared(UI 线程,vision-camera 直接消费 → pinch 全程不触发 JS setState)。
+  // 倍数文字/档位高亮都由 zoomShared 驱动;onEnd 才回写一次 JS 侧 zoom(档位态/设备切换 clamp 用)。
+  const deviceMinZoom = device.minZoom;
+  const deviceMaxZoom = device.maxZoom;
+  const pinch = Gesture.Pinch()
+    .enabled(enableZoom)
+    .onBegin(() => {
+      'worklet';
+      pinchStartZoom.value = zoom.value;
+      pinchActive.value = 1;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      zoom.value = pinchVzf(
+        pinchStartZoom.value,
+        e.scale,
+        deviceMinZoom,
+        deviceMaxZoom,
+        softMaxVzf
+      );
+    })
+    .onEnd(() => {
+      'worklet';
+      if (onZoomEnd) runOnJS(onZoomEnd)(zoom.value);
+    })
+    .onFinalize(() => {
+      'worklet';
+      pinchActive.value = withTiming(0, { duration: 300 });
+    });
+
+  // pinch + 点击对焦同时识别(Simultaneous):双指缩放与单击对焦互不阻断。
+  const composed = Gesture.Simultaneous(tap, pinch);
 
   useImperativeHandle(
     ref,
@@ -266,7 +357,12 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             device={device}
             isActive={isActive}
             outputs={outputs}
-            constraints={[{ photoHDR: false }]}
+            // photoHDR:**缺省(未传)= 不下发 photoHDR 约束 → 由相机 negotiate 决定**(不强制开/关)。
+            // config 传了 boolean 才作为 `{ photoHDR: <值> }` 约束;constraints? 可选,传 undefined 即完全省略。
+            // (不加 resolutionBias:outputs 按 mode 单挂,photo/video 不共存,无被拖低问题。)
+            constraints={
+              typeof photoHDR === 'boolean' ? [{ photoHDR }] : undefined
+            }
             zoom={zoom}
             torchMode={
               currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
@@ -281,22 +377,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onCameraError?.(error);
             }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
-            onStarted={() => {
-              // controller 在 onStarted 后才挂上(vision-camera 文档:set after onStarted)。
-              const c = cameraRef.current?.controller;
-              // TODO(临时): 真机确认 vzf/display 映射(0.5x 是否出现+缩放到超广角)后移除。
-              console.log('[camera] zoom-debug', {
-                position: device.position,
-                deviceMinZoom: device.minZoom,
-                deviceMaxZoom: device.maxZoom,
-                switchFactors: device.zoomLensSwitchFactors, // iPhone dual 后置预期 [2]
-                isVirtual: device.isVirtualDevice,
-                physCount: device.physicalDevices.length,
-                ctrlMinZoom: c?.minZoom,
-                ctrlZoom: c?.zoom,
-                displayableZoomFactor: c?.displayableZoomFactor, // iOS18+: 预期 ~0.5;iOS<18: = ctrlZoom
-              });
-            }}
             nativeID="vision-camera"
           />
           {focusPoint && (

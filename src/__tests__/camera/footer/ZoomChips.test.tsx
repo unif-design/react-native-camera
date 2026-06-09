@@ -7,91 +7,77 @@ import { ZoomChips } from '../../../camera/footer/ZoomChips';
 const r = (ui: ReactElement) =>
   render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
 
-test('超广角设备渲染 3 档并可点选 2x', () => {
+// jest 下 useSharedValue 桩返 {value};zoomShared/pinching 直接造对象传入。
+const base = {
+  zoomShared: { value: 2 } as any, // vzf=2 → 后置 display=1.0x
+  pinching: { value: 0 } as any,
+  displayMul: 0.5,
+};
+
+test('超广角(showHalf)渲染 0.5/1 两档,无 2 档', () => {
   const onSelect = jest.fn();
-  const { getByTestId } = r(
-    <ZoomChips zoom={1} onSelect={onSelect} minZoom={0.5} maxZoom={8} />
+  const { getByTestId, queryByTestId } = r(
+    <ZoomChips {...base} showHalf onSelect={onSelect} />
   );
   expect(getByTestId('zoom-chip-0.5')).toBeTruthy();
   expect(getByTestId('zoom-chip-1')).toBeTruthy();
-  expect(getByTestId('zoom-chip-2')).toBeTruthy();
-  fireEvent.press(getByTestId('zoom-chip-2'));
-  expect(onSelect).toHaveBeenCalledWith(2);
-});
-
-test('minZoom=1（无超广角）不渲染 0.5 档,仍有 1/2', () => {
-  const { queryByTestId } = r(
-    <ZoomChips zoom={1} onSelect={() => {}} minZoom={1} maxZoom={8} />
-  );
-  expect(queryByTestId('zoom-chip-0.5')).toBeNull();
-  expect(queryByTestId('zoom-chip-1')).toBeTruthy();
-  expect(queryByTestId('zoom-chip-2')).toBeTruthy();
-});
-test('minZoom=0.5（有超广角）渲染 0.5 档', () => {
-  const { queryByTestId } = r(
-    <ZoomChips zoom={1} onSelect={() => {}} minZoom={0.5} maxZoom={8} />
-  );
-  expect(queryByTestId('zoom-chip-0.5')).toBeTruthy();
-});
-test('maxZoom<2 不渲染 2 档', () => {
-  const { queryByTestId } = r(
-    <ZoomChips zoom={1} onSelect={() => {}} minZoom={0.5} maxZoom={1.5} />
-  );
+  // 2x 档已去除。
   expect(queryByTestId('zoom-chip-2')).toBeNull();
 });
 
-// 区间高亮 + 实际倍数:当前档显示 zoom.toFixed(1)+'x',非当前档显示标称(.5/1/2)。
-// 用 within(chip) 断言"实际倍数文字渲染在哪个档里"(即哪一档高亮)。
-
-test('zoom<1 → 0.5 档高亮显示实际倍数,1/2 档显示标称', () => {
-  const { getByTestId } = r(
-    <ZoomChips zoom={0.9} onSelect={() => {}} minZoom={0.5} maxZoom={8} />
-  );
-  expect(within(getByTestId('zoom-chip-0.5')).getByText('0.9x')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-1')).getByText('1')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-2')).getByText('2')).toBeTruthy();
-});
-
-test('1≤zoom<2 → 1 档高亮显示实际倍数,0.5/2 显示标称', () => {
-  const { getByTestId } = r(
-    <ZoomChips zoom={1.5} onSelect={() => {}} minZoom={0.5} maxZoom={8} />
-  );
-  expect(within(getByTestId('zoom-chip-0.5')).getByText('.5')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-1')).getByText('1.5x')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-2')).getByText('2')).toBeTruthy();
-});
-
-test('zoom≥2 → 2 档高亮显示实际倍数', () => {
-  const { getByTestId } = r(
-    <ZoomChips zoom={3.4} onSelect={() => {}} minZoom={0.5} maxZoom={8} />
-  );
-  expect(within(getByTestId('zoom-chip-0.5')).getByText('.5')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-1')).getByText('1')).toBeTruthy();
-  expect(within(getByTestId('zoom-chip-2')).getByText('3.4x')).toBeTruthy();
-});
-
-test('无 0.5/2 档时(minZoom=1,maxZoom<2)1 档为当前档显示实际倍数', () => {
+test('无超广角(showHalf=false)只渲染 1 档,无 0.5', () => {
   const { getByTestId, queryByTestId } = r(
-    <ZoomChips zoom={1.3} onSelect={() => {}} minZoom={1} maxZoom={1.6} />
+    <ZoomChips {...base} displayMul={1} showHalf={false} onSelect={() => {}} />
   );
   expect(queryByTestId('zoom-chip-0.5')).toBeNull();
-  expect(queryByTestId('zoom-chip-2')).toBeNull();
-  expect(within(getByTestId('zoom-chip-1')).getByText('1.3x')).toBeTruthy();
+  expect(getByTestId('zoom-chip-1')).toBeTruthy();
 });
 
-test('zoom≥2 但无 2 档时,归到最大可用档(1 档)高亮', () => {
-  const { getByTestId } = r(
-    <ZoomChips zoom={2.5} onSelect={() => {}} minZoom={1} maxZoom={1.8} />
-  );
-  // 无 2 档:activeStop 落到 ≤zoom 的最大者 = 1
-  expect(within(getByTestId('zoom-chip-1')).getByText('2.5x')).toBeTruthy();
-});
-
-test('点击 chip 仍跳到该档标称值(onSelect 传标称)', () => {
+test('点 0.5 档 → onSelect 传用户倍数 0.5', () => {
   const onSelect = jest.fn();
   const { getByTestId } = r(
-    <ZoomChips zoom={1.5} onSelect={onSelect} minZoom={0.5} maxZoom={8} />
+    <ZoomChips {...base} showHalf onSelect={onSelect} />
   );
   fireEvent.press(getByTestId('zoom-chip-0.5'));
   expect(onSelect).toHaveBeenCalledWith(0.5);
+});
+
+test('点 1 档 → onSelect 传用户倍数 1', () => {
+  const onSelect = jest.fn();
+  const { getByTestId } = r(
+    <ZoomChips {...base} showHalf onSelect={onSelect} />
+  );
+  fireEvent.press(getByTestId('zoom-chip-1'));
+  expect(onSelect).toHaveBeenCalledWith(1);
+});
+
+test('档位标签静态:0.5 档显 .5、1 档显 1(实时倍数走大号 readout,不在档内)', () => {
+  const { getByTestId } = r(
+    <ZoomChips {...base} showHalf onSelect={() => {}} />
+  );
+  expect(within(getByTestId('zoom-chip-0.5')).getByText('.5')).toBeTruthy();
+  expect(within(getByTestId('zoom-chip-1')).getByText('1')).toBeTruthy();
+});
+
+test('大号实时倍数(readout):vzf×displayMul 格式 1 位小数+x(vzf=2,mul=0.5→1.0x)', () => {
+  const { getByTestId } = r(
+    <ZoomChips {...base} showHalf onSelect={() => {}} />
+  );
+  // ZoomReadout 内 AnimatedTextInput 的 value 兜底初值 = (2×0.5).toFixed(1)+'x'。
+  const readout = getByTestId('zoom-readout');
+  expect(within(readout).getByDisplayValue('1.0x')).toBeTruthy();
+});
+
+test('readout 反映 0.5x(最广):vzf=1,mul=0.5 → 0.5x', () => {
+  const { getByTestId } = r(
+    <ZoomChips
+      {...base}
+      zoomShared={{ value: 1 } as any}
+      showHalf
+      onSelect={() => {}}
+    />
+  );
+  expect(
+    within(getByTestId('zoom-readout')).getByDisplayValue('0.5x')
+  ).toBeTruthy();
 });

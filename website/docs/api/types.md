@@ -34,8 +34,15 @@ import type {
 | `cameraMode` | [`CameraMode[]`](#cameramode) | ✅ | — | 拍摄模式数组，至少一项；多项时底部出现模式 tab |
 | `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍照片 |
 | `watermark` | [`WatermarkType`](#watermarktype) | — | 不加水印 | 文字水印配置；传入则取景显示戳记 + 保存时烧入成片 |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认 `'balanced'`** | 照片质量优先级（全局）。缺省不传该字段、由 vision-camera 用默认 `'balanced'`；`'speed'`/`'quality'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错） |
+| `photoHDR` | `boolean` | — | **由相机 negotiate 决定** | 是否启用照片 HDR（多帧融合，更宽动态范围）。缺省不下发该约束、不强制开关；传 `boolean` 才作为约束下发 |
+| `videoBitRate` | `number` | — | **编码器自适应** | 录像目标码率（bps，全局，作用于 video 模式）。缺省不传、由编码器按分辨率自适应；仅在需要明确控制时传（如 4K 约 20–40 Mbps） |
 
 各字段的运行时行为见 [CameraApi → OpenConfig](/docs/api/camera-api#openconfig)。
+
+:::note 拍摄质量三字段缺省即「不替你做取舍」
+`photoQualityPrioritization` / `photoHDR` / `videoBitRate` 都是**可选**字段，**缺省（不传）时库不写入任何偏好**，完全交给 vision-camera SDK 的默认协商。只有你**显式传值**时才会覆盖默认。照片/录像分辨率是另一回事——已固定为 UHD（4:3 ≈12MP、16:9 4K），不可配置、不随这三字段变化。
+:::
 
 ---
 
@@ -48,7 +55,7 @@ import type {
 | `mode` | `'single' \| 'continuous' \| 'video'` | ✅ | — | 拍摄模式：单拍 / 连拍 / 视频 |
 | `type` | `'back' \| 'front'` | — | `'back'` | 初始前/后摄。**仅数组首项生效**（决定相机打开时的初始镜头） |
 | `flashMode` | `'auto' \| 'on' \| 'off'` | — | `'off'` | 初始闪光。**仅数组首项生效**作初始值；闪光开关之后由相机内 UI 控制 |
-| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`（内部速度优先级写死 `'speed'`） |
+| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认 `'balanced'`） |
 | `recTime` | `number` | — | — | 录制时长上限（秒）。**当前为类型保留字段，源码未接线（no-op）**，不会自动停止录制 |
 
 :::note `type` / `flashMode` / `recTime` 的现状
