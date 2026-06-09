@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.1](https://github.com/unif-design/react-native-camera/compare/v2.15.0...v2.15.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* **camera:** 错误条动画 worklet 不再同步调 r() — 修切倍数时 worklets fatal ([#61](https://github.com/unif-design/react-native-camera/issues/61)) ([0fdfcb0](https://github.com/unif-design/react-native-camera/commit/0fdfcb09b83b6b4cf3dfe83b8bb7ee9c22d63987))
+
 # [2.15.0](https://github.com/unif-design/react-native-camera/compare/v2.14.1...v2.15.0) (2026-06-09)
 
 
