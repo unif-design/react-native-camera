@@ -18,6 +18,7 @@ import {
 } from '@unif/react-native-design';
 import type { CameraResult, CustomPhotoFile, OpenConfig } from '../utils';
 import { useCameraDialog } from './ui/CameraDialogHost';
+import { useAppActive } from './hooks/useAppActive';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
@@ -60,6 +61,8 @@ export function Container({ config, onSettle }: Props) {
   const { confirm } = useCameraDialog();
   const styles = useThemedStyles(makeStyles);
   const settledRef = useRef(false);
+  // App 前后台:切后台时停取景(对齐官方 isActive=isAppActive&&isScreenFocused)。
+  const appActive = useAppActive();
 
   const settle = useCallback(
     (result: CameraResult) => {
@@ -338,10 +341,17 @@ export function Container({ config, onSettle }: Props) {
         ref={cameraRef}
         device={device}
         currentMode={currentMode}
+        // 取景仅在 App 前台且非烧录态时活:烧水印时停取景(省电 + 释放摄像头),回前台恢复。
+        // 预览态由上方 previewing 分支整体卸载 Camera(不靠此 gate);Modal 不可见时
+        // Container 根本不挂载,故无需额外可见性 prop。
+        isActive={appActive && !burning}
         flash={flash}
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
         sound={sound}
+        onCameraError={() =>
+          settle({ code: 500, data: photos, message: 'camera_error' })
+        }
       />
 
       {!recording && config.watermark && (
@@ -476,9 +486,9 @@ const makeStyles = (c: ColorTokens) =>
       alignItems: 'center',
       zIndex: Z.overlay,
     },
-    // footer 透明:原来叠半透明黑遮罩(VIEWFINDER.footerScrim)在取景底缘,
-    // 与下方纯黑 root 底拼出一条"浅灰带 / 一浅一深"分界 —— 改 transparent 让
-    // footer 区直接露统一的 root 黑底,消除深浅分界。zIndex 最高仍保证控件可点。
+    // footer 透明:早期叠半透明黑遮罩在取景底缘,与下方纯黑 root 底拼出一条
+    // "浅灰带 / 一浅一深"分界 —— 改 transparent 让 footer 区直接露统一的 root
+    // 黑底,消除深浅分界。zIndex 最高仍保证控件可点。
     bottom: {
       position: 'absolute',
       left: 0,

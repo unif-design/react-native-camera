@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -13,7 +14,7 @@ import {
   useVideoOutput,
   type CameraRef,
   type CameraDevice,
-  type CameraProps,
+  type CameraOutput,
   type FocusOptions,
   type Recorder,
 } from 'react-native-vision-camera';
@@ -22,7 +23,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
-import { capturePhotoToFile } from './capturePhotoHelper';
+import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
 import type { AspectRatio, FlashMode } from './setup';
@@ -43,6 +44,8 @@ type Props = {
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
   sound?: boolean;
+  // session 致命错误冒泡给 Container 上报(code 500)。对齐官方 example 接 <Camera onError>。
+  onCameraError?: (error: Error) => void;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
@@ -54,6 +57,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     aspectRatio,
     zoomShared,
     sound,
+    onCameraError,
   },
   ref
 ) {
@@ -70,13 +74,19 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       : { width: 1080, height: 1920 };
 
   const photoOutput = usePhotoOutput({
-    // 速度优先级对齐原版 4.x photoQualityBalance='speed'(写死);quality 用回原版字段
-    qualityPrioritization: 'speed',
+    // 速度优先级对齐原版 4.x photoQualityBalance='speed'(写死);quality 用回原版字段。
+    // docs:device must support 'speed' otherwise capture throws —— 故按设备能力 guard,
+    // 不支持的机型 fallback 'balanced'(见 device.supportsSpeedQualityPrioritization)。
+    qualityPrioritization: device.supportsSpeedQualityPrioritization
+      ? 'speed'
+      : 'balanced',
     quality: currentMode.quality ?? 0.9,
     targetResolution,
   });
 
-  const videoOutput = useVideoOutput();
+  // enableAudio:true —— 对齐官方 example,录像带声音(docs:启用 audio 需麦克风权限,
+  // 已在 startVideo 前 requestMic())。缺它录的是无声视频。
+  const videoOutput = useVideoOutput({ enableAudio: true });
   const { hasPermission: hasMic, requestPermission: requestMic } =
     useMicrophonePermission();
 
@@ -121,8 +131,11 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     () => ({
       capture: async () => {
         try {
-          const raw = await capturePhotoToFile(photoOutput, {
-            flashMode: flash ?? 'off',
+          // 前摄常无物理闪光(device.hasFlash=false),此时 flashMode:'on' 会 throw,
+          // 故据 hasFlash guard:无闪光设备一律 'off'(对齐 docs 的 hasFlash 约束)。
+          const flashMode = flash === 'on' && device.hasFlash ? 'on' : 'off';
+          const raw = await captureToTempFile(photoOutput, {
+            flashMode,
             enableShutterSound: sound ?? true,
           });
           return buildPhotoFile(
@@ -210,12 +223,32 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       hasMic,
       requestMic,
       flash,
+      device.hasFlash,
       cameraType,
       sound,
     ]
   );
 
-  const outputs = currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
+  // 卸载/离开 video 时清理 recorder:Nitro 对象 GC 延迟,prepared 但未用的 recorder
+  // 仍持有原生 encoder/file handle —— 不主动释放会泄漏。active 在录则 cancelRecording()
+  // (异步,删临时文件);prepared 直接 dispose()(同步,HybridObject 释放原生资源)。
+  useEffect(() => {
+    return () => {
+      const active = activeRecorderRef.current;
+      if (active != null) {
+        active.cancelRecording().catch(() => {});
+        activeRecorderRef.current = null;
+      }
+      const prepared = preparedRecorderRef.current;
+      if (prepared != null) {
+        prepared.dispose();
+        preparedRecorderRef.current = null;
+      }
+    };
+  }, []);
+
+  const outputs: CameraOutput[] =
+    currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
 
   return (
     <View style={styles.root}>
@@ -227,12 +260,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             resizeMode="cover"
             device={device}
             isActive={isActive}
-            outputs={outputs as CameraProps['outputs']}
+            outputs={outputs}
             constraints={[{ photoHDR: false }]}
             zoom={zoom}
             torchMode={
               currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
             }
+            onError={(error) => {
+              // session 致命错误:warn + 冒泡给 Container settle(code 500)。
+              console.warn('camera session error', error);
+              onCameraError?.(error);
+            }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
             onStarted={() => {
               // controller 在 onStarted 后才挂上(vision-camera 文档:set after onStarted)。
