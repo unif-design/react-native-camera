@@ -3,11 +3,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Icon,
   r,
-  rf,
+  fw,
+  type as t,
   useColors,
   type IconName,
 } from '@unif/react-native-design';
-import { VIEWFINDER } from '../colors/viewfinder';
 
 type Props = {
   variant: 'confirm' | 'gallery';
@@ -79,8 +79,9 @@ export function PreviewBottomBar({
 }
 
 // 扫一扫式「上 icon 下文字」圆形按钮:圆形实色图标盘 + 下方标签。
-// tone 决定圆底色:primary=橙(c.primary)、danger=红(c.error)、neutral=半透明深
-// (VIEWFINDER.glassPill,相机物理常量——浮在明亮取景/黑底预览上需半透明黑)。
+// tone 决定圆底色:primary=橙(c.primary)、danger=红(c.error)、neutral=半透明浅灰白
+// (c.glassHighlight dark=rgba(255,255,255,0.24))—— 预览黑底上要可见,与橙对称;
+// 不再用 VIEWFINDER.glassPill 黑底(在黑底预览上几乎看不见)。
 function PreviewActionButton({
   icon,
   label,
@@ -100,7 +101,7 @@ function PreviewActionButton({
       ? c.primary
       : tone === 'danger'
         ? c.error
-        : VIEWFINDER.glassPill;
+        : c.glassHighlight;
   return (
     <Pressable
       testID={testID}
@@ -115,7 +116,7 @@ function PreviewActionButton({
           { backgroundColor: bg, borderColor: c.glassPillBorder },
         ]}
       >
-        <Icon name={icon} size={r(22)} color={c.foreground} />
+        <Icon name={icon} size={r(26)} color={c.foreground} />
       </View>
       <Text style={[styles.label, { color: c.foreground }]}>{label}</Text>
     </Pressable>
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     gap: r(12),
     alignItems: 'center',
   },
-  counter: { fontSize: r(15), fontWeight: '600' },
+  counter: { fontSize: t.body, fontWeight: fw.semi },
   btns: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -139,16 +140,18 @@ const styles = StyleSheet.create({
   },
   item: { alignItems: 'center', rowGap: r(7) },
   circle: {
-    width: r(52),
-    height: r(52),
+    // trash(垃圾桶,3 条 stroke)在小尺寸会挤一起糊成一团 → 图标 r(26) 取清晰,
+    // 圆盘相应放大到 r(56) 让图标透气(见上 Icon size)。
+    width: r(56),
+    height: r(56),
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
   },
   label: {
-    fontSize: rf(12),
-    fontWeight: '500',
+    fontSize: t.xxs,
+    fontWeight: fw.medium,
     textShadowColor: 'rgba(0,0,0,0.4)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,

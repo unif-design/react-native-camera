@@ -1,6 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   r,
+  fw,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -71,6 +73,6 @@ const makeStyles = (c: ColorTokens) =>
       justifyContent: 'center',
     },
     chipActive: { backgroundColor: c.foreground },
-    txt: { color: c.foreground, fontSize: r(12), fontWeight: '500' },
-    txtActive: { color: c.primary, fontSize: r(11), fontWeight: '700' },
+    txt: { color: c.foreground, fontSize: t.xxs, fontWeight: fw.medium },
+    txtActive: { color: c.primary, fontSize: t.micro, fontWeight: fw.bold },
   });

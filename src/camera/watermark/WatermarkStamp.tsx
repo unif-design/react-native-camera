@@ -1,10 +1,12 @@
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import {
   r,
+  fw,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
 import type { WatermarkType } from '../../utils';
+import { VIEWFINDER } from '../colors/viewfinder';
 import { computeWatermarkLayout } from './layout';
 
 export function WatermarkStamp({ watermark }: { watermark: WatermarkType }) {
@@ -46,8 +48,8 @@ const makeStyles = (c: ColorTokens) =>
     line: {
       color: c.foreground,
       // 黑色描影:水印浮在任意照片上,白字 + 黑影保证可读(物理常量,非主题色)。
-      textShadowColor: 'rgba(0,0,0,0.7)',
+      textShadowColor: VIEWFINDER.watermarkShadow,
       textShadowRadius: r(3),
     },
-    title: { fontWeight: '600' },
+    title: { fontWeight: fw.semi },
   });

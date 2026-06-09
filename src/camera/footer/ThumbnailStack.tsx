@@ -1,6 +1,8 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   r,
+  fw,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -59,5 +61,5 @@ const makeStyles = (c: ColorTokens) =>
       justifyContent: 'center',
       paddingHorizontal: r(4),
     },
-    badgeText: { color: c.foreground, fontSize: r(11), fontWeight: '700' },
+    badgeText: { color: c.foreground, fontSize: t.micro, fontWeight: fw.bold },
   });

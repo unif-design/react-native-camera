@@ -2,6 +2,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
+  fw,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -43,18 +45,18 @@ export function PreviewTopBar({
     <View style={rootStyle}>
       {types.length > 1 && (
         <View style={styles.tabs}>
-          {types.map((t) => {
-            const sel = t === activeType;
+          {types.map((ty) => {
+            const sel = ty === activeType;
             return (
               <TouchableOpacity
-                key={t}
-                testID={`type-tab-${t}`}
-                onPress={() => onSelectType(t)}
+                key={ty}
+                testID={`type-tab-${ty}`}
+                onPress={() => onSelectType(ty)}
                 style={[styles.tab, sel && styles.tabSel]}
               >
                 <Text style={[styles.tabTxt, sel && styles.tabTxtSel]}>
-                  {LABEL[t]}
-                  {filesOfType(files, t).length}
+                  {LABEL[ty]}
+                  {filesOfType(files, ty).length}
                 </Text>
               </TouchableOpacity>
             );
@@ -76,7 +78,7 @@ const makeStyles = (c: ColorTokens) =>
       gap: r(10),
       paddingHorizontal: r(14),
     },
-    label: { color: c.foreground, fontSize: r(14), fontWeight: '500' },
+    label: { color: c.foreground, fontSize: t.sm, fontWeight: fw.medium },
     tabs: {
       flexDirection: 'row',
       gap: r(4),
@@ -90,6 +92,6 @@ const makeStyles = (c: ColorTokens) =>
       borderRadius: r(999),
     },
     tabSel: { backgroundColor: c.primary },
-    tabTxt: { color: c.foreground, fontSize: r(13), fontWeight: '600' },
+    tabTxt: { color: c.foreground, fontSize: t.xs, fontWeight: fw.semi },
     tabTxtSel: { color: c.foreground },
   });

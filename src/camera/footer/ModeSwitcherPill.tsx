@@ -9,6 +9,8 @@ import {
 import type { LayoutChangeEvent } from 'react-native';
 import {
   r,
+  fw,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -89,14 +91,14 @@ const makeStyles = (c: ColorTokens) =>
     },
     txt: {
       color: c.foregroundMuted,
-      fontSize: r(15),
-      fontWeight: '500',
+      fontSize: t.body,
+      fontWeight: fw.medium,
       letterSpacing: 1,
     },
-    txtSel: { color: c.primary, fontWeight: '600' },
+    txtSel: { color: c.primary, fontWeight: fw.semi },
     singleLabel: {
       color: c.foregroundMuted,
-      fontSize: r(14),
+      fontSize: t.sm,
       letterSpacing: 2,
       alignSelf: 'center',
     },

@@ -3,6 +3,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   Icon,
   r,
+  fw,
+  type as t,
   useColors,
   useThemedStyles,
   type ColorTokens,
@@ -129,7 +131,7 @@ const makeStyles = (c: ColorTokens) =>
       justifyContent: 'center',
     },
     btnActive: { backgroundColor: c.primary },
-    aspectTxt: { color: c.foreground, fontSize: r(13), fontWeight: '600' },
+    aspectTxt: { color: c.foreground, fontSize: t.xs, fontWeight: fw.semi },
     // flash 下拉浮层:design surface(#1C1C1E == rgb(28,28,30),原为同 RGB 0.94 透)。
     dropdown: {
       position: 'absolute',
@@ -147,7 +149,7 @@ const makeStyles = (c: ColorTokens) =>
       padding: r(10),
       borderRadius: r(8),
     },
-    optTxt: { color: c.foreground, fontSize: r(14) },
+    optTxt: { color: c.foreground, fontSize: t.sm },
     optTxtSel: { color: c.primary },
     tail: {
       position: 'absolute',

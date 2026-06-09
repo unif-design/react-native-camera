@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import {
   r,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -53,7 +54,7 @@ const makeStyles = (c: ColorTokens) =>
       paddingHorizontal: r(14),
       borderRadius: r(999),
       // 录制态药丸底:录制红 18% alpha 物理 tint(与 dot 同色系,无对应 design token)。
-      backgroundColor: 'rgba(255,59,48,0.18)',
+      backgroundColor: VIEWFINDER.recordingTint,
     },
     dot: {
       width: r(8),
@@ -63,7 +64,7 @@ const makeStyles = (c: ColorTokens) =>
     },
     text: {
       color: c.foreground,
-      fontSize: r(13),
+      fontSize: t.xs,
       fontVariant: ['tabular-nums'],
     },
   });

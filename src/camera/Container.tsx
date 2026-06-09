@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
+  type as t,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -495,5 +496,5 @@ const makeStyles = (c: ColorTokens) =>
       gap: r(8),
       paddingVertical: r(16),
     },
-    burningText: { color: c.foreground, fontSize: r(14) },
+    burningText: { color: c.foreground, fontSize: t.sm },
   });
