@@ -70,7 +70,7 @@ function PhotoScreen() {
 
 - 完整文档(安装 · 原生配置 · API · 水印 · 测试 · 故障排查 · 升级):**https://unif-design.github.io/react-native-camera/**
 - 喂给 AI 的纯 Markdown:[llms.txt](https://unif-design.github.io/react-native-camera/llms.txt) · [llms-full.txt](https://unif-design.github.io/react-native-camera/llms-full.txt)
-- Claude Code / Cursor 等接入:Agent Skill **`using-unif-camera`**(`unif-react-native` 插件)
+- Claude Code / Cursor 等接入:Agent Skill **`unif-camera`**(`unif` 插件)
 
 ## 兼容性
 
