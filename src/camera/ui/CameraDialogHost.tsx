@@ -140,10 +140,14 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  // 错误条滑入/滑出:从顶部 translateY(-100%→0,以条高 r(56) 近似)+ 透明度联动。
+  // 错误条滑入/滑出:从顶部 translateY(-100%→0,以条高 ~errorSlideY 近似)+ 透明度联动。
+  // r(56) 必须在 worklet 外预算 —— design 的 r() 是 JS(Remote)函数,在 useAnimatedStyle
+  // 的 UI-runtime worklet 里直接调用会触发 worklets「同步调用 Remote Function」fatal 错误
+  // (切换倍数等频繁重渲染时尤为明显)。捕获成数字常量后 worklet 内只用值,不跨 runtime 调用。
+  const errorSlideY = r(56);
   const errorBarStyle = useAnimatedStyle(() => ({
     opacity: errorAnim.value,
-    transform: [{ translateY: (errorAnim.value - 1) * r(56) }],
+    transform: [{ translateY: (errorAnim.value - 1) * errorSlideY }],
   }));
 
   const close = useCallback(
