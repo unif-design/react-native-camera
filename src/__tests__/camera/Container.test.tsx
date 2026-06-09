@@ -70,24 +70,25 @@ it('后置(back)渲染变焦档(0.5/1)', () => {
   expect(getByTestId('zoom-chip-1')).toBeTruthy();
 });
 
-it('后置 dual:displayMul=0.5 → 0.5 档出现,大号倍数初值 0.5x', () => {
+it('后置 dual:displayMul=0.5 → 0.5 档出现,高亮 0.5 档文字初值 0.5', () => {
   // mock back: vzf minZoom=1、switchFactors=[2] → displayMul=0.5。
-  // showHalf=true(minDisplay=0.5)→ 0.5 档出现;初始 zoom(vzf 1)×0.5=display 0.5 → readout=0.5x。
-  // 档位标签现为静态(.5/1),实时倍数走大号 readout(SharedValue 直驱,见 ZoomReadout)。
+  // showHalf=true(minDisplay=0.5)→ 0.5 档出现;初始 zoom(vzf 1)×0.5=display 0.5 → 0.5 档高亮。
+  // 倍数已挪进高亮档药丸文字本身(只读 AnimatedTextInput,value 兜底初值,getByDisplayValue 取)。
   const { getByTestId } = r('back');
   expect(getByTestId('zoom-chip-0.5')).toBeTruthy();
   expect(
-    within(getByTestId('zoom-readout')).getByDisplayValue('0.5x')
+    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.5')
   ).toBeTruthy();
 });
 
-it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 大号倍数跳到 1.0x', () => {
+it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 高亮跳到 1 档、文字 1.0', () => {
   // 点 display 1x 档:onSelect(1) → vzf = 1/0.5 = 2.0 → setZoom(2.0) + zoomShared.value=2.0。
-  // 重渲后 readout = zoomShared(2.0)×displayMul(0.5) = 1.0x(印证 display→vzf 反算闭环、0.5x 命脉)。
+  // 重渲后 display = zoomShared(2.0)×displayMul(0.5) = 1.0 → 1 档高亮、文字实时 '1.0'
+  // (印证 display→vzf 反算闭环、0.5x 命脉)。
   const { getByTestId } = r('back');
   fireEvent.press(getByTestId('zoom-chip-1'));
   expect(
-    within(getByTestId('zoom-readout')).getByDisplayValue('1.0x')
+    within(getByTestId('zoom-chip-1')).getByDisplayValue('1.0')
   ).toBeTruthy();
 });
 
@@ -96,6 +97,6 @@ it('前置(front)不渲染变焦档', () => {
   expect(getByTestId('device-ready')).toBeTruthy();
   expect(queryByTestId('zoom-chip-0.5')).toBeNull();
   expect(queryByTestId('zoom-chip-1')).toBeNull();
-  // 前置整块变焦控件不渲染 → readout 也不在。
+  // 倍数已无独立浮层(并入档位药丸),前置整块变焦控件不渲染。
   expect(queryByTestId('zoom-readout')).toBeNull();
 });

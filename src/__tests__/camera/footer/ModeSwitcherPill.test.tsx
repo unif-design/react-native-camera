@@ -22,14 +22,16 @@ it('selects by tap', () => {
   expect(onSelect).toHaveBeenCalledWith(2);
 });
 
-it('single item shows label only (no pill)', () => {
+it('single item shows a plain static label (no switcher), 不可切换', () => {
+  const onSelect = jest.fn();
   const { queryByTestId, getByText } = r(
     <ModeSwitcherPill
       items={[{ key: 'single', label: '单拍' }]}
       currentIndex={0}
-      onSelect={() => {}}
+      onSelect={onSelect}
     />
   );
+  // 单一模式不渲染可切换药丸(无 mode-pill-* testID),只读朴素静态标签(不强化)。
   expect(queryByTestId('mode-pill-0')).toBeNull();
   expect(getByText('单拍')).toBeTruthy();
 });

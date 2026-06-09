@@ -57,28 +57,39 @@ describe('displayMul / min-maxDisplay 推导', () => {
     expect(result.current.maxDisplay).toBe(3);
   });
 
-  it('device 为 undefined → 全程可选链兜底(displayMul=1、min/max=1)', () => {
+  it('device 为 undefined → 全程可选链兜底(displayMul=1、min/max=1),默认档 effect 早返不动 zoom', () => {
     const { result } = renderHook(() => useZoomController(undefined));
     expect(result.current.displayMul).toBe(1);
     expect(result.current.minDisplay).toBe(1);
     expect(result.current.maxDisplay).toBe(1);
+    // device==null → 设备 effect 早 return、不设默认档:zoom 维持占位初值 1。
     expect(result.current.zoom).toBe(1);
   });
 
-  it('暴露 zoomShared / pinching 两个 SharedValue(UI 线程驱动倍数与高亮)', () => {
+  it('暴露 zoomShared SharedValue(UI 线程驱动倍数与高亮),不再暴露 pinching', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
-    // jest 桩:useSharedValue(init) → { value: init }。pinching 初值 0(idle)、zoomShared 初值 1。
+    // 默认档 = 设备最广(vzf 初值 1,clamp 不动):dual(displayMul=0.5)→ 用户 0.5x,zoomShared=1。
     expect(result.current.zoomShared).toEqual({ value: 1 });
-    expect(result.current.pinching).toEqual({ value: 0 });
+    // pinching 已从对外链路彻底移除(倍数挪进高亮档药丸文字,不再有外部「大号浮层」读它)。
+    expect((result.current as { pinching?: unknown }).pinching).toBeUndefined();
   });
 });
 
 describe('zoom state + 设备切换 clamp', () => {
-  it('初始 zoom=1', () => {
+  it('默认档 = 设备最广:后置 dual(displayMul=0.5)→ 初始 vzf=1(用户 0.5x)', () => {
+    // 初值 vzf=1 = 最广镜头;设备 effect 仅 clamp(1 在 [min,max] 内不动),不改默认档为 1.0x。
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.zoom).toBe(1);
+    expect(result.current.zoomShared).toEqual({ value: 1 });
+  });
+
+  it('默认档 = 设备最广:无超广角(displayMul=1)→ 初始 vzf=1(用户 1x)', () => {
+    const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [] });
+    const { result } = renderHook(() => useZoomController(dev));
+    expect(result.current.zoom).toBe(1);
+    expect(result.current.zoomShared).toEqual({ value: 1 });
   });
 
   it('setZoom 写入 zoom state', () => {
@@ -105,14 +116,16 @@ describe('zoom state + 设备切换 clamp', () => {
 
   it('切到新设备:当前 zoom 低于新设备 minZoom → clamp 回 minZoom', () => {
     const ultra = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
-    const teleOnly = makeDevice({ minZoom: 2, maxZoom: 8, switchFactors: [] });
+    const teleOnly = makeDevice({ minZoom: 3, maxZoom: 8, switchFactors: [] });
     const { result, rerender } = renderHook<ZoomController, DeviceProps>(
       ({ device }) => useZoomController(device),
       { initialProps: { device: ultra } }
     );
-    // 初始 zoom=1 < teleOnly.minZoom(2) → 切换后 clamp 到 2。
+    // 默认档 = 最广 vzf=1;手动 setZoom(1) 显式确保用户停在最广。
+    act(() => result.current.setZoom(1));
+    // 1 < teleOnly.minZoom(3) → 切换后 clamp 到 3(翻转走原 clamp 分支,不重置)。
     rerender({ device: teleOnly });
-    expect(result.current.zoom).toBe(2);
+    expect(result.current.zoom).toBe(3);
   });
 
   it('切到新设备但 zoom 已在范围内 → 不变(无多余 setState)', () => {

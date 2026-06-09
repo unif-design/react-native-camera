@@ -11,6 +11,7 @@ export function SlideItem({ file }: { file: CustomPhotoFile }) {
         <Image
           source={{ uri: file.uri }}
           style={StyleSheet.absoluteFill}
+          // contain = 与取景一致(取景也用 contain):完整照片、按比例留边、不裁切。
           resizeMode="contain"
         />
       )}

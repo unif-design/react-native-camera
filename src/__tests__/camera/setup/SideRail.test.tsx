@@ -46,17 +46,35 @@ it('aspect button shows current ratio as text and toggles', () => {
   expect(getByText('16:9')).toBeTruthy();
 });
 
-it('flash dropdown selects a mode', () => {
-  const p = { ...base, onChangeFlash: jest.fn() };
-  const { getByTestId } = r(<SideRail {...p} />);
+// 闪光改为原地三态轮换(auto → on → off → auto),无弹出层:点一下回传下一态。
+it('flash button cycles auto → on → off → auto in place', () => {
+  const onChangeFlash = jest.fn();
+  const { getByTestId, rerender } = r(
+    <SideRail {...base} flash="off" onChangeFlash={onChangeFlash} />
+  );
   fireEvent.press(getByTestId('flash-btn'));
-  fireEvent.press(getByTestId('flash-opt-on'));
-  expect(p.onChangeFlash).toHaveBeenCalledWith('on');
+  expect(onChangeFlash).toHaveBeenLastCalledWith('auto');
+
+  rerender(
+    <ThemeProvider forceScheme="dark">
+      <SideRail {...base} flash="auto" onChangeFlash={onChangeFlash} />
+    </ThemeProvider>
+  );
+  fireEvent.press(getByTestId('flash-btn'));
+  expect(onChangeFlash).toHaveBeenLastCalledWith('on');
+
+  rerender(
+    <ThemeProvider forceScheme="dark">
+      <SideRail {...base} flash="on" onChangeFlash={onChangeFlash} />
+    </ThemeProvider>
+  );
+  fireEvent.press(getByTestId('flash-btn'));
+  expect(onChangeFlash).toHaveBeenLastCalledWith('off');
 });
 
-it('展开闪光菜单后渲染尾巴三角', () => {
-  const { getByTestId, queryByTestId } = r(<SideRail {...base} />);
-  expect(queryByTestId('flash-tail')).toBeNull();
+it('闪光弹出层已移除(无 flash-opt / flash-tail)', () => {
+  const { getByTestId, queryByTestId } = r(<SideRail {...base} flash="auto" />);
   fireEvent.press(getByTestId('flash-btn'));
-  expect(getByTestId('flash-tail')).toBeTruthy();
+  expect(queryByTestId('flash-tail')).toBeNull();
+  expect(queryByTestId('flash-opt-on')).toBeNull();
 });
