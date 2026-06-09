@@ -44,6 +44,7 @@ type Props = {
   aspectRatio?: AspectRatio;
   zoomShared?: SharedValue<number>;
   sound?: boolean;
+  onCameraError?: (error: Error) => void;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
@@ -55,6 +56,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     aspectRatio,
     zoomShared,
     sound,
+    onCameraError,
   },
   ref
 ) {
@@ -272,10 +274,11 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             onError={(error) => {
               // onError = "session 遇到任何错误" 的诊断回调:error 是普通 Error(无 code
               // 可判致命性),且含重开/激活时 session 重启这类**可恢复**瞬时错误 —— vision-camera
-              // 会自行恢复。故仅 warn 诊断,绝不据此关相机:早期无条件 settle(500) 会把
-              // 重开时的瞬时 session 错误误当致命 → 第二次打开即报错关闭(临时中断另走
-              // onInterruptionStarted/Ended,不进这里)。
+              // 会自行恢复。故 warn 诊断 + 冒泡给 Container 弹**非阻塞**错误条(线上可见),
+              // 绝不据此关相机:早期无条件 settle(500) 会把重开时的瞬时 session 错误误当致命
+              // → 第二次打开即报错关闭(临时中断另走 onInterruptionStarted/Ended,不进这里)。
               console.warn('camera session error', error);
+              onCameraError?.(error);
             }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
             onStarted={() => {
