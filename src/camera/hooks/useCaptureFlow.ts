@@ -6,7 +6,8 @@ import type {
   OpenConfig,
 } from '../../utils';
 import type { CameraHandle } from '../Camera';
-import { burnWatermark } from '../watermark';
+import type { AspectRatio } from '../setup';
+import { burnWatermark, cropToRatio } from '../watermark';
 import { useVideoRecorder } from './useVideoRecorder';
 
 type ConfirmFn = (o: { title: string; message?: string }) => Promise<boolean>;
@@ -16,6 +17,8 @@ type Params = {
   config: OpenConfig;
   /** 当前模式(由 Container 的 modeIndex 派生),用于快门分支判断。 */
   currentMode: CameraMode | undefined;
+  /** 当前画幅(Container 持有)。'16:9' 时照片拍后 Skia 居中裁切(photo 流恒 4:3 全幅出图)。 */
+  aspectRatio: AspectRatio;
   /** 当前模式下标(Container 持有,渲染 ModeSwitcherPill 用);onSelectMode 切它。 */
   modeIndex: number;
   setModeIndex: (i: number) => void;
@@ -55,6 +58,7 @@ export function useCaptureFlow({
   cameraRef,
   config,
   currentMode,
+  aspectRatio,
   modeIndex,
   setModeIndex,
   settle,
@@ -98,12 +102,20 @@ export function useCaptureFlow({
         return;
       }
       setFlashNonce((n) => n + 1);
-      // 快门后立刻烧这一张(串行:一次只烧 1 张,峰值内存恒定);烧时 footer 显示"正在生成水印图片"
+      // 快门后串行处理这一张(一次只处理 1 张,峰值内存恒定):
+      //   1. 16:9 → 先 cropToRatio 居中裁切(photo 流恒 4:3 全幅出图,见 Camera.tsx);
+      //   2. 有水印 → 在(裁切后的)图上烧水印(水印 layout 自动按裁后宽算)。
+      // 任一步在 jpeg 上生效就置 burning(footer 显示"正在生成水印图片…",并停取景防露未裁画面);
+      // 裁切较快、文案对纯裁切略不精确但可接受(burning 包住两步)。video 文件不裁/不烧。
+      const isJpeg = f.mime === 'image/jpeg';
+      const needCrop = isJpeg && aspectRatio === '16:9';
+      const wm = isJpeg ? config.watermark : undefined; // 非 jpeg 不烧
       let saved = f;
-      if (config.watermark && f.mime === 'image/jpeg') {
+      if (needCrop || wm != null) {
         setBurning(true);
         try {
-          saved = await burnWatermark(f, config.watermark);
+          if (needCrop) saved = await cropToRatio(saved, '16:9');
+          if (wm != null) saved = await burnWatermark(saved, wm);
         } finally {
           setBurning(false);
         }

@@ -23,8 +23,6 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
@@ -93,45 +91,30 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
   const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
 
-  // 取景框丝滑切换:画幅变化时取景框高度**动画过渡**(从硬跳 aspectRatio 改为 withTiming 伸缩),
-  // 同时盖一层黑色转场遮罩把 vision-camera session 重协商(targetResolution 变 → 流闪断/黑一下,
-  // 不可避免)的闪烁藏住 —— 系统相机同款思路。
+  // 取景框丝滑切换 = 「原生系统相机式」放大缩小的载体:画幅变化时取景框高度**动画过渡**
+  // (withTiming 伸缩,非硬跳 aspectRatio)。配合下方 photo 流恒全幅 + resizeMode="cover",
+  // 画面随框平滑缩放、session 不重配、无黑屏无闪断 —— 原生顺滑的来源(传感器固定全幅出流,
+  // 切画幅只是 UI 缩放)。**不再盖黑色转场遮罩**(用户否决:黑过渡更糟,原生就是放大缩小)。
   //
   // 目标高在 **JS 侧**预算成数字(worklet 外算):frame 宽恒 100% 屏宽,高 = winW / frameAspect。
-  // (4:3 → winW×4/3;16:9 → winW×16/9)。两个动画 worklet(frameStyle/shadeStyle)只读 SharedValue
-  // 数字,绝不在 worklet 内调 design r()(2.15.1 fatal 教训:worklet 里 r() 切倍数崩,jest 测不到)。
+  // (4:3 → winW×4/3;16:9 → winW×16/9)。frameStyle worklet 只读 SharedValue 数字,绝不在
+  // worklet 内调 design r()(2.15.1 fatal 教训:worklet 里 r() 切倍数崩,jest 测不到)。
   const { width: winW } = useWindowDimensions();
   const targetFrameH = winW / frameAspect;
   const frameH = useSharedValue(targetFrameH);
-  // 时长参数(下方 250/90/260/240)为初值,真机可再调。
+  // 时长 250ms 为初值,真机可再调。
   useEffect(() => {
     frameH.value = withTiming(targetFrameH, { duration: 250 });
   }, [frameH, targetFrameH]);
   const frameStyle = useAnimatedStyle(() => ({ height: frameH.value }));
 
-  // 转场遮罩:画幅变化时快速盖黑 → 等 session 重配 + 高度动画走完再淡出。首帧(初次挂载)不遮。
-  const shade = useSharedValue(0);
-  const firstAspect = useRef(true);
-  useEffect(() => {
-    if (firstAspect.current) {
-      firstAspect.current = false;
-      return; // 首帧不遮:初次挂载没有「切换」,无需藏闪烁。
-    }
-    shade.value = withSequence(
-      withTiming(1, { duration: 90 }), // 快速盖黑(真机可再调)
-      withDelay(260, withTiming(0, { duration: 240 })) // 等 session 重配+布局动画后淡出(真机可再调)
-    );
-  }, [shade, aspectRatio]);
-  const shadeStyle = useAnimatedStyle(() => ({ opacity: shade.value }));
-
-  // 出图分辨率走 vision-camera 预设(CommonResolutions),别写死低分辨率:
-  // targetResolution 是「目标」—— 相机会 negotiate,达不到时**比例(w/h)优先于像素数**(见
-  // CameraPhotoOutput d.ts)。此前写死 1080×1440(≈1.5MP)把照片锁在低分辨率;改用 UHD 档让相机
-  // 出全质量(4:3→3024×4032 ≈12MP、16:9→2160×3840 4K),对齐官方 example 的 UHD_4_3 用法。
-  const targetResolution =
-    (aspectRatio ?? '4:3') === '4:3'
-      ? CommonResolutions.UHD_4_3
-      : CommonResolutions.UHD_16_9;
+  // photo 流**恒固定全幅 UHD_4_3**(不随 aspectRatio 变):4:3 是传感器原生全幅,16:9 视野 =
+  // 4:3 竖屏裁左右。固定它 → usePhotoOutput 入参不随画幅变 → photo outputs 身份稳定 →
+  // **photo 模式切画幅 session 完全不重配、取景流不闪断**(原生顺滑的关键)。出图 16:9 改由
+  // 拍后 Skia 居中裁切实现(见 cropToRatio + useCaptureFlow),vision-camera 拍照本身无 crop 参数。
+  // targetResolution 是「目标」,相机 negotiate 时**比例优先于像素数**(见 CameraPhotoOutput d.ts);
+  // UHD_4_3 → 3024×4032(≈12MP),对齐官方 example。
+  const targetResolution = CommonResolutions.UHD_4_3;
 
   // 照片质量优先级:**缺省(未传)= 不写入该 option,让 SDK 用默认 'balanced'**(不替消费者写死)。
   // 安全降级:d.ts 明确 'speed' 在不支持的设备 capture 会 throw;'quality' 一般都支持,但稳妥起见
@@ -158,8 +141,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   // enableAudio:true —— 对齐官方 example,录像带声音(docs:启用 audio 需麦克风权限,
   // 已在 startVideo 前 requestMic())。缺它录的是无声视频。
-  // 录像分辨率随 aspectRatio 走 UHD,不吃 useVideoOutput 默认的 FHD_16_9(1080p)——与照片
-  // targetResolution 同理(目标值,比例优先 negotiate,低端机兜底不崩);照片已升 UHD,录像同步。
+  // 录像分辨率**仍随 aspectRatio 走 UHD**(与 photo 固定全幅不同):视频无法拍后裁,出流比例
+  // 必须直接对 → video 模式切画幅 session 仍会重配(targetResolution 变),低频可接受;photo 模式
+  // 已固定全幅故零重配。targetResolution 是目标值(比例优先 negotiate,低端机兜底不崩)。
   // targetBitRate:**缺省(未传)= 不写入,由编码器按分辨率自适应**(不写死,避免配错码率);
   // config 显式传了才按需加键(下方展开,不传 undefined 进 options)。
   const videoOutput = useVideoOutput({
@@ -390,7 +374,11 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
           <VisionCamera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
-            resizeMode="contain"
+            // resizeMode="cover":photo 流恒 4:3 全幅 → 4:3 frame 下 cover 与 contain 视觉完全相同
+            // (比例匹配、无裁切);16:9 frame 下 cover 裁左右 = **正确呈现 16:9 视野**(与拍后裁切
+            // 的出图一致)。且 frame 高度动画时 cover 让画面**跟随容器平滑放大/缩小** = 原生观感
+            // (contain 会在动画中露黑边)。
+            resizeMode="cover"
             device={device}
             isActive={isActive}
             outputs={outputs}
@@ -423,16 +411,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onAnimationEnd={() => setFocusPoint(null)}
             />
           )}
-          {/* 转场遮罩:frame 内最上层、绝对铺满,仅盖住 VisionCamera 取景区,
-              不盖 footer/控件(它们在 Container 的浮层、不在本 frame 内)。pointerEvents=none 不拦手势。 */}
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: VIEWFINDER.black },
-              shadeStyle,
-            ]}
-          />
         </Animated.View>
       </GestureDetector>
     </View>
