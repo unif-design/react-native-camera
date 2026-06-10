@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.18.0](https://github.com/unif-design/react-native-camera/compare/v2.17.1...v2.18.0) (2026-06-10)
+
+
+### Features
+
+* **camera:** 预览图片加固定灰色画布容器 — 4:3/16:9 外层观感一致 ([#67](https://github.com/unif-design/react-native-camera/issues/67)) ([6f80d6d](https://github.com/unif-design/react-native-camera/commit/6f80d6d9fb25b5f8c2fd2cebfe462403927d870e)), closes [#1C1C1E](https://github.com/unif-design/react-native-camera/issues/1C1C1E)
+
 ## [2.17.1](https://github.com/unif-design/react-native-camera/compare/v2.17.0...v2.17.1) (2026-06-10)
 
 
