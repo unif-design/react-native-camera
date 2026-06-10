@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -19,7 +19,14 @@ import {
   type FocusOptions,
   type Recorder,
 } from 'react-native-vision-camera';
-import { runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
@@ -85,6 +92,37 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
   const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
+
+  // 取景框丝滑切换:画幅变化时取景框高度**动画过渡**(从硬跳 aspectRatio 改为 withTiming 伸缩),
+  // 同时盖一层黑色转场遮罩把 vision-camera session 重协商(targetResolution 变 → 流闪断/黑一下,
+  // 不可避免)的闪烁藏住 —— 系统相机同款思路。
+  //
+  // 目标高在 **JS 侧**预算成数字(worklet 外算):frame 宽恒 100% 屏宽,高 = winW / frameAspect。
+  // (4:3 → winW×4/3;16:9 → winW×16/9)。两个动画 worklet(frameStyle/shadeStyle)只读 SharedValue
+  // 数字,绝不在 worklet 内调 design r()(2.15.1 fatal 教训:worklet 里 r() 切倍数崩,jest 测不到)。
+  const { width: winW } = useWindowDimensions();
+  const targetFrameH = winW / frameAspect;
+  const frameH = useSharedValue(targetFrameH);
+  // 时长参数(下方 250/90/260/240)为初值,真机可再调。
+  useEffect(() => {
+    frameH.value = withTiming(targetFrameH, { duration: 250 });
+  }, [frameH, targetFrameH]);
+  const frameStyle = useAnimatedStyle(() => ({ height: frameH.value }));
+
+  // 转场遮罩:画幅变化时快速盖黑 → 等 session 重配 + 高度动画走完再淡出。首帧(初次挂载)不遮。
+  const shade = useSharedValue(0);
+  const firstAspect = useRef(true);
+  useEffect(() => {
+    if (firstAspect.current) {
+      firstAspect.current = false;
+      return; // 首帧不遮:初次挂载没有「切换」,无需藏闪烁。
+    }
+    shade.value = withSequence(
+      withTiming(1, { duration: 90 }), // 快速盖黑(真机可再调)
+      withDelay(260, withTiming(0, { duration: 240 })) // 等 session 重配+布局动画后淡出(真机可再调)
+    );
+  }, [shade, aspectRatio]);
+  const shadeStyle = useAnimatedStyle(() => ({ opacity: shade.value }));
 
   // 出图分辨率走 vision-camera 预设(CommonResolutions),别写死低分辨率:
   // targetResolution 是「目标」—— 相机会 negotiate,达不到时**比例(w/h)优先于像素数**(见
@@ -348,7 +386,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   return (
     <View style={styles.root}>
       <GestureDetector gesture={composed}>
-        <View style={[styles.frame, { aspectRatio: frameAspect }]}>
+        <Animated.View style={[styles.frame, frameStyle]}>
           <VisionCamera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
@@ -385,7 +423,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onAnimationEnd={() => setFocusPoint(null)}
             />
           )}
-        </View>
+          {/* 转场遮罩:frame 内最上层、绝对铺满,仅盖住 VisionCamera 取景区,
+              不盖 footer/控件(它们在 Container 的浮层、不在本 frame 内)。pointerEvents=none 不拦手势。 */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: VIEWFINDER.black },
+              shadeStyle,
+            ]}
+          />
+        </Animated.View>
       </GestureDetector>
     </View>
   );
@@ -399,6 +447,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // overflow:hidden 裁掉 cover 溢出部分,框内只显示输出比例的画面。
+  // 高度由 frameStyle 动画驱动(不在此写死 aspectRatio,改画幅时高度 withTiming 平滑伸缩)。
+  // overflow:hidden 裁掉溢出部分,框内只显示输出比例的画面。
   frame: { width: '100%', overflow: 'hidden' },
 });
