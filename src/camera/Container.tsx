@@ -113,6 +113,7 @@ export function Container({ config, onSettle }: Props) {
     setPreviewVariant,
     flashNonce,
     burning,
+    capturing,
     recording,
     recSeconds,
     onShutter,
@@ -318,6 +319,7 @@ export function Container({ config, onSettle }: Props) {
             <ActionRow
               mode={currentMode.mode}
               recording={recording}
+              shutterDisabled={capturing}
               latestUri={photos.at(-1)?.uri}
               count={photos.length}
               onShutter={onShutter}
