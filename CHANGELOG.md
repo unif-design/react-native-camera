@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.20.0](https://github.com/unif-design/react-native-camera/compare/v2.19.0...v2.20.0) (2026-06-10)
+
+
+### Features
+
+* **camera:** 画幅切换原生式 — photo 固定全幅流零重配 + cover 跟随缩放 + 出图 Skia 裁切;删黑遮罩 ([#71](https://github.com/unif-design/react-native-camera/issues/71)) ([401cdad](https://github.com/unif-design/react-native-camera/commit/401cdad015810459b3826f7a7d0a19063d679e86))
+
 # [2.19.0](https://github.com/unif-design/react-native-camera/compare/v2.18.1...v2.19.0) (2026-06-10)
 
 
