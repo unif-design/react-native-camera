@@ -7,6 +7,8 @@ import { FlipButton } from './FlipButton';
 type Props = {
   mode: 'single' | 'continuous' | 'video';
   recording: boolean;
+  /** 一次快门处理中(capture/烧水印):禁用快门防连点(连点并发堆积大图会 OOM 闪退)。 */
+  shutterDisabled?: boolean;
   latestUri?: string;
   count: number;
   onShutter: () => void;
@@ -17,6 +19,7 @@ type Props = {
 export function ActionRow({
   mode,
   recording,
+  shutterDisabled,
   latestUri,
   count,
   onShutter,
@@ -34,7 +37,12 @@ export function ActionRow({
       ) : (
         <View style={styles.slot} />
       )}
-      <Shutter mode={mode} recording={recording} onPress={onShutter} />
+      <Shutter
+        mode={mode}
+        recording={recording}
+        disabled={shutterDisabled}
+        onPress={onShutter}
+      />
       {!recording ? (
         <FlipButton onFlip={onFlip} />
       ) : (

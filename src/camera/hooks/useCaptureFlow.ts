@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import type {
   CameraMode,
   CameraResult,
@@ -34,6 +34,8 @@ export type CaptureFlow = {
   >;
   flashNonce: number;
   burning: boolean;
+  /** 一次快门(capture/烧水印/录像 start·stop)处理中:快门按钮据此禁用,防连点。 */
+  capturing: boolean;
   /** 录像状态(透传 useVideoRecorder),供 Container 渲染计时器/控件。 */
   recording: boolean;
   recSeconds: number;
@@ -65,42 +67,59 @@ export function useCaptureFlow({
   );
   const [flashNonce, setFlashNonce] = useState(0);
   const [burning, setBurning] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  // 防重入(同步守卫,state 异步更新挡不住同帧连点):上一次快门(UHD capture +
+  // Skia 全分辨率烧水印)没处理完就忽略后续点击。没有它,疯狂连点快门会让多个
+  // capture/烧录并发堆积 → 内存峰值叠加 → iOS 内存压力直接杀进程(闪退)。
+  // 「串行烧水印、峰值内存恒定」只在单次 onShutter 内成立,跨次并发必须在这里挡。
+  const capturingRef = useRef(false);
 
   const { recording, recSeconds, startRecording, stopRecording } =
     useVideoRecorder(cameraRef);
 
   const onShutter = async () => {
-    if (currentMode?.mode === 'video') {
-      if (!recording) {
-        await startRecording();
-      } else {
-        const f = await stopRecording();
-        if (f) setPhotos((prev) => [...prev, f]);
-        else settle({ code: 503, data: [], message: 'video_failed' });
+    if (capturingRef.current) return;
+    capturingRef.current = true;
+    setCapturing(true);
+    try {
+      if (currentMode?.mode === 'video') {
+        if (!recording) {
+          await startRecording();
+        } else {
+          const f = await stopRecording();
+          if (f) setPhotos((prev) => [...prev, f]);
+          else settle({ code: 503, data: [], message: 'video_failed' });
+        }
+        return;
       }
-      return;
-    }
-    const f = await cameraRef.current?.capture();
-    if (!f) {
-      settle({ code: 500, data: photos, message: 'capture_failed' });
-      return;
-    }
-    setFlashNonce((n) => n + 1);
-    // 快门后立刻烧这一张(串行:一次只烧 1 张,峰值内存恒定);烧时 footer 显示"正在生成水印图片"
-    let saved = f;
-    if (config.watermark && f.mime === 'image/jpeg') {
-      setBurning(true);
-      try {
-        saved = await burnWatermark(f, config.watermark);
-      } finally {
-        setBurning(false);
+      const f = await cameraRef.current?.capture();
+      if (!f) {
+        settle({ code: 500, data: photos, message: 'capture_failed' });
+        return;
       }
-    }
-    setPhotos((prev) => [...prev, saved]);
-    // 自动预览规则:仅「非保留(clear) + 单拍」拍完进预览;其余累积
-    if (currentMode?.mode === 'single' && config.dataRetainedMode === 'clear') {
-      setPreviewVariant('confirm');
-      setPreviewing(true);
+      setFlashNonce((n) => n + 1);
+      // 快门后立刻烧这一张(串行:一次只烧 1 张,峰值内存恒定);烧时 footer 显示"正在生成水印图片"
+      let saved = f;
+      if (config.watermark && f.mime === 'image/jpeg') {
+        setBurning(true);
+        try {
+          saved = await burnWatermark(f, config.watermark);
+        } finally {
+          setBurning(false);
+        }
+      }
+      setPhotos((prev) => [...prev, saved]);
+      // 自动预览规则:仅「非保留(clear) + 单拍」拍完进预览;其余累积
+      if (
+        currentMode?.mode === 'single' &&
+        config.dataRetainedMode === 'clear'
+      ) {
+        setPreviewVariant('confirm');
+        setPreviewing(true);
+      }
+    } finally {
+      capturingRef.current = false;
+      setCapturing(false);
     }
   };
 
@@ -142,6 +161,7 @@ export function useCaptureFlow({
     setPreviewVariant,
     flashNonce,
     burning,
+    capturing,
     recording,
     recSeconds,
     onShutter,
