@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.1](https://github.com/unif-design/react-native-camera/compare/v2.18.0...v2.18.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **camera:** 镜头切换 icon 换 camera-flip(系统相机通用形态,比 lens-flip 直白) ([#68](https://github.com/unif-design/react-native-camera/issues/68)) ([120826c](https://github.com/unif-design/react-native-camera/commit/120826c685019b97780b5f0320719b1a95233573))
+
 # [2.18.0](https://github.com/unif-design/react-native-camera/compare/v2.17.1...v2.18.0) (2026-06-10)
 
 
