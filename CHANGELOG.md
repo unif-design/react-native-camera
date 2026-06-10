@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.19.0](https://github.com/unif-design/react-native-camera/compare/v2.18.1...v2.19.0) (2026-06-10)
+
+
+### Features
+
+* **camera:** 画幅切换丝滑化 — 取景框高度动画 + 转场遮罩盖 session 重配闪烁 ([#69](https://github.com/unif-design/react-native-camera/issues/69)) ([450185a](https://github.com/unif-design/react-native-camera/commit/450185a40ab37060a507b55d2740cbaf612785ef))
+
 ## [2.18.1](https://github.com/unif-design/react-native-camera/compare/v2.18.0...v2.18.1) (2026-06-10)
 
 
