@@ -41,6 +41,11 @@ jest.mock('react-native-reanimated', () => {
     runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
     withTiming: (v: unknown) => v,
     withSpring: (v: unknown) => v,
+    // withSequence 桩:jest 下无动画时钟,取**最后一步的目标值**作为静止终态(对齐
+    // withTiming=v=>v 的「直接返回终值」语义),逻辑/挂载可测。
+    withSequence: (...steps: unknown[]) => steps[steps.length - 1],
+    // withDelay 桩:忽略延时,直接返回被包裹动画的终值(同上,无时钟)。
+    withDelay: (_delay: number, anim: unknown) => anim,
   };
 });
 
