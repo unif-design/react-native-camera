@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.1](https://github.com/unif-design/react-native-camera/compare/v2.17.0...v2.17.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **camera:** 快门防重入 — 修连点 7-8 下 OOM 闪退 ([#66](https://github.com/unif-design/react-native-camera/issues/66)) ([0138184](https://github.com/unif-design/react-native-camera/commit/0138184edcdc9f673221258322ac6a53a4a86a32))
+
 # [2.17.0](https://github.com/unif-design/react-native-camera/compare/v2.16.0...v2.17.0) (2026-06-09)
 
 
