@@ -5,7 +5,7 @@ import type { CameraDevice } from 'react-native-vision-camera';
 // 变焦软上限(用户倍数 display 空间)。device.maxZoom 在多镜头机型可达 ~123x,
 // 但 >3x 已是纯数字裁切(画质崩、不实用),故 pinch 放大 + 档位上限统一软钳到 3x
 // (下限仍是设备 minZoom×displayMul,后置 0.5x)。pinch / 档位都读这个值派生的 maxDisplay,
-// 改这一处即全局生效;ZoomSlider 的 Pan worklet 用 softMaxVzf = maxDisplay/displayMul = 3/displayMul。
+// 改这一处即全局生效;Camera 的 Pinch worklet 用 softMaxVzf = maxDisplay/displayMul = 3/displayMul。
 // 纯 JS 常量(非 worklet 内,不触发「worklet 内禁 design r()」红屏),改上限只动此处。
 const SOFT_MAX_DISPLAY = 3;
 
@@ -55,7 +55,7 @@ export function useZoomController(
 
   // 初值 1(vzf)= 设备最广镜头 = 默认档:后置超广角机型 displayMul=0.5 → 用户 0.5x;
   // 前置/无超广角 displayMul=1 → 用户 1x。不在首帧改默认档(device 异步、首帧 displayMul 未 ready,
-  // 强设「用户 1.0x 的 vzf」会落空仍停在 0.5x);默认就用最广,用户要更近自行滚条/点档。
+  // 强设「用户 1.0x 的 vzf」会落空仍停在 0.5x);默认就用最广,用户要更近自行 pinch/点档。
   const [zoom, setZoom] = useState(1);
   const zoomShared = useSharedValue(1);
 
