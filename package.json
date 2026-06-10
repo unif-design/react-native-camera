@@ -1,6 +1,6 @@
 {
   "name": "@unif/react-native-camera",
-  "version": "2.18.0",
+  "version": "2.18.1",
   "description": "基于 react-native-vision-camera 5.x 的相机库（单拍/连拍/视频录制）",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
