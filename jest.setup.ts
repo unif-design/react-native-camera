@@ -231,7 +231,11 @@ jest.mock('@dr.pogodin/react-native-fs', () => ({
 jest.mock('@shopify/react-native-skia', () => {
   const noop = () => {};
   const mkImage = { width: () => 1080, height: () => 1440, dispose: noop };
-  const mkCanvas = { drawImage: jest.fn(), drawText: jest.fn() };
+  const mkCanvas = {
+    drawImage: jest.fn(),
+    drawImageRect: jest.fn(),
+    drawText: jest.fn(),
+  };
   const mkSnapshot = {
     encodeToBase64: jest.fn(() => 'OUTBASE64'),
     dispose: noop,
@@ -252,6 +256,13 @@ jest.mock('@shopify/react-native-skia', () => {
       })),
       Paint: jest.fn(() => ({ setColor: jest.fn() })),
       Color: jest.fn(() => 0),
+      // 裁切(cropToRatio)用:返回带 x/y/width/height 的 rect 桩(drawImageRect 消费它)。
+      XYWHRect: jest.fn((x: number, y: number, w: number, h: number) => ({
+        x,
+        y,
+        width: w,
+        height: h,
+      })),
     },
     ImageFormat: { JPEG: 3 },
   };

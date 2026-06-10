@@ -2,14 +2,13 @@ import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import { Camera } from '../../camera/Camera';
-import { VIEWFINDER } from '../../camera/colors/viewfinder';
 import type { CameraMode } from '../../utils';
 import type { AspectRatio } from '../../camera/setup';
 
-// 画幅切换丝滑化(取景框高度动画 + 转场遮罩)的结构断言:
-// 直接渲染 <Camera>(绕过 Container),验证取景框不再硬跳 aspectRatio、而是由 height 驱动,
-// 且 frame 内存在一层黑色转场遮罩。jest 的 reanimated 桩:useAnimatedStyle=fn=>fn()、
-// withTiming/withSequence/withDelay 同步返回终值,故能读到动画 style 的静止终态。
+// 画幅切换「原生系统相机式」(取景框高度动画 + cover 跟随缩放、**无黑色转场遮罩**)的结构断言:
+// 直接渲染 <Camera>(绕过 Container),验证取景框不再硬跳 aspectRatio、而是由 height 驱动伸缩,
+// 且 VisionCamera resizeMode='cover'(画面随框缩放 = 原生观感;contain 会露黑边)。
+// jest 的 reanimated 桩:useAnimatedStyle=fn=>fn()、withTiming 同步返回终值,故能读到动画 style 的静止终态。
 //
 // frame 宽恒屏宽,目标高 = winW / frameAspect(4:3→3/4、16:9→9/16)。jest 下 useWindowDimensions
 // 返回默认窗宽(RN 测试环境),这里只断言「height 是有限数 + 无 aspectRatio」,不绑定具体像素。
@@ -67,19 +66,21 @@ it('16:9 取景框比 4:3 更高(目标高 = winW / frameAspect,方向正确)', 
   expect(h169).toBeGreaterThan(h43);
 });
 
-it('frame 内存在黑色转场遮罩层(盖 session 重配闪烁),首帧 opacity=0 不遮', () => {
+it("VisionCamera resizeMode='cover'(画面随框缩放 = 原生观感,非 contain 露黑边)", () => {
   const { UNSAFE_root } = renderCamera('4:3');
-  // 遮罩 = backgroundColor 为纯黑、pointerEvents=none 的绝对铺满层。
+  const vc = UNSAFE_root.findByProps({ nativeID: 'vision-camera' });
+  expect(vc.props.resizeMode).toBe('cover');
+});
+
+it('已删除黑色转场遮罩:frame 内无纯黑 + pointerEvents=none 的绝对铺满遮罩层', () => {
+  const { UNSAFE_root } = renderCamera('16:9');
   const shade = UNSAFE_root.findAll((node) => {
     const s = StyleSheet.flatten(node.props.style);
     return (
       s != null &&
-      s.backgroundColor === VIEWFINDER.black &&
+      s.backgroundColor === '#000' &&
       node.props.pointerEvents === 'none'
     );
   });
-  expect(shade.length).toBeGreaterThanOrEqual(1);
-  // 首帧(初次挂载)不遮:shade 起始 0、firstAspect 短路 → opacity 终态 0。
-  const shadeStyle = StyleSheet.flatten(shade[0]?.props.style);
-  expect(shadeStyle.opacity).toBe(0);
+  expect(shade).toHaveLength(0);
 });

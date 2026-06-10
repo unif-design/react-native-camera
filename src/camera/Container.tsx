@@ -102,6 +102,8 @@ export function Container({ config, onSettle }: Props) {
   const cameraRef = useRef<CameraHandle>(null);
   const [modeIndex, setModeIndex] = useState(0);
   const currentMode = config.cameraMode[modeIndex];
+  // 画幅:默认 16:9。声明在 useCaptureFlow 之上 —— 16:9 时照片拍后 Skia 居中裁切,hook 需读它。
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
 
   // 拍摄编排:photos / 预览态 / 快门(照片+视频)/ 保存取消 / 切模式 / 录像状态全在 hook 内。
   const {
@@ -124,6 +126,7 @@ export function Container({ config, onSettle }: Props) {
     cameraRef,
     config,
     currentMode,
+    aspectRatio,
     modeIndex,
     setModeIndex,
     settle,
@@ -135,7 +138,6 @@ export function Container({ config, onSettle }: Props) {
     config.cameraMode[0]?.flashMode ?? 'off'
   );
   const [sound, setSound] = useState(false);
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
   const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
 
