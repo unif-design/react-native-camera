@@ -1,18 +1,15 @@
 import { cropToRatio } from '../../../camera/watermark/cropToRatio';
-import type { CustomPhotoFile } from '../../../utils';
+import { makePhotoFile } from '../../__helpers__/factories';
 
 // jest.setup 已桩 fs(读写内存)+ Skia(MakeImageFromEncoded → 1080×1440 图)。按桩尺寸断言。
-const photo = (): CustomPhotoFile => ({
-  id: '1',
-  cameraType: 'back',
-  cameraMode: 'single',
-  path: '/a.jpg',
-  uri: 'file:///a.jpg',
-  width: 1080,
-  height: 1440,
-  mime: 'image/jpeg',
-  mode: 'single',
-});
+const photo = () =>
+  makePhotoFile({
+    id: '1',
+    path: '/a.jpg',
+    uri: 'file:///a.jpg',
+    width: 1080,
+    height: 1440,
+  });
 
 it('16:9 居中裁切:等高裁宽,尺寸/路径正确,其余字段保留', async () => {
   const out = await cropToRatio(photo(), '16:9');

@@ -1,30 +1,21 @@
-import type { ReactElement } from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent } from '@testing-library/react-native';
 import { PreviewTopBar } from '../../../camera/preview/PreviewTopBar';
 import type { CustomPhotoFile } from '../../../utils';
+import { renderDark } from '../../__helpers__/renderDark';
+import { makePhotoFile } from '../../__helpers__/factories';
 
-// 相机 Modal 强制 dark,PreviewTopBar 用 useThemedStyles —— 包 dark Provider 对齐运行时。
-const r = (ui: ReactElement) =>
-  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
+// 相机 Modal 强制 dark,PreviewTopBar 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
-const f = (
-  cameraMode: CustomPhotoFile['cameraMode'],
-  id: string
-): CustomPhotoFile => ({
-  id,
-  cameraType: 'back',
-  cameraMode,
-  path: `/${id}`,
-  uri: `file:///${id}`,
-  width: 1,
-  height: 1,
-  mime: cameraMode === 'video' ? 'video/mp4' : 'image/jpeg',
-  mode: cameraMode,
-});
+const f = (cameraMode: CustomPhotoFile['cameraMode'], id: string) =>
+  makePhotoFile({
+    id,
+    mode: cameraMode,
+    path: `/${id}`,
+    uri: `file:///${id}`,
+  });
 
 it('confirm 变体不显示类型分类(未保留不分类)', () => {
-  const { queryByText, queryByTestId } = r(
+  const { queryByText, queryByTestId } = renderDark(
     <PreviewTopBar
       variant="confirm"
       files={[f('single', 'a')]}
@@ -38,7 +29,7 @@ it('confirm 变体不显示类型分类(未保留不分类)', () => {
 });
 
 it('gallery 单一类型也显示该类型 tab', () => {
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <PreviewTopBar
       variant="gallery"
       files={[f('single', 'a'), f('single', 'b')]}
@@ -53,7 +44,7 @@ it('gallery 单一类型也显示该类型 tab', () => {
 it('gallery 多类型显示 tab,点 tab 回调', () => {
   const onSelectType = jest.fn();
   const files = [f('continuous', 'a'), f('continuous', 'b'), f('single', 'c')];
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <PreviewTopBar
       variant="gallery"
       files={files}

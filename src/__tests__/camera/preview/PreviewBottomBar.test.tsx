@@ -1,16 +1,13 @@
-import type { ReactElement } from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent } from '@testing-library/react-native';
+import { renderDark } from '../../__helpers__/renderDark';
 import { PreviewBottomBar } from '../../../camera/preview/PreviewBottomBar';
 
-// 相机 Modal 强制 dark,PreviewBottomBar 用 useThemedStyles —— 包 dark Provider 对齐运行时。
-const r = (ui: ReactElement) =>
-  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
+// 相机 Modal 强制 dark,PreviewBottomBar 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
 it('confirm 变体: 重拍/保存', () => {
   const onRetake = jest.fn();
   const onSave = jest.fn();
-  const { getByTestId, getByText } = r(
+  const { getByTestId, getByText } = renderDark(
     <PreviewBottomBar
       variant="confirm"
       index={0}
@@ -33,7 +30,7 @@ it('confirm 变体: 重拍/保存', () => {
 it('gallery 变体: 第X/Y张 + 返回/删除', () => {
   const onBack = jest.fn();
   const onDelete = jest.fn();
-  const { getByTestId, getByText } = r(
+  const { getByTestId, getByText } = renderDark(
     <PreviewBottomBar
       variant="gallery"
       index={1}
@@ -54,7 +51,7 @@ it('gallery 变体: 第X/Y张 + 返回/删除', () => {
 });
 
 test('gallery 只含返回/删除,无完成按钮', () => {
-  const { getByTestId, queryByTestId } = r(
+  const { getByTestId, queryByTestId } = renderDark(
     <PreviewBottomBar
       variant="gallery"
       index={0}

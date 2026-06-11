@@ -1,17 +1,12 @@
 import { carouselRemountKey } from '../../../components/Carousel/Carousel';
-import type { CustomPhotoFile } from '../../../utils';
+import { makePhotoFile } from '../../__helpers__/factories';
 
-const f = (id: string): CustomPhotoFile => ({
-  id,
-  cameraType: 'back',
-  cameraMode: 'single',
-  path: `/tmp/${id}.jpg`,
-  uri: `file:///tmp/${id}.jpg`,
-  width: 1,
-  height: 1,
-  mime: 'image/jpeg',
-  mode: 'single',
-});
+const f = (id: string) =>
+  makePhotoFile({
+    id,
+    path: `/tmp/${id}.jpg`,
+    uri: `file:///tmp/${id}.jpg`,
+  });
 
 describe('carouselRemountKey', () => {
   it('等长但不同内容(切类型 tab)→ key 不同 → 触发 remount 重置 offset', () => {

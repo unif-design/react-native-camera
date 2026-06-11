@@ -1,8 +1,8 @@
-import { render } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
 import * as VisionCamera from 'react-native-vision-camera';
 import { Camera } from '../../camera/Camera';
 import type { CameraMode } from '../../utils';
+import { renderDark } from '../__helpers__/renderDark';
+import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
 // 拍摄质量参数(photoQualityPrioritization / photoHDR / videoBitRate)接线测试:
 // 直接渲染 <Camera>(绕过 Container 的权限/设备分支),精确控制 currentMode / 设备能力 / 新 props,
@@ -13,23 +13,6 @@ import type { CameraMode } from '../../utils';
 // 用 jest.mocked 取得带类型的 mock 句柄。
 const usePhotoOutputMock = jest.mocked(VisionCamera.usePhotoOutput);
 const useVideoOutputMock = jest.mocked(VisionCamera.useVideoOutput);
-
-type DeviceOverrides = { supportsSpeedQualityPrioritization?: boolean };
-
-// 最小可用 device 桩:Camera 取景路径只读这些字段(zoom/focus/flash/质量能力)。
-function makeDevice(over: DeviceOverrides = {}) {
-  return {
-    id: 'dev-back',
-    position: 'back' as const,
-    minZoom: 1,
-    maxZoom: 8,
-    supportsFocusMetering: true,
-    hasFlash: true,
-    supportsSpeedQualityPrioritization:
-      over.supportsSpeedQualityPrioritization ?? true,
-    zoomLensSwitchFactors: [2],
-  };
-}
 
 const singleMode: CameraMode = { mode: 'single' };
 const videoMode: CameraMode = { mode: 'video' };
@@ -43,22 +26,20 @@ type RenderProps = Partial<{
 }>;
 
 function renderCamera(p: RenderProps = {}) {
-  return render(
-    <ThemeProvider forceScheme="dark">
-      <Camera
-        // 类型对齐 CameraDevice;桩只含 Camera 实际读取的字段。
-        device={
-          makeDevice({
-            supportsSpeedQualityPrioritization: p.supportsSpeed,
-          }) as never
-        }
-        currentMode={p.currentMode ?? singleMode}
-        isActive={false}
-        photoQualityPrioritization={p.photoQualityPrioritization}
-        photoHDR={p.photoHDR}
-        videoBitRate={p.videoBitRate}
-      />
-    </ThemeProvider>
+  return renderDark(
+    <Camera
+      // 类型对齐 CameraDevice;桩含 Camera 实际读取的字段。
+      device={
+        makeDeviceStub({
+          supportsSpeedQualityPrioritization: p.supportsSpeed,
+        }) as never
+      }
+      currentMode={p.currentMode ?? singleMode}
+      isActive={false}
+      photoQualityPrioritization={p.photoQualityPrioritization}
+      photoHDR={p.photoHDR}
+      videoBitRate={p.videoBitRate}
+    />
   );
 }
 

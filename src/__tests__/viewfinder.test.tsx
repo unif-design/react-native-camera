@@ -1,6 +1,5 @@
-import type { ReactElement } from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent } from '@testing-library/react-native';
+import { renderDark } from './__helpers__/renderDark';
 import { ModeSwitcherPill } from '../camera/footer/ModeSwitcherPill';
 import { ActionRow } from '../camera/footer/ActionRow';
 
@@ -8,7 +7,7 @@ import { ActionRow } from '../camera/footer/ActionRow';
 // ModeSwitcherPill / ActionRow 的交互按钮是自有 TouchableOpacity/Pressable
 // (testID 非 design 组件),passthrough mock 不经过它们,一定渲染 ——
 // 这也是本仓既有的降级断言模式。
-// 二者用 useThemedStyles,相机 Modal 强制 dark —— 包 dark Provider 对齐运行时。
+// 二者用 useThemedStyles,相机 Modal 强制 dark —— renderDark 包 dark Provider 对齐运行时。
 
 const items = [
   { key: 'continuous-0', label: '连拍' },
@@ -16,12 +15,9 @@ const items = [
   { key: 'video-2', label: '视频' },
 ];
 
-const r = (ui: ReactElement) =>
-  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
-
 it('ModeSwitcherPill renders a switcher for multi-mode and selects by tap', () => {
   const onSelect = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <ModeSwitcherPill items={items} currentIndex={1} onSelect={onSelect} />
   );
   // 多模式 → 每项一个可点 pill(length>1,不退化为单 label)
@@ -32,7 +28,7 @@ it('ModeSwitcherPill renders a switcher for multi-mode and selects by tap', () =
 });
 
 it('ModeSwitcherPill collapses to a single label for single mode', () => {
-  const { queryByTestId, getByText } = r(
+  const { queryByTestId, getByText } = renderDark(
     <ModeSwitcherPill
       items={[{ key: 'single-0', label: '单拍' }]}
       currentIndex={0}
@@ -54,7 +50,7 @@ const actionBase = {
 };
 
 it('ActionRow shows thumb/shutter/flip when idle (no back/save)', () => {
-  const { getByTestId, queryByTestId } = r(
+  const { getByTestId, queryByTestId } = renderDark(
     <ActionRow {...actionBase} count={2} />
   );
   expect(getByTestId('thumbnail-stack')).toBeTruthy();
@@ -65,7 +61,7 @@ it('ActionRow shows thumb/shutter/flip when idle (no back/save)', () => {
 });
 
 it('ActionRow hides thumb/flip while recording, keeps shutter', () => {
-  const { queryByTestId, getByTestId } = r(
+  const { queryByTestId, getByTestId } = renderDark(
     <ActionRow {...actionBase} recording />
   );
   expect(getByTestId('shutter-btn')).toBeTruthy();

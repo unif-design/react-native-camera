@@ -1,17 +1,15 @@
 import { burnWatermark } from '../../../camera/watermark/burnWatermark';
-import type { CustomPhotoFile, WatermarkType } from '../../../utils';
+import type { WatermarkType } from '../../../utils';
+import { makePhotoFile } from '../../__helpers__/factories';
 
-const photo = (): CustomPhotoFile => ({
-  id: '1',
-  cameraType: 'back',
-  cameraMode: 'single',
-  path: '/a.jpg',
-  uri: 'file:///a.jpg',
-  width: 1080,
-  height: 1440,
-  mime: 'image/jpeg',
-  mode: 'single',
-});
+const photo = () =>
+  makePhotoFile({
+    id: '1',
+    path: '/a.jpg',
+    uri: 'file:///a.jpg',
+    width: 1080,
+    height: 1440,
+  });
 const wm: WatermarkType = { content: ['L1', 'L2'], position: 'top-right' };
 
 it('composites and returns a new path', async () => {

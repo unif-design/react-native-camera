@@ -1,39 +1,21 @@
 import type { ReactElement } from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent } from '@testing-library/react-native';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import { renderDark } from '../__helpers__/renderDark';
 
 // 已授权 + 有后置设备 → Container 走到 device-ready,渲染 <Camera>。
 // 覆盖基底:granted permission + device(其余 hook / CommonResolutions 走 helper);
 // <Camera> 另被下方桩替换以触发 onCameraError。
-jest.mock('react-native-vision-camera', () =>
-  require('../__helpers__/visionCameraMock').makeVisionCameraMock({
-    useCameraPermission: () => ({
-      hasPermission: true,
-      requestPermission: () => Promise.resolve(true),
-    }),
-    useMicrophonePermission: () => ({
-      hasPermission: true,
-      requestPermission: () => Promise.resolve(true),
-    }),
-    useCameraDevice: (position: 'back' | 'front') => ({
-      id: `dev-${position}`,
-      position,
-      minZoom: 1,
-      maxZoom: 8,
-      supportsFocusMetering: true,
-      hasFlash: position === 'back',
-      supportsSpeedQualityPrioritization: true,
-      isVirtualDevice: position === 'back',
-      zoomLensSwitchFactors: position === 'back' ? [2] : [],
-      physicalDevices:
-        position === 'back'
-          ? ['ultra-wide-angle', 'wide-angle']
-          : ['wide-angle'],
-    }),
-  })
-);
+// jest.mock 被 babel 提升到 import 上,故 helper 在工厂内 require(不能闭包捕获顶层 import)。
+jest.mock('react-native-vision-camera', () => {
+  const vc = require('../__helpers__/visionCameraMock');
+  return vc.makeVisionCameraMock({
+    ...vc.grantedPermissionOverrides(),
+    useCameraDevice: (position: 'back' | 'front') =>
+      vc.makeDeviceStub({ position }),
+  });
+});
 
 // 把 <Camera> 替换成可手动触发 onCameraError 的桩:点 trigger-camera-error 即冒泡
 // 一个普通 Error,验证 Container 把它接到 showError(顶部错误条),且不 settle。
@@ -58,13 +40,11 @@ const baseConfig = {
 
 function renderContainer(onSettle: (r: unknown) => void) {
   const ui: ReactElement = (
-    <ThemeProvider forceScheme="dark">
-      <CameraDialogProvider>
-        <Container config={baseConfig} onSettle={onSettle} />
-      </CameraDialogProvider>
-    </ThemeProvider>
+    <CameraDialogProvider>
+      <Container config={baseConfig} onSettle={onSettle} />
+    </CameraDialogProvider>
   );
-  return render(ui);
+  return renderDark(ui);
 }
 
 it('onCameraError 触发顶部错误条(showError)', () => {

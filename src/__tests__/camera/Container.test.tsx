@@ -1,47 +1,24 @@
 import type { ReactElement } from 'react';
 import { StyleSheet } from 'react-native';
-import { render, fireEvent, within } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent, within } from '@testing-library/react-native';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import { renderDark } from '../__helpers__/renderDark';
 
 // Container 走到 device-ready 需:已授权 + 有设备。全局 jest.setup mock 把权限设 false、
 // device 设 undefined(短路到 Loading/NoCamera);这里覆盖 vision-camera 让 useCameraDevice
 // 按请求方向返回超广角设备,验证"前置(front)不渲染变焦条、后置(back)渲染"的 JSX 守护(点1)。
 // Container 的 position 由 config.cameraMode[0].type 决定,经 state 传入 useCameraDevice。
-// 注:jest.mock 被 babel 提升到 import 之上;工厂里内联建 device(不引外部变量,避免 mock 提升越界)。
-// 覆盖基底:granted permission + back/front device(其余 hook / CommonResolutions 走 helper 基底)。
-jest.mock('react-native-vision-camera', () =>
-  require('../__helpers__/visionCameraMock').makeVisionCameraMock({
-    useCameraPermission: () => ({
-      hasPermission: true,
-      requestPermission: () => Promise.resolve(true),
-    }),
-    useMicrophonePermission: () => ({
-      hasPermission: true,
-      requestPermission: () => Promise.resolve(true),
-    }),
-    // back: dual(wide+ultra)→ vzf 范围 [1,8]、switchFactors=[2]( displayMul=0.5 → display 范围 [0.5,4])。
-    // front: 单广角无超广角 → vzf minZoom=1、switchFactors=[]( displayMul=1)。
-    useCameraDevice: (position: 'back' | 'front') => ({
-      id: `dev-${position}`,
-      position,
-      // vzf 空间:两端最广镜头都是 1.0(back 的 1.0 是超广角=用户 0.5x,见 displayMul)。
-      minZoom: 1,
-      maxZoom: 8,
-      supportsFocusMetering: true,
-      // back 有物理闪光+支持 speed 质量;front 无闪光(对齐真机:前摄常无 flash)。
-      hasFlash: position === 'back',
-      supportsSpeedQualityPrioritization: true,
-      isVirtualDevice: position === 'back',
-      zoomLensSwitchFactors: position === 'back' ? [2] : [],
-      physicalDevices:
-        position === 'back'
-          ? ['ultra-wide-angle', 'wide-angle']
-          : ['wide-angle'],
-    }),
-  })
-);
+// makeDeviceStub({ position }) 派生:back=dual(switchFactors=[2]、有闪光、超广角),front=单广角(无闪光、switchFactors=[])。
+// 注:jest.mock 被 babel 提升到 import 之上;helper 在工厂内 require(不能闭包捕获顶层 import)。
+jest.mock('react-native-vision-camera', () => {
+  const vc = require('../__helpers__/visionCameraMock');
+  return vc.makeVisionCameraMock({
+    ...vc.grantedPermissionOverrides(),
+    useCameraDevice: (position: 'back' | 'front') =>
+      vc.makeDeviceStub({ position }),
+  });
+});
 
 const baseConfig = {
   dataRetainedMode: 'retain' as const,
@@ -49,19 +26,17 @@ const baseConfig = {
 
 const r = (position: 'back' | 'front') => {
   const ui: ReactElement = (
-    <ThemeProvider forceScheme="dark">
-      <CameraDialogProvider>
-        <Container
-          config={{
-            ...baseConfig,
-            cameraMode: [{ mode: 'single', type: position }],
-          }}
-          onSettle={() => {}}
-        />
-      </CameraDialogProvider>
-    </ThemeProvider>
+    <CameraDialogProvider>
+      <Container
+        config={{
+          ...baseConfig,
+          cameraMode: [{ mode: 'single', type: position }],
+        }}
+        onSettle={() => {}}
+      />
+    </CameraDialogProvider>
   );
-  return render(ui);
+  return renderDark(ui);
 };
 
 it('后置(back)渲染变焦档(0.5/1)', () => {
@@ -107,20 +82,18 @@ it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 po
   // 非 top-right 档(bottom/center)在 0 尺寸盒内定位参照错位(成片烧录走像素空间不受影响,
   // 但取景所见与成片不符)。这里断言 wrapper 是全屏,定位所有权单独交给 WatermarkStamp。
   const ui: ReactElement = (
-    <ThemeProvider forceScheme="dark">
-      <CameraDialogProvider>
-        <Container
-          config={{
-            ...baseConfig,
-            cameraMode: [{ mode: 'single', type: 'back' }],
-            watermark: { content: ['L1'], position: 'bottom-center' },
-          }}
-          onSettle={() => {}}
-        />
-      </CameraDialogProvider>
-    </ThemeProvider>
+    <CameraDialogProvider>
+      <Container
+        config={{
+          ...baseConfig,
+          cameraMode: [{ mode: 'single', type: 'back' }],
+          watermark: { content: ['L1'], position: 'bottom-center' },
+        }}
+        onSettle={() => {}}
+      />
+    </CameraDialogProvider>
   );
-  const { getByTestId } = render(ui);
+  const { getByTestId } = renderDark(ui);
   const style = StyleSheet.flatten(
     getByTestId('watermark-wrapper').props.style
   );

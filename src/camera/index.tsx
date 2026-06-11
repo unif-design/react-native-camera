@@ -1,18 +1,4 @@
+// 内部 barrel:只暴露 useCamera 实际消费的 Container / ModalView。
+// 其余相机内部组件不外泄(对齐 CLAUDE.md「内部不导出」心智),内部模块与测试一律直引文件。
 export { ModalView } from './ModalView';
 export { Container } from './Container';
-export { NoPermission } from './NoPermission';
-export { NoCamera } from './NoCamera';
-export { Camera, type CameraHandle } from './Camera';
-export { FocusIndicator } from './FocusIndicator';
-export { captureToTempFile, type CapturedPhotoRaw } from './capturePhotoHelper';
-export {
-  ActionRow,
-  ModeSwitcherPill,
-  Shutter,
-  ZoomChips,
-  RecordingTimer,
-  ThumbnailStack,
-  FlipButton,
-} from './footer';
-export { CaptureFlash } from './CaptureFlash';
-export { SideRail, type FlashMode, type AspectRatio } from './setup';

@@ -1,11 +1,8 @@
-import type { ReactElement } from 'react';
-import { render, fireEvent, within } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent, within } from '@testing-library/react-native';
+import { renderDark } from '../../__helpers__/renderDark';
 import { ZoomChips } from '../../../camera/footer/ZoomChips';
 
-// 相机 Modal 强制 dark,ZoomChips 用 useThemedStyles —— 包 dark Provider 对齐运行时。
-const r = (ui: ReactElement) =>
-  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
+// 相机 Modal 强制 dark,ZoomChips 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
 // jest 下 useSharedValue 桩返 {value};zoomShared 直接造对象传入(pinching 已从 props 移除)。
 const base = {
@@ -15,7 +12,7 @@ const base = {
 
 test('超广角(showHalf)渲染 0.5/1 两档,无 2 档', () => {
   const onSelect = jest.fn();
-  const { getByTestId, queryByTestId } = r(
+  const { getByTestId, queryByTestId } = renderDark(
     <ZoomChips {...base} showHalf onSelect={onSelect} />
   );
   expect(getByTestId('zoom-chip-0.5')).toBeTruthy();
@@ -25,7 +22,7 @@ test('超广角(showHalf)渲染 0.5/1 两档,无 2 档', () => {
 });
 
 test('无超广角(showHalf=false)只渲染 1 档,无 0.5', () => {
-  const { getByTestId, queryByTestId } = r(
+  const { getByTestId, queryByTestId } = renderDark(
     <ZoomChips {...base} displayMul={1} showHalf={false} onSelect={() => {}} />
   );
   expect(queryByTestId('zoom-chip-0.5')).toBeNull();
@@ -34,7 +31,7 @@ test('无超广角(showHalf=false)只渲染 1 档,无 0.5', () => {
 
 test('点 0.5 档 → onSelect 传用户倍数 0.5', () => {
   const onSelect = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <ZoomChips {...base} showHalf onSelect={onSelect} />
   );
   fireEvent.press(getByTestId('zoom-chip-0.5'));
@@ -43,7 +40,7 @@ test('点 0.5 档 → onSelect 传用户倍数 0.5', () => {
 
 test('点 1 档 → onSelect 传用户倍数 1', () => {
   const onSelect = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <ZoomChips {...base} showHalf onSelect={onSelect} />
   );
   fireEvent.press(getByTestId('zoom-chip-1'));
@@ -54,7 +51,7 @@ test('点 1 档 → onSelect 传用户倍数 1', () => {
 // 高亮档 = display 值(toFixed(1)),非高亮档 = 静态 0.5 / 1.0(等长一位小数,消除闪烁)。
 // chip 文字现为只读 AnimatedTextInput(value 兜底初值,jest 用 getByDisplayValue 取)。
 test('display=1.0(vzf2×0.5):高亮 1 档文字=实时 1.0,0.5 档静态 0.5', () => {
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <ZoomChips {...base} showHalf onSelect={() => {}} />
   );
   // 1 档高亮 → 文字实时 = (2×0.5).toFixed(1) = '1.0'。
@@ -68,7 +65,7 @@ test('display=1.0(vzf2×0.5):高亮 1 档文字=实时 1.0,0.5 档静态 0.5', (
 });
 
 test('display=0.5(vzf1×0.5,最广):高亮 0.5 档文字=实时 0.5,1 档静态 1', () => {
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <ZoomChips
       {...base}
       zoomShared={{ value: 1 } as any}
@@ -87,7 +84,7 @@ test('display=0.5(vzf1×0.5,最广):高亮 0.5 档文字=实时 0.5,1 档静态 
 });
 
 test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档文字实时 0.7', () => {
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <ZoomChips
       {...base}
       zoomShared={{ value: 1.4 } as any}
@@ -102,7 +99,7 @@ test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档文字实时 0.7', () 
 });
 
 test('删除上方大号 readout 浮层(zoom-readout 不再渲染)', () => {
-  const { queryByTestId } = r(
+  const { queryByTestId } = renderDark(
     <ZoomChips {...base} showHalf onSelect={() => {}} />
   );
   expect(queryByTestId('zoom-readout')).toBeNull();
