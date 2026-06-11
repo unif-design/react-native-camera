@@ -25,9 +25,9 @@ export function PreviewOverlay({
   onBack,
   onDelete,
 }: Props) {
-  // 本地弹窗:删除二次确认 + "已保存" toast 走相机 Modal 内部 host
-  // (见 ../ui/CameraDialogHost),不走 design 全局 —— 后者会被相机 Modal 盖住。
-  const { confirm, toast } = useCameraDialog();
+  // 本地弹窗:删除二次确认走相机 Modal 内部 host(见 ../ui/CameraDialogHost),
+  // 不走 design 全局 —— 后者会被相机 Modal 盖住。
+  const { confirm } = useCameraDialog();
   const types = useMemo(() => distinctTypes(files), [files]);
   const [activeType, setActiveType] = useState<CameraModeName>(
     types[0] ?? 'single'
@@ -51,8 +51,8 @@ export function PreviewOverlay({
     if (index >= data.length && data.length > 0) setIndex(data.length - 1);
   }, [index, data.length]);
 
+  // 直接保存:onSave 会 settle 关闭相机 Modal,此处再弹 "已保存" toast 用户根本看不到(随 Modal 同帧卸载),故不弹。
   const handleSave = () => {
-    toast('已保存');
     onSave();
   };
   const handleDelete = async () => {

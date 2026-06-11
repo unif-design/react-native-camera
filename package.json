@@ -17,6 +17,7 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "files": [
     "src",
     "lib",
@@ -43,7 +44,7 @@
     "typecheck": "tsc",
     "release": "release-it --only-version",
     "test": "jest",
-    "lint": "eslint \"**/*.{js,ts,tsx}\""
+    "lint": "eslint \"**/*.{js,jsx,mjs,ts,tsx}\""
   },
   "keywords": [
     "react-native",

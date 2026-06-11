@@ -58,7 +58,7 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
   - `cameraMode: CameraMode[]` —— 每项 `{ mode: 'single' | 'continuous' | 'video', quality?, type?, flashMode?, recTime? }`。`type` 接线为初始前/后摄(首项生效);`flashMode` 接线为初始闪光(首项生效);`recTime` 接线为 vision-camera `maxDuration`(秒):到点原生自动停、视频自动入已拍列表(缺省不设=不自动停)。`quality` = JPEG 压缩 0~1,缺省 0.9。
   - `dataRetainedMode: 'clear' | 'retain'` —— 用户切换拍摄模式时已拍文件:`clear` 先二次确认(相机内本地 `confirm`,见下)再清空、且「单拍 + clear」拍完直接进确认预览;`retain` 累积不清。
   - `watermark?: WatermarkType` —— 见下。
-  - **拍摄质量(三个可选,全局)** —— `photoQualityPrioritization?: 'speed'|'balanced'|'quality'` / `photoHDR?: boolean` / `videoBitRate?: number`。**核心约定:缺省(不传)= 库不写入任何偏好,完全走 SDK 默认协商**(不替消费者写死取舍);只有显式传值才下发。`'speed'/'quality'` 在不支持的设备**自动安全降级**为 `'balanced'`(不 throw,见 `Camera.tsx` 的 `supportsSpeedQualityPrioritization` guard)。**与分辨率无关**:照片/录像分辨率已固定 UHD(见下「画幅」),不随这三字段变。
+  - **拍摄质量(三个可选,全局)** —— `photoQualityPrioritization?: 'speed'|'balanced'|'quality'` / `photoHDR?: boolean` / `videoBitRate?: number`。**核心约定:缺省(不传)= 库不写入任何偏好,完全走 SDK 默认协商**(不替消费者写死取舍);只有显式传值才下发。`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`(不 throw);`'quality'`/`'balanced'` 任何设备直传(质量优先与 speed 能力位无关,见 `Camera.tsx` guard)。**与分辨率无关**:照片/录像分辨率已固定 UHD(见下「画幅」),不随这三字段变。
 
 ### Result codes(`CameraResult.code`,在 `Container.tsx` 接线)
 

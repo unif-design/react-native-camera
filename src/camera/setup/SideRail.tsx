@@ -9,12 +9,11 @@ import {
   type ColorTokens,
   type IconName,
 } from '@unif/react-native-design';
-import type { FlashMode } from '../../utils';
-import { VIEWFINDER } from '../colors/viewfinder';
+import type { AspectRatio, FlashMode } from '../../utils';
+import { makeRailStyles } from './railStyles';
 
-// FlashMode 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
-export type { FlashMode };
-export type AspectRatio = '4:3' | '16:9';
+// FlashMode / AspectRatio 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
+export type { AspectRatio, FlashMode };
 
 type Props = {
   flash: FlashMode;
@@ -86,23 +85,7 @@ export function SideRail({
 
 const makeStyles = (c: ColorTokens) =>
   StyleSheet.create({
-    rail: {
-      gap: r(8),
-      padding: r(6),
-      paddingVertical: r(10),
-      borderRadius: r(26),
-      // 药丸浮在明亮取景上:半透明黑底物理常量(design glass token 是半透白,不适用)。
-      backgroundColor: VIEWFINDER.glassPill,
-      borderWidth: 1,
-      borderColor: c.glassSeparator,
-    },
-    btn: {
-      width: r(40),
-      height: r(40),
-      borderRadius: r(999),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    ...makeRailStyles(c),
     btnActive: { backgroundColor: c.primary },
     aspectTxt: { color: c.foreground, fontSize: t.xs, fontWeight: fw.semi },
   });

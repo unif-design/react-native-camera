@@ -29,7 +29,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
-import { pinchVzf } from './footer/zoomMath';
+import { pinchVzf } from './hooks/zoomMath';
 import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
@@ -120,17 +120,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const targetResolution = CommonResolutions.UHD_4_3;
 
   // 照片质量优先级:**缺省(未传)= 不写入该 option,让 SDK 用默认 'balanced'**(不替消费者写死)。
-  // 安全降级:d.ts 明确 'speed' 在不支持的设备 capture 会 throw;'quality' 一般都支持,但稳妥起见
-  // 同样在不支持 speed-prioritization 的老设备上保守降级。'balanced' 任何设备可传 → 直传。
-  // → 不支持时降级 'balanced' 而非 throw;返回 undefined 表示「不传该键」(下方按需展开,避免传 undefined)。
+  // 安全降级**仅对 'speed'**:d.ts 的 `supportsSpeedQualityPrioritization` 能力位**只关 'speed'**
+  // (不支持的设备传 'speed' 会 throw);'quality' / 'balanced' 任何设备都可直传、不该降级 —— 此前把
+  // 'quality' 也按该能力位降级 = 把消费者显式要的高质量无声劣化,与 SDK 语义不符。
+  // → 仅 'speed' 在不支持设备降 'balanced';undefined 表示「不传该键」(下方按需展开,避免传 undefined)。
   const resolvedQualityPrioritization =
     photoQualityPrioritization == null
       ? undefined
-      : photoQualityPrioritization === 'balanced'
+      : photoQualityPrioritization === 'speed' &&
+          !device.supportsSpeedQualityPrioritization
         ? 'balanced'
-        : device.supportsSpeedQualityPrioritization
-          ? photoQualityPrioritization
-          : 'balanced';
+        : photoQualityPrioritization;
 
   const photoOutput = usePhotoOutput({
     quality: currentMode.quality ?? 0.9,
@@ -173,9 +173,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
-  // pinch 进行态仅供手势内部用(onBegin 置 1、onFinalize 淡回 0):倍数已挪进高亮档药丸文字、
-  // 不再有外部「大号浮层」读它,故不再作为 prop 暴露;留着是因 Pinch 回调照常写它(无副作用)。
-  const pinchActive = useSharedValue(0);
   // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
   const pinchStartZoom = useSharedValue(NEUTRAL_ZOOM);
 
@@ -218,7 +215,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     .onBegin(() => {
       'worklet';
       pinchStartZoom.value = zoom.value;
-      pinchActive.value = 1;
     })
     .onUpdate((e) => {
       'worklet';
@@ -233,10 +229,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     .onEnd(() => {
       'worklet';
       if (onZoomEnd) runOnJS(onZoomEnd)(zoom.value);
-    })
-    .onFinalize(() => {
-      'worklet';
-      pinchActive.value = withTiming(0, { duration: 300 });
     });
 
   // pinch + 点击对焦同时识别(Simultaneous):双指缩放与单击对焦互不阻断。
@@ -354,6 +346,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         } catch (e) {
           console.warn('stopRecording failed', e);
           activeRecorderRef.current = null;
+          // 清 stale resolver:stop 失败后别留指向已弃 Promise 的回调(否则下次 finish 误兑现旧 Promise)。
+          finishResolverRef.current = null;
           return null;
         }
       },

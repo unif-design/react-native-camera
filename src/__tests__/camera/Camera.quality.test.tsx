@@ -88,6 +88,16 @@ describe('photoQualityPrioritization 接线', () => {
     ).not.toThrow();
     expect(lastOpts(usePhotoOutputMock).qualityPrioritization).toBe('balanced');
   });
+
+  it("传 'quality' 但设备不支持 speed → 仍直传 'quality'(quality 与 speed 能力无关、不降级)", () => {
+    // supportsSpeedQualityPrioritization 能力位只关 'speed';此前把 'quality' 也按它降级 =
+    // 把消费者显式要的高质量无声劣化,与 SDK 语义不符。'quality' 应任何设备直传。
+    renderCamera({
+      photoQualityPrioritization: 'quality',
+      supportsSpeed: false,
+    });
+    expect(lastOpts(usePhotoOutputMock).qualityPrioritization).toBe('quality');
+  });
 });
 
 describe('photoHDR 接线(constraints)', () => {

@@ -6,7 +6,7 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import { VIEWFINDER } from '../colors/viewfinder';
+import { makeRailStyles } from './railStyles';
 
 type Props = {
   /** 有照片时「保存」可点(橙底);无照片时保存常显但置灰 disabled。 */
@@ -48,23 +48,7 @@ export function SideActions({ canSave, onBack, onSave }: Props) {
 
 const makeStyles = (c: ColorTokens) =>
   StyleSheet.create({
-    rail: {
-      gap: r(8),
-      padding: r(6),
-      paddingVertical: r(10),
-      borderRadius: r(26),
-      // 药丸浮在明亮取景上:半透明黑底物理常量(design glass token 是半透白,不适用)。
-      backgroundColor: VIEWFINDER.glassPill,
-      borderWidth: 1,
-      borderColor: c.glassSeparator,
-    },
-    btn: {
-      width: r(40),
-      height: r(40),
-      borderRadius: r(999),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    ...makeRailStyles(c),
     save: { backgroundColor: c.primary },
     saveDisabled: { backgroundColor: c.glassSeparator },
   });

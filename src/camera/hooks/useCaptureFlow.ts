@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type RefObject } from 'react';
+import { cancelledResult } from '../../utils';
 import type {
   CameraMode,
   CameraResult,
@@ -30,13 +31,16 @@ type Params = {
 
 export type CaptureFlow = {
   photos: CustomPhotoFile[];
-  setPhotos: React.Dispatch<React.SetStateAction<CustomPhotoFile[]>>;
   previewing: boolean;
-  setPreviewing: React.Dispatch<React.SetStateAction<boolean>>;
   previewVariant: 'confirm' | 'gallery';
-  setPreviewVariant: React.Dispatch<
-    React.SetStateAction<'confirm' | 'gallery'>
-  >;
+  /** 打开多张预览(gallery):有照片才进。 */
+  openGallery: () => void;
+  /** 重拍:清空已拍 + 退出预览。 */
+  retake: () => void;
+  /** 删除预览中某张:删后若空则退出预览。 */
+  deletePhoto: (f: CustomPhotoFile) => void;
+  /** 退出预览(返回取景)。 */
+  closePreview: () => void;
   flashNonce: number;
   burning: boolean;
   /** 一次快门(capture/烧水印/录像 start·stop)处理中:快门按钮据此禁用,防连点。 */
@@ -154,7 +158,33 @@ export function useCaptureFlow({
     [markStopped]
   );
 
+  // 预览态迁移用具名方法暴露(收回裸 setter):预览状态机集中在 hook,Container 只调动作。
+  const openGallery = useCallback(() => {
+    if (photos.length > 0) {
+      setPreviewVariant('gallery');
+      setPreviewing(true);
+    }
+  }, [photos.length]);
+
+  const retake = useCallback(() => {
+    setPhotos([]);
+    setPreviewing(false);
+  }, []);
+
+  const deletePhoto = useCallback(
+    (f: CustomPhotoFile) => {
+      const next = photos.filter((x) => x !== f);
+      setPhotos(next);
+      if (next.length === 0) setPreviewing(false); // 删空 → 退出预览
+    },
+    [photos]
+  );
+
+  const closePreview = useCallback(() => setPreviewing(false), []);
+
   const onSelectMode = async (i: number) => {
+    // 在途快门(拍摄/烧水印)时不切模式:切模式会重挂 outputs,与在飞的 capture 相撞致失败。
+    if (capturingRef.current) return;
     if (i === modeIndex) return;
     if (config.dataRetainedMode === 'clear' && photos.length > 0) {
       const ok = await confirm({
@@ -169,6 +199,8 @@ export function useCaptureFlow({
 
   // 照片在快门后已逐张烧好,保存直接返回。
   const handleSave = () => {
+    // 在途快门(拍摄/烧水印)未完时不保存:否则 settle 的 photos 会漏掉在途那张(静默丢拍)。
+    if (capturingRef.current) return;
     settle({ code: 200, data: photos, message: 'ok' });
   };
 
@@ -180,16 +212,17 @@ export function useCaptureFlow({
       });
       if (!ok) return;
     }
-    settle({ code: 0, data: [], message: 'cancelled' });
+    settle(cancelledResult());
   };
 
   return {
     photos,
-    setPhotos,
     previewing,
-    setPreviewing,
     previewVariant,
-    setPreviewVariant,
+    openGallery,
+    retake,
+    deletePhoto,
+    closePreview,
     flashNonce,
     burning,
     capturing,

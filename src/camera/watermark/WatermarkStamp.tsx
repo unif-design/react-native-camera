@@ -44,7 +44,9 @@ export function WatermarkStamp({ watermark }: { watermark: WatermarkType }) {
 
 const makeStyles = (c: ColorTokens) =>
   StyleSheet.create({
-    root: { position: 'absolute', zIndex: 7 },
+    // 层级由外层 wrapper(Container 的 styles.watermark,zIndex: Z.overlay)统一提供 —— Stamp 自身
+    // 不写死 zIndex(此前 7 与 Z.overlay 重复);Stamp 在 wrapper 内按 position 六选一 absolute 定位。
+    root: { position: 'absolute' },
     line: {
       color: c.foreground,
       // 黑色描影:水印浮在任意照片上,白字 + 黑影保证可读(物理常量,非主题色)。

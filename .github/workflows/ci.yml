@@ -74,6 +74,7 @@ jobs:
               - '.github/workflows/ci.yml'  # CI 自身改动才重验(改 release/dependabot/模板/deploy-docs 不触发 build)
             js:
               - 'src/**'
+              - 'example/**'
             android:
               - 'android/**'
             ios:
@@ -92,6 +93,7 @@ jobs:
               - '.github/actions/**'        # 复合 setup action,影响所有 build
               - '.github/workflows/ci.yml'  # CI 自身改动才重验(改 release/dependabot/模板/deploy-docs 不触发 build)
               - 'src/**'
+              - 'example/**'
               - 'android/**'
               - 'ios/**'
               - '*.podspec'

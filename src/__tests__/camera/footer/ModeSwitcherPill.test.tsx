@@ -10,11 +10,15 @@ const items = [
 
 // 相机 Modal 强制 dark,ModeSwitcherPill 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
-it('selects by tap', () => {
+it('renders one pill per item (multi-mode) and selects by tap', () => {
   const onSelect = jest.fn();
   const { getByTestId } = renderDark(
     <ModeSwitcherPill items={items} currentIndex={1} onSelect={onSelect} />
   );
+  // 多模式 → 每项一个可点 pill(不退化为单 label):全部三档都在,非只渲染当前/被点档。
+  expect(getByTestId('mode-pill-0')).toBeTruthy();
+  expect(getByTestId('mode-pill-1')).toBeTruthy();
+  expect(getByTestId('mode-pill-2')).toBeTruthy();
   fireEvent.press(getByTestId('mode-pill-2'));
   expect(onSelect).toHaveBeenCalledWith(2);
 });

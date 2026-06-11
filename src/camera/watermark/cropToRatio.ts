@@ -1,6 +1,11 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import { Skia, ImageFormat } from '@shopify/react-native-skia';
-import type { SkData, SkImage, SkSurface } from '@shopify/react-native-skia';
+import type {
+  SkData,
+  SkImage,
+  SkSurface,
+  SkPaint,
+} from '@shopify/react-native-skia';
 import type { CustomPhotoFile } from '../../utils';
 import { toFileUri } from '../../utils';
 
@@ -24,6 +29,7 @@ export async function cropToRatio(
   let image: SkImage | null = null;
   let surface: SkSurface | null = null;
   let snapshot: SkImage | null = null;
+  let paint: SkPaint | null = null;
   try {
     const base64 = await RNFS.readFile(file.path, 'base64');
     data = Skia.Data.fromBase64(base64);
@@ -52,12 +58,14 @@ export async function cropToRatio(
     surface = Skia.Surface.MakeOffscreen(cropW, cropH);
     if (!surface) return file;
     const canvas = surface.getCanvas();
-    const paint = Skia.Paint();
+    // 局部 const(类型非空)供绘制,同时存进 let 供 finally 逆序 dispose —— 免非空断言。
+    const p = Skia.Paint();
+    paint = p;
     canvas.drawImageRect(
       image,
       Skia.XYWHRect(offsetX, offsetY, cropW, cropH),
       Skia.XYWHRect(0, 0, cropW, cropH),
-      paint
+      p
     );
 
     snapshot = surface.makeImageSnapshot();
@@ -74,7 +82,8 @@ export async function cropToRatio(
   } catch {
     return file;
   } finally {
-    // 释放 Skia native 对象(按依赖逆序),避免全分辨率大图反复裁后内存增长/OOM
+    // 释放 Skia native 对象(按依赖逆序,后创建的先释放),避免全分辨率大图反复裁后内存增长/OOM
+    paint?.dispose();
     snapshot?.dispose();
     surface?.dispose();
     image?.dispose();

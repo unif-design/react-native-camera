@@ -253,8 +253,9 @@ jest.mock('@shopify/react-native-skia', () => {
       Font: jest.fn(() => ({
         getTextWidth: () => 100,
         measureText: () => ({ width: 100 }),
+        dispose: noop,
       })),
-      Paint: jest.fn(() => ({ setColor: jest.fn() })),
+      Paint: jest.fn(() => ({ setColor: jest.fn(), dispose: noop })),
       Color: jest.fn(() => 0),
       // 裁切(cropToRatio)用:返回带 x/y/width/height 的 rect 桩(drawImageRect 消费它)。
       XYWHRect: jest.fn((x: number, y: number, w: number, h: number) => ({

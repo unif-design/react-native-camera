@@ -1,12 +1,16 @@
 import { fireEvent, within } from '@testing-library/react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import { renderDark } from '../../__helpers__/renderDark';
 import { ZoomChips } from '../../../camera/footer/ZoomChips';
 
 // 相机 Modal 强制 dark,ZoomChips 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
-// jest 下 useSharedValue 桩返 {value};zoomShared 直接造对象传入(pinching 已从 props 移除)。
+// jest 下 useSharedValue 桩返 {value};zoomShared 直接造 {value} 桩传入(pinching 已从 props 移除)。
+// 桩只需 .value 字段,故 as unknown as SharedValue<number>(不引入完整 SharedValue 形状)。
+const sharedStub = (value: number) =>
+  ({ value }) as unknown as SharedValue<number>;
 const base = {
-  zoomShared: { value: 2 } as any, // vzf=2 → 后置 display=1.0x
+  zoomShared: sharedStub(2), // vzf=2 → 后置 display=1.0x
   displayMul: 0.5,
 };
 
@@ -68,7 +72,7 @@ test('display=0.5(vzf1×0.5,最广):高亮 0.5 档文字=实时 0.5,1 档静态 
   const { getByTestId } = renderDark(
     <ZoomChips
       {...base}
-      zoomShared={{ value: 1 } as any}
+      zoomShared={sharedStub(1)}
       showHalf
       onSelect={() => {}}
     />
@@ -87,7 +91,7 @@ test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档文字实时 0.7', () 
   const { getByTestId } = renderDark(
     <ZoomChips
       {...base}
-      zoomShared={{ value: 1.4 } as any}
+      zoomShared={sharedStub(1.4)}
       showHalf
       onSelect={() => {}}
     />
