@@ -5,6 +5,7 @@ import type {
   CustomPhotoFile,
   WatermarkType,
 } from '../utils';
+import { makePhotoFile } from './__helpers__/factories';
 
 it('CameraMode accepts original fields (type/flashMode/quality/recTime)', () => {
   const m: CameraMode = {
@@ -37,17 +38,13 @@ it('OpenConfig requires cameraMode and dataRetainedMode', () => {
 });
 
 it('CustomPhotoFile carries original + 2.x fields (union)', () => {
-  const f: CustomPhotoFile = {
+  const f: CustomPhotoFile = makePhotoFile({
     id: '1700000000000-0',
-    cameraType: 'back',
-    cameraMode: 'single',
     path: '/tmp/x.jpg',
     uri: 'file:///tmp/x.jpg',
     width: 100,
     height: 100,
-    mime: 'image/jpeg',
-    mode: 'single',
-  };
+  });
   expect(f.mime).toBe('image/jpeg');
   expect(f.cameraMode).toBe(f.mode);
 });

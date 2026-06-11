@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { CustomPhotoFile } from '../../../utils';
 import type { CameraHandle } from '../../../camera/Camera';
 import { useVideoRecorder } from '../../../camera/hooks/useVideoRecorder';
+import { makePhotoFile } from '../../__helpers__/factories';
 
 function makeRef(
   handle: Partial<CameraHandle>
@@ -10,18 +11,15 @@ function makeRef(
   return { current: handle as CameraHandle };
 }
 
-const fakeVideo: CustomPhotoFile = {
+const fakeVideo: CustomPhotoFile = makePhotoFile({
   id: 'v1',
-  cameraType: 'back',
-  cameraMode: 'video',
+  mode: 'video',
   path: '/tmp/v.mp4',
   uri: 'file:///tmp/v.mp4',
   width: 1920,
   height: 1080,
-  mime: 'video/mp4',
-  mode: 'video',
   duration: 3,
-};
+});
 
 afterEach(() => {
   jest.useRealTimers();

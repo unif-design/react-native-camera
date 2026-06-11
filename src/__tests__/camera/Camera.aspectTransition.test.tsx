@@ -1,9 +1,9 @@
-import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import { ThemeProvider } from '@unif/react-native-design';
 import { Camera } from '../../camera/Camera';
 import type { CameraMode } from '../../utils';
 import type { AspectRatio } from '../../camera/setup';
+import { renderDark } from '../__helpers__/renderDark';
+import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
 // 画幅切换「原生系统相机式」(取景框高度动画 + cover 跟随缩放、**无黑色转场遮罩**)的结构断言:
 // 直接渲染 <Camera>(绕过 Container),验证取景框不再硬跳 aspectRatio、而是由 height 驱动伸缩,
@@ -15,34 +15,19 @@ import type { AspectRatio } from '../../camera/setup';
 
 const singleMode: CameraMode = { mode: 'single' };
 
-function makeDevice() {
-  return {
-    id: 'dev-back',
-    position: 'back' as const,
-    minZoom: 1,
-    maxZoom: 8,
-    supportsFocusMetering: true,
-    hasFlash: true,
-    supportsSpeedQualityPrioritization: true,
-    zoomLensSwitchFactors: [2],
-  };
-}
-
 function renderCamera(aspectRatio: AspectRatio = '4:3') {
-  return render(
-    <ThemeProvider forceScheme="dark">
-      <Camera
-        device={makeDevice() as never}
-        currentMode={singleMode}
-        isActive={false}
-        aspectRatio={aspectRatio}
-      />
-    </ThemeProvider>
+  return renderDark(
+    <Camera
+      device={makeDeviceStub() as never}
+      currentMode={singleMode}
+      isActive={false}
+      aspectRatio={aspectRatio}
+    />
   );
 }
 
 /** 取景框 = 包住 VisionCamera 的最近父 View(Animated.View 在 jest 下渲染成普通 View)。 */
-function getFrameStyle(root: ReturnType<typeof render>['UNSAFE_root']) {
+function getFrameStyle(root: ReturnType<typeof renderDark>['UNSAFE_root']) {
   const vc = root.findByProps({ nativeID: 'vision-camera' });
   const frame = vc.parent;
   return StyleSheet.flatten(frame?.props.style);

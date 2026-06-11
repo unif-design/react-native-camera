@@ -14,6 +14,77 @@ export const VC_COMMON_RESOLUTIONS = {
 
 type VcOverrides = Record<string, unknown>;
 
+type DeviceStub = {
+  id: string;
+  position: 'back' | 'front';
+  minZoom: number;
+  maxZoom: number;
+  supportsFocusMetering: boolean;
+  hasFlash: boolean;
+  supportsSpeedQualityPrioritization: boolean;
+  isVirtualDevice: boolean;
+  zoomLensSwitchFactors: number[];
+  physicalDevices: string[];
+};
+
+/**
+ * 最小 CameraDevice 桩(取景路径只读这几字段:position/min-maxZoom/switchFactors/
+ * supportsFocusMetering/hasFlash/supportsSpeedQualityPrioritization,Container 另读
+ * physicalDevices/isVirtualDevice 判超广角)。各测试此前各自内联一份 makeDevice,字段/默认略异;
+ * 收敛成参数化工厂,默认对齐「后置带超广角(dual)」真机形态,差异走 overrides。
+ *
+ * 缺省按 `position` 派生 `hasFlash`(前摄常无闪光)/ `isVirtualDevice` /
+ * `zoomLensSwitchFactors`(back=[2] 超广角、front=[])/ `physicalDevices`,故 `makeDeviceStub({ position })`
+ * 即复刻整套前/后摄差异;需固定单字段时直接覆盖。返回普通对象,调用方按需 `as never` / `as CameraDevice`。
+ *
+ * 在 jest.mock 工厂内用须 **工厂内 require**(`require('…/visionCameraMock').makeDeviceStub(…)`),
+ * 不能闭包捕获(babel 提升 jest.mock 到 import 上)。
+ */
+export function makeDeviceStub(
+  overrides: Partial<DeviceStub> = {}
+): DeviceStub {
+  const position = overrides.position ?? 'back';
+  const isBack = position === 'back';
+  // 跳过值为 undefined 的 override:对齐各原桩的 `over.x ?? default` 语义
+  // (如 supportsSpeed 缺省回退 true),避免显式 undefined 覆盖掉派生默认值。
+  const defined = Object.fromEntries(
+    Object.entries(overrides).filter(([, v]) => v !== undefined)
+  );
+  return {
+    id: `dev-${position}`,
+    position,
+    minZoom: 1,
+    maxZoom: 8,
+    supportsFocusMetering: true,
+    hasFlash: isBack,
+    supportsSpeedQualityPrioritization: true,
+    isVirtualDevice: isBack,
+    zoomLensSwitchFactors: isBack ? [2] : [],
+    physicalDevices: isBack
+      ? ['ultra-wide-angle', 'wide-angle']
+      : ['wide-angle'],
+    ...defined,
+  };
+}
+
+/**
+ * granted 权限的 overrides(相机 + 麦克风都已授权)——给 `makeVisionCameraMock` 用,
+ * 让 Container 走到 device-ready。各测试此前各自内联同一份 useCameraPermission/useMicrophonePermission。
+ * 在 jest.mock 工厂内同样须工厂内 require(见 makeDeviceStub)。
+ */
+export function grantedPermissionOverrides(): VcOverrides {
+  return {
+    useCameraPermission: () => ({
+      hasPermission: true,
+      requestPermission: () => Promise.resolve(true),
+    }),
+    useMicrophonePermission: () => ({
+      hasPermission: true,
+      requestPermission: () => Promise.resolve(true),
+    }),
+  };
+}
+
 /**
  * vision-camera 的 jest mock 基底;传 overrides 覆盖需要定制的 hook(device/permission 等)。
  *

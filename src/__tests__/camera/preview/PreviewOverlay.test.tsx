@@ -1,35 +1,25 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent, waitFor } from '@testing-library/react-native';
 import { PreviewOverlay } from '../../../camera/preview/PreviewOverlay';
 import { CameraDialogProvider } from '../../../camera/ui/CameraDialogHost';
 import type { CustomPhotoFile } from '../../../utils';
+import { renderDark } from '../../__helpers__/renderDark';
+import { makePhotoFile } from '../../__helpers__/factories';
 
 // PreviewOverlay 现用 useCameraDialog()(本地 confirm/toast),渲染必须包
-// CameraDialogProvider(+ design ThemeProvider 提供 useColors),否则 hook 抛错。
-// forceScheme="dark" 对齐相机 Modal 运行时(强制深色)。
+// CameraDialogProvider(renderDark 提供 design ThemeProvider/useColors + forceScheme="dark"
+// 对齐相机 Modal 运行时),否则 hook 抛错。
 const renderPreview = (ui: ReactElement) =>
-  render(
-    <ThemeProvider forceScheme="dark">
-      <CameraDialogProvider>{ui}</CameraDialogProvider>
-    </ThemeProvider>
-  );
+  renderDark(<CameraDialogProvider>{ui}</CameraDialogProvider>);
 
-const f = (
-  cameraMode: CustomPhotoFile['cameraMode'],
-  id: string
-): CustomPhotoFile => ({
-  id,
-  cameraType: 'back',
-  cameraMode,
-  path: `/${id}`,
-  uri: `file:///${id}`,
-  width: 1,
-  height: 1,
-  mime: cameraMode === 'video' ? 'video/mp4' : 'image/jpeg',
-  mode: cameraMode,
-});
+const f = (cameraMode: CustomPhotoFile['cameraMode'], id: string) =>
+  makePhotoFile({
+    id,
+    mode: cameraMode,
+    path: `/${id}`,
+    uri: `file:///${id}`,
+  });
 
 const noop = {
   onRetake: () => {},

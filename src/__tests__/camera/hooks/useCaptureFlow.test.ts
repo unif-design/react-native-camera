@@ -5,6 +5,7 @@ import type { AspectRatio } from '../../../camera/setup';
 import type { CameraHandle } from '../../../camera/Camera';
 import { useCaptureFlow } from '../../../camera/hooks/useCaptureFlow';
 import { cropToRatio, burnWatermark } from '../../../camera/watermark';
+import { makePhotoFile } from '../../__helpers__/factories';
 
 // 出图 16:9 裁切 / 烧水印的接线断言:mock 掉 watermark 管线,只验证 onShutter **是否调用**
 // 它们(裁切 / 烧水印的实现各有专属单测,这里不重复测内容)。默认透传 file。
@@ -21,17 +22,15 @@ function makeRef(
   return { current: handle as CameraHandle };
 }
 
-const photo = (id: string): CustomPhotoFile => ({
-  id,
-  cameraType: 'back',
-  cameraMode: 'continuous',
-  path: `/tmp/${id}.jpg`,
-  uri: `file:///tmp/${id}.jpg`,
-  width: 100,
-  height: 100,
-  mime: 'image/jpeg',
-  mode: 'continuous',
-});
+const photo = (id: string): CustomPhotoFile =>
+  makePhotoFile({
+    id,
+    mode: 'continuous',
+    path: `/tmp/${id}.jpg`,
+    uri: `file:///tmp/${id}.jpg`,
+    width: 100,
+    height: 100,
+  });
 
 // 连拍 + retain:不进自动预览分支、无水印 → 不依赖 burnWatermark,纯测快门编排。
 const config: OpenConfig = {

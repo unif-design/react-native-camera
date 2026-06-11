@@ -1,20 +1,14 @@
 import { distinctTypes, filesOfType } from '../../../camera/preview/groupTypes';
 import type { CustomPhotoFile } from '../../../utils';
+import { makePhotoFile } from '../../__helpers__/factories';
 
-const f = (
-  cameraMode: CustomPhotoFile['cameraMode'],
-  id: string
-): CustomPhotoFile => ({
-  id,
-  cameraType: 'back',
-  cameraMode,
-  path: `/${id}.jpg`,
-  uri: `file:///${id}.jpg`,
-  width: 1,
-  height: 1,
-  mime: cameraMode === 'video' ? 'video/mp4' : 'image/jpeg',
-  mode: cameraMode,
-});
+const f = (cameraMode: CustomPhotoFile['cameraMode'], id: string) =>
+  makePhotoFile({
+    id,
+    mode: cameraMode,
+    path: `/${id}.jpg`,
+    uri: `file:///${id}.jpg`,
+  });
 
 it('distinctTypes 按 连拍/单拍/视频 顺序去重', () => {
   const files = [

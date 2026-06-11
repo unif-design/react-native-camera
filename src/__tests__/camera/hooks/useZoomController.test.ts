@@ -4,6 +4,7 @@ import {
   useZoomController,
   type ZoomController,
 } from '../../../camera/hooks/useZoomController';
+import { makeDeviceStub } from '../../__helpers__/visionCameraMock';
 
 type DeviceProps = { device: CameraDevice | undefined };
 
@@ -12,16 +13,18 @@ type DeviceProps = { device: CameraDevice | undefined };
 // (useSharedValue→{value}):故重点测 displayMul 数学 + 设备切换 clamp。
 // 注:pinch 实时回写已不走 useAnimatedReaction→setZoom(性能根治,见 useZoomController),
 // zoom state 仅手势结束/点击档/设备切换更新。
+// 薄适配:把本测试的 switchFactors 映射到 makeDeviceStub 的 zoomLensSwitchFactors;
+// stub 多出的字段 useZoomController 不读,行为不变。
 function makeDevice(p: {
   minZoom: number;
   maxZoom: number;
   switchFactors: number[];
 }): CameraDevice {
-  return {
+  return makeDeviceStub({
     minZoom: p.minZoom,
     maxZoom: p.maxZoom,
     zoomLensSwitchFactors: p.switchFactors,
-  } as unknown as CameraDevice;
+  }) as unknown as CameraDevice;
 }
 
 describe('displayMul / min-maxDisplay 推导', () => {

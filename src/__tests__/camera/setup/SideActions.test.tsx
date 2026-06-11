@@ -1,15 +1,12 @@
-import type { ReactElement } from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { fireEvent } from '@testing-library/react-native';
+import { renderDark } from '../../__helpers__/renderDark';
 import { SideActions } from '../../../camera/setup/SideActions';
 
-// 相机 Modal 强制 dark,SideActions 用 useColors/useThemedStyles —— 包 dark Provider 对齐运行时。
-const r = (ui: ReactElement) =>
-  render(<ThemeProvider forceScheme="dark">{ui}</ThemeProvider>);
+// 相机 Modal 强制 dark,SideActions 用 useColors/useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
 it('返回按钮触发 onBack', () => {
   const onBack = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <SideActions canSave={false} onBack={onBack} onSave={() => {}} />
   );
   fireEvent.press(getByTestId('side-back-btn'));
@@ -18,7 +15,7 @@ it('返回按钮触发 onBack', () => {
 
 it('canSave=false 保存按钮常显但 disabled,点击不触发 onSave', () => {
   const onSave = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <SideActions canSave={false} onBack={() => {}} onSave={onSave} />
   );
   const save = getByTestId('side-save-btn');
@@ -30,7 +27,7 @@ it('canSave=false 保存按钮常显但 disabled,点击不触发 onSave', () => 
 
 it('canSave=true 渲染保存按钮并触发 onSave', () => {
   const onSave = jest.fn();
-  const { getByTestId } = r(
+  const { getByTestId } = renderDark(
     <SideActions canSave onBack={() => {}} onSave={onSave} />
   );
   const save = getByTestId('side-save-btn');
