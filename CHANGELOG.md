@@ -1,5 +1,7 @@
 # Changelog
 
+## [2.20.3](https://github.com/unif-design/react-native-camera/compare/v2.20.2...v2.20.3) (2026-06-11)
+
 ## [2.20.2](https://github.com/unif-design/react-native-camera/compare/v2.20.1...v2.20.2) (2026-06-11)
 
 
