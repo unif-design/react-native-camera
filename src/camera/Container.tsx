@@ -120,6 +120,7 @@ export function Container({ config, onSettle }: Props) {
     closePreview,
     flashNonce,
     burning,
+    freezeUri,
     capturing,
     recording,
     recSeconds,
@@ -220,6 +221,8 @@ export function Container({ config, onSettle }: Props) {
         // 预览态由上方 previewing 分支整体卸载 Camera(不靠此 gate);Modal 不可见时
         // Container 根本不挂载,故无需额外可见性 prop。
         isActive={appActive && !burning}
+        // 烧水印期间盖刚拍原图防黑屏(isActive=false 取景已停,被它盖住);见顺滑回看 spec。
+        frozenUri={freezeUri}
         flash={flash}
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
@@ -297,44 +300,48 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
+      {/* 烧水印「顺滑回看」:取景已被定格帧盖住(见 Camera frozenUri),这里在其上叠居中
+          非阻塞「生成中」提示;footer 不再整段替换(模式药丸恒定,不卸载 → 不跳档)。 */}
+      {burning && (
+        <View
+          style={styles.burningOverlay}
+          pointerEvents="none"
+          testID="burning"
+        >
+          <Loading />
+          <Text style={styles.burningText}>水印生成中…</Text>
+        </View>
+      )}
+
       <CaptureFlash trigger={flashNonce} />
 
       <View
         style={[styles.bottom, { paddingBottom: insets.bottom + r(1) }]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
-        {burning ? (
-          <View style={styles.burningFooter} testID="burning">
-            <Loading />
-            <Text style={styles.burningText}>正在生成水印图片…</Text>
+        {recording ? (
+          <View style={styles.center}>
+            <RecordingTimer seconds={recSeconds} />
           </View>
         ) : (
-          <>
-            {recording ? (
-              <View style={styles.center}>
-                <RecordingTimer seconds={recSeconds} />
-              </View>
-            ) : (
-              <View style={styles.center}>
-                <ModeSwitcherPill
-                  items={modeItems}
-                  currentIndex={modeIndex}
-                  onSelect={onSelectMode}
-                />
-              </View>
-            )}
-            <ActionRow
-              mode={currentMode.mode}
-              recording={recording}
-              shutterDisabled={capturing}
-              latestUri={photos.at(-1)?.uri}
-              count={photos.length}
-              onShutter={onShutter}
-              onFlip={onFlip}
-              onOpenPreview={openGallery}
+          <View style={styles.center}>
+            <ModeSwitcherPill
+              items={modeItems}
+              currentIndex={modeIndex}
+              onSelect={onSelectMode}
             />
-          </>
+          </View>
         )}
+        <ActionRow
+          mode={currentMode.mode}
+          recording={recording}
+          shutterDisabled={capturing}
+          latestUri={photos.at(-1)?.uri}
+          count={photos.length}
+          onShutter={onShutter}
+          onFlip={onFlip}
+          onOpenPreview={openGallery}
+        />
       </View>
     </View>
   );
@@ -386,11 +393,17 @@ const makeStyles = (c: ColorTokens) =>
       zIndex: Z.footer,
     },
     center: { alignItems: 'center' },
-    burningFooter: {
+    // 「生成中」覆盖层:绝对铺满、居中,盖在取景(被定格帧盖住的画面)之上、footer 之下。
+    burningOverlay: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
       alignItems: 'center',
       justifyContent: 'center',
       gap: r(8),
-      paddingVertical: r(16),
+      zIndex: Z.overlay,
     },
     burningText: { color: c.foreground, fontSize: t.sm },
   });

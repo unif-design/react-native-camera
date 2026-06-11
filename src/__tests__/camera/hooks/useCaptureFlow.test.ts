@@ -311,3 +311,44 @@ describe('在途快门禁用保存(防丢拍)', () => {
     });
   });
 });
+
+describe('定格回看 freezeUri', () => {
+  it('烧水印期间 freezeUri = 刚拍 uri;烧完后清回 null', async () => {
+    // crop 挂起 → 停在 burning 态断言 freezeUri;再 resolve 走完(含最小定格时长)断言清空。
+    let resolveCrop!: (f: CustomPhotoFile) => void;
+    cropToRatioMock.mockImplementationOnce(
+      () =>
+        new Promise<CustomPhotoFile>((res) => {
+          resolveCrop = res;
+        })
+    );
+    const captured = photo('p1'); // uri = file:///tmp/p1.jpg
+    const capture = jest.fn().mockResolvedValue(captured);
+    const { result } = setup(capture, { aspectRatio: '16:9' });
+
+    let shutter!: Promise<void>;
+    await act(async () => {
+      shutter = result.current.onShutter();
+      await Promise.resolve(); // 让 capture 跑完、进入裁切(cropToRatio 此刻挂起)
+    });
+    expect(result.current.burning).toBe(true);
+    expect(result.current.freezeUri).toBe(captured.uri);
+
+    await act(async () => {
+      resolveCrop(captured);
+      await shutter; // 含 MIN_FREEZE_MS 最小定格(真实约 200ms)
+    });
+    expect(result.current.burning).toBe(false);
+    expect(result.current.freezeUri).toBeNull();
+  });
+
+  it('无裁切无水印 → 不进定格(freezeUri 始终 null)', async () => {
+    const capture = jest.fn().mockResolvedValue(photo('p1'));
+    const { result } = setup(capture, { aspectRatio: '4:3' }); // 4:3 不裁、默认无水印
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(result.current.freezeUri).toBeNull();
+    expect(result.current.photos).toHaveLength(1);
+  });
+});

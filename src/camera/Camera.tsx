@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -49,6 +49,9 @@ type Props = {
   isActive?: boolean;
   flash?: FlashMode;
   aspectRatio?: AspectRatio;
+  // 烧水印「顺滑回看」:非空时在取景框内盖一张刚拍原图(定格帧),撤掉(转 undefined/null)瞬间
+  // 与实时画面同框同位、无缝。放进取景框内 → 自动继承 frameStyle 尺寸/cover/裁切。
+  frozenUri?: string | null;
   zoomShared?: SharedValue<number>;
   // 是否启用双指 pinch 变焦:前摄定焦(position==='front')传 false → 只剩点击对焦。
   enableZoom?: boolean;
@@ -74,6 +77,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     isActive = true,
     flash,
     aspectRatio,
+    frozenUri,
     zoomShared,
     enableZoom = true,
     softMaxZoom,
@@ -436,6 +440,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               key={`${focusPoint.x}-${focusPoint.y}`}
               point={focusPoint}
               onAnimationEnd={() => setFocusPoint(null)}
+            />
+          )}
+          {frozenUri != null && (
+            <Image
+              source={{ uri: frozenUri }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+              testID="frozen-frame"
             />
           )}
         </Animated.View>
