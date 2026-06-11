@@ -26,6 +26,6 @@ export function SlideItem({ file }: { file: CustomPhotoFile }) {
 
 const styles = StyleSheet.create({
   // 相机 slide 固定黑底:让图/视频在纯黑上凸显的 UX 惯例,不走 c.background token.
-  root: { flex: 1, backgroundColor: '#000' },
+  root: { flex: 1, backgroundColor: VIEWFINDER.black },
   canvas: { flex: 1, backgroundColor: VIEWFINDER.previewCanvas },
 });

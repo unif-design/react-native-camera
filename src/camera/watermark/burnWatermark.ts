@@ -1,6 +1,12 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import { Skia, ImageFormat } from '@shopify/react-native-skia';
-import type { SkData, SkImage, SkSurface } from '@shopify/react-native-skia';
+import type {
+  SkData,
+  SkImage,
+  SkSurface,
+  SkFont,
+  SkPaint,
+} from '@shopify/react-native-skia';
 import type { CustomPhotoFile, WatermarkType } from '../../utils';
 import { toFileUri } from '../../utils';
 import { computeWatermarkLayout } from './layout';
@@ -19,6 +25,8 @@ export async function burnWatermark(
   let image: SkImage | null = null;
   let surface: SkSurface | null = null;
   let snapshot: SkImage | null = null;
+  let font: SkFont | null = null;
+  let paint: SkPaint | null = null;
   try {
     const base64 = await RNFS.readFile(file.path, 'base64');
     data = Skia.Data.fromBase64(base64);
@@ -32,9 +40,12 @@ export async function burnWatermark(
     canvas.drawImage(image, 0, 0);
 
     const L = computeWatermarkLayout(w, wm);
-    const font = Skia.Font(undefined, L.fontSize);
-    const paint = Skia.Paint();
-    paint.setColor(Skia.Color('white'));
+    // 局部 const(类型非空)供绘制用,同时存进上面的 let 供 finally 逆序 dispose —— 免非空断言。
+    const f = Skia.Font(undefined, L.fontSize);
+    const p = Skia.Paint();
+    p.setColor(Skia.Color('white'));
+    font = f;
+    paint = p;
 
     const lineH = L.fontSize + L.lineGap;
     const startY =
@@ -42,14 +53,14 @@ export async function burnWatermark(
         ? L.pad + L.fontSize
         : h - L.pad - (L.content.length - 1) * lineH;
     L.content.forEach((line, i) => {
-      const tw = font.measureText(line).width;
+      const tw = f.measureText(line).width;
       const x =
         L.align === 'left'
           ? L.pad
           : L.align === 'right'
             ? w - L.pad - tw
             : (w - tw) / 2;
-      canvas.drawText(line, x, startY + i * lineH, paint, font);
+      canvas.drawText(line, x, startY + i * lineH, p, f);
     });
 
     snapshot = surface.makeImageSnapshot();
@@ -60,7 +71,9 @@ export async function burnWatermark(
   } catch {
     return file;
   } finally {
-    // 释放 Skia native 对象(按依赖逆序),避免全分辨率大图反复烧图后内存增长/OOM
+    // 释放 Skia native 对象(按依赖逆序,后创建的先释放),避免全分辨率大图反复烧图后内存增长/OOM
+    paint?.dispose();
+    font?.dispose();
     snapshot?.dispose();
     surface?.dispose();
     image?.dispose();

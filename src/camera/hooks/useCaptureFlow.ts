@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type RefObject } from 'react';
+import { cancelledResult } from '../../utils';
 import type {
   CameraMode,
   CameraResult,
@@ -180,7 +181,7 @@ export function useCaptureFlow({
       });
       if (!ok) return;
     }
-    settle({ code: 0, data: [], message: 'cancelled' });
+    settle(cancelledResult());
   };
 
   return {

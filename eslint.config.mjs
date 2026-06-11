@@ -24,6 +24,15 @@ export default defineConfig([
     },
   },
   {
+    // @react-native preset 锁 ecmaVersion 2015,解析不了本配置文件里的 import.meta(需 ≥2020)。
+    // 给纯 ESM 配置/脚本(.mjs)单独抬到 latest,否则把 .mjs 纳入 lint glob 会 "Unexpected token import"。
+    files: ['**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+  },
+  {
     ignores: ['node_modules/', 'lib/', 'website/'],
   },
 ]);

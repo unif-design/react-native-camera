@@ -17,18 +17,23 @@
 //                         mime: 'image/jpeg', mode: 'single' }], message: 'ok',
 //   });
 
-import type { CameraApi, CameraResult } from './utils';
+import { useRef } from 'react';
+import { cancelledResult } from './utils';
+import type { CameraApi } from './utils';
 
-// 类型 + 纯工具函数(toFileUri / buildPhotoFile / depsAreSame / pxToDp)保留真实实现 ——
+// 类型 + 纯工具函数(toFileUri / buildPhotoFile / depsAreSame / pxToDp / cancelledResult)保留真实实现 ——
 // 它们不碰 native,消费者测试里跑真实逻辑比 mock 更有意义。
 export * from './utils';
 
-const cancelled: CameraResult = { code: 0, data: [], message: 'cancelled' };
-
 export function useCamera(): [CameraApi, null] {
-  const api: CameraApi = {
-    open: jest.fn(async () => cancelled) as CameraApi['open'],
-    close: jest.fn() as CameraApi['close'],
-  };
+  // api 用 useRef 固定(对齐真实 useCamera 的 useMemo 稳定):每次渲染返回**同一** api 对象,
+  // 消费者 `useEffect(..., [api])` 不会反复触发,`mockResolvedValueOnce` 也不会因重渲被新 jest.fn 顶掉。
+  const apiRef = useRef<CameraApi | null>(null);
+  const api =
+    apiRef.current ??
+    (apiRef.current = {
+      open: jest.fn(async () => cancelledResult()) as CameraApi['open'],
+      close: jest.fn() as CameraApi['close'],
+    });
   return [api, null];
 }

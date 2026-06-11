@@ -8,6 +8,7 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
+import { cancelledResult } from '../utils';
 import type { CameraResult, OpenConfig } from '../utils';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { useAppActive } from './hooks/useAppActive';
@@ -69,7 +70,7 @@ export function Container({ config, onSettle }: Props) {
   useEffect(
     () => () => {
       if (!settledRef.current) {
-        onSettle({ code: 0, data: [], message: 'cancelled' });
+        onSettle(cancelledResult());
         settledRef.current = true;
       }
     },

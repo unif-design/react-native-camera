@@ -120,15 +120,11 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
       lastErrorAt.current = now;
       setErrorMsg(msg);
       errorAnim.value = withTiming(1, { duration: 220 });
-      // 重复触发先清旧定时器,再排 4s 自动消失。
+      // 重复触发先清旧定时器,再排 4s 自动消失(到点复用 dismissError 的收起逻辑,不重复实现)。
       if (errorTimer.current) clearTimeout(errorTimer.current);
-      errorTimer.current = setTimeout(() => {
-        errorAnim.value = withTiming(0, { duration: 180 });
-        setErrorMsg(null);
-        errorTimer.current = null;
-      }, ERROR_AUTO_DISMISS_MS);
+      errorTimer.current = setTimeout(dismissError, ERROR_AUTO_DISMISS_MS);
     },
-    [errorAnim]
+    [errorAnim, dismissError]
   );
 
   // 卸载时清掉 toast / error 定时器,避免对已卸载组件 setState。

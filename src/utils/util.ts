@@ -1,4 +1,14 @@
-import type { CustomPhotoFile, CameraModeName, CameraType } from './interface';
+import type {
+  CustomPhotoFile,
+  CameraModeName,
+  CameraType,
+  CameraResult,
+} from './interface';
+
+/** 取消/关闭的标准结果(code 0、空 data)。统一各处散落的 `{code:0,data:[],message:'cancelled'}` 字面量。 */
+export function cancelledResult(): CameraResult {
+  return { code: 0, data: [], message: 'cancelled' };
+}
 
 export function toFileUri(path: string): string {
   if (path.startsWith('file://')) return path;
