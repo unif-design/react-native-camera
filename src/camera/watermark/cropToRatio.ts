@@ -80,6 +80,7 @@ export async function cropToRatio(
       height: cropH,
     };
   } catch {
+    // 解码/分配/读写任何异常都返原图,绝不阻断保存(红线同水印烧录)。
     return file;
   } finally {
     // 释放 Skia native 对象(按依赖逆序,后创建的先释放),避免全分辨率大图反复裁后内存增长/OOM

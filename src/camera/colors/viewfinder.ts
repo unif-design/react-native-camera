@@ -5,6 +5,9 @@ export const VIEWFINDER = {
   black: '#000',
   glassPill: 'rgba(0,0,0,0.42)',
   glassPillStrong: 'rgba(0,0,0,0.45)',
+  // 「生成中」loading 卡片底:比控件玻璃药丸(glassPill)更实 —— 要托住 spinner+大字、浮在
+  // 任意照片上都清晰(design glass token 是半透明白,深色相机界面不适用,同 glassPill 理由)。
+  loadingCard: 'rgba(0,0,0,0.6)',
   recRed: '#ff3b30',
   // 录制态药丸底:录制红 18% alpha tint(与 recRed 同色系,design 无对应 token)。
   recordingTint: 'rgba(255,59,48,0.18)',

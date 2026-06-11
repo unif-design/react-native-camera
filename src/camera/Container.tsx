@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useCameraDevice } from 'react-native-vision-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
   type as t,
+  fw,
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
@@ -149,6 +156,11 @@ export function Container({ config, onSettle }: Props) {
   // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
   const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
 
+  // 取景框尺寸(与 Camera frame 一致):水印浮层限制在此框内,使取景水印落在「取景画面」角落
+  // (与照片烧录的 16:9 右上角一致),而非整屏黑边区。frameAspect:4:3=3/4、16:9=9/16。
+  const { width: winW } = useWindowDimensions();
+  const frameAspect = aspectRatio === '4:3' ? 3 / 4 : 9 / 16;
+
   // 翻转前/后摄:直接切 position(device 随之更新,zoom 在 useZoomController 内 clamp);无视觉动画。
   const onFlip = () => {
     setPosition((p) => (p === 'back' ? 'front' : 'back'));
@@ -249,7 +261,17 @@ export function Container({ config, onSettle }: Props) {
           pointerEvents="none"
           testID="watermark-wrapper"
         >
-          <WatermarkStamp watermark={config.watermark} />
+          {/* 内层取景框(与 Camera frame 同尺寸、被外层居中):WatermarkStamp 按 position 在框内定位,
+              使取景水印落在「取景画面」内的角落,与照片烧录的 16:9 右上角一致;不再整屏 absoluteFill
+              —— 否则 top-right 落到屏幕顶部黑边(取景画面之外,真机已复现)。 */}
+          <View
+            style={[
+              styles.watermarkFrame,
+              { width: winW, height: winW / frameAspect },
+            ]}
+          >
+            <WatermarkStamp watermark={config.watermark} />
+          </View>
         </View>
       )}
 
@@ -300,16 +322,20 @@ export function Container({ config, onSettle }: Props) {
         </View>
       )}
 
-      {/* 烧水印「顺滑回看」:取景已被定格帧盖住(见 Camera frozenUri),这里在其上叠居中
-          非阻塞「生成中」提示;footer 不再整段替换(模式药丸恒定,不卸载 → 不跳档)。 */}
-      {burning && (
+      {/* 「生成中」遮罩仅在**有水印**时显示:无水印纯裁切(16:9)只靠定格帧画面定一下、不弹文字遮罩,
+          更接近系统相机「拍照回看」、不突兀(用户反馈)。定格帧本身(Camera frozenUri)防黑屏不变。
+          footer 不再整段替换(模式药丸恒定,不卸载 → 不跳档)。 */}
+      {burning && config.watermark != null && (
         <View
           style={styles.burningOverlay}
           pointerEvents="none"
           testID="burning"
         >
-          <Loading />
-          <Text style={styles.burningText}>水印生成中…</Text>
+          {/* 半透明黑玻璃卡片托住 spinner+文字:浮在任意照片上都清晰、更精致(系统相机式 loading)。 */}
+          <View style={styles.burningCard}>
+            <Loading size={r(40)} color="#fff" thickness={r(3)} />
+            <Text style={styles.burningText}>水印生成中…</Text>
+          </View>
         </View>
       )}
 
@@ -361,8 +387,13 @@ const makeStyles = (c: ColorTokens) =>
       left: 0,
       right: 0,
       bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
       zIndex: Z.overlay,
     },
+    // 内层取景框:与 Camera frame 同尺寸(winW × winW/frameAspect)、被外层居中;overflow:hidden
+    // 使框内 absolute 定位的 WatermarkStamp 落在取景画面内,而非整屏黑边。
+    watermarkFrame: { overflow: 'hidden' },
     // 控件浮层的 bottom 由 footerHeight 实测内联设置(见 JSX),这里只放与底无关的样式。
     sideRail: {
       position: 'absolute',
@@ -402,8 +433,21 @@ const makeStyles = (c: ColorTokens) =>
       bottom: 0,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: r(8),
       zIndex: Z.overlay,
     },
-    burningText: { color: c.foreground, fontSize: t.sm },
+    // 半透明黑玻璃卡片:托住 spinner+文字,任意照片上清晰、有质感(底色物理常量见 viewfinder)。
+    burningCard: {
+      alignItems: 'center',
+      gap: r(14),
+      paddingVertical: r(24),
+      paddingHorizontal: r(36),
+      borderRadius: r(18),
+      backgroundColor: VIEWFINDER.loadingCard,
+    },
+    // 文字加大(t.sm→t.body)+ 中等字重,比原来更醒目。
+    burningText: {
+      color: c.foreground,
+      fontSize: t.body,
+      fontWeight: fw.medium,
+    },
   });

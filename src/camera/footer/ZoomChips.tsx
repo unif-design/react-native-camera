@@ -108,13 +108,6 @@ function ZoomChip({
       };
     }
   );
-  // value 给首帧/无动画环境(jest)兜底初值;运行时由 animatedProps.text 接管(0 次 setState)。
-  const initialDisplay = zoomShared.value * displayMul;
-  const initialLabel =
-    activeStop(initialDisplay) === stop
-      ? initialDisplay.toFixed(1)
-      : staticLabel;
-
   return (
     <TouchableOpacity
       testID={`zoom-chip-${stop}`}
@@ -123,11 +116,14 @@ function ZoomChip({
     >
       <Animated.View style={[styles.chip, chipStyle]}>
         {/* text 是原生 TextInput 内部属性(非 RN 公开 TS 类型),reanimated 把 worklet 算出的
-            字符串直接写进去(0 次 setState),故 animatedProps 泛型补 text 字段。 */}
+            字符串直接写进去(0 次 setState),故 animatedProps 泛型补 text 字段。
+            首帧初值走 defaultValue 用静态档位常量(0.5 / 1.0)——绝不在 render 读 zoomShared.value:
+            reanimated 官方规则「render 期读 shared value 是 side-effect、违反 React 规则」(strict 警告)。
+            实时倍数由上方 animatedProps.text 在 UI 线程接管(高亮档实时、其余档静态),仍 0 次 setState。 */}
         <AnimatedTextInput
           editable={false}
           pointerEvents="none"
-          value={initialLabel}
+          defaultValue={staticLabel}
           animatedProps={animatedProps}
           style={[styles.txt, txtStyle]}
         />

@@ -11,9 +11,9 @@ import type { AspectRatio } from '../setup';
 import { burnWatermark, cropToRatio } from '../watermark';
 import { useVideoRecorder } from './useVideoRecorder';
 
-// 定格最小可见时长:极快烧录(<200ms)时定格一闪而过会闪烁,补足这点时长再撤定格。
-// 体验常量,真机可调。
-const MIN_FREEZE_MS = 200;
+// 定格最小可见时长:烧水印后把"刚拍那张"定格供回看,补足这点时长再撤(也防极快烧录一闪而过)。
+// 体验常量,真机可调;export 供测试断言。
+export const MIN_FREEZE_MS = 1000;
 
 type ConfirmFn = (o: { title: string; message?: string }) => Promise<boolean>;
 
@@ -133,21 +133,29 @@ export function useCaptureFlow({
       const wm = isJpeg ? config.watermark : undefined; // 非 jpeg 不烧
       let saved = f;
       if (needCrop || wm != null) {
-        // 先把"刚拍的原图"定格盖上(取景随 burning 停,被定格图盖住 → 不黑屏);
-        // 撤定格在 finally,且补足 MIN_FREEZE_MS 防极快烧录闪烁。
+        // 先把"刚拍的原图"定格盖上(取景随 burning 停,被定格图盖住 → 不黑屏);撤定格在 finally。
+        const hasWatermark = wm != null;
         setFreezeUri(f.uri);
         const startedAt = Date.now(); // 组件运行时,Date.now 可用(仅 workflow 脚本里禁用)
         setBurning(true);
         try {
-          if (needCrop) saved = await cropToRatio(saved, '16:9');
-          if (wm != null) saved = await burnWatermark(saved, wm);
+          if (needCrop) {
+            saved = await cropToRatio(saved, '16:9');
+          }
+          if (wm != null) {
+            saved = await burnWatermark(saved, wm);
+          }
         } finally {
           setBurning(false); // 取景先恢复(背后实时画面已在跑,仍被定格图盖着)
-          const elapsed = Date.now() - startedAt;
-          if (elapsed < MIN_FREEZE_MS) {
-            await new Promise<void>((r) =>
-              setTimeout(r, MIN_FREEZE_MS - elapsed)
-            );
+          // 最小定格仅对「真烧水印」生效:水印烧录耗时不定、可能极快一闪而过,补足 MIN_FREEZE_MS 防闪烁;
+          // 无水印纯裁切很快(几十 ms),不套最小定格,尽量无感(用户反馈:无水印不该被人为拉长)。
+          if (hasWatermark) {
+            const elapsed = Date.now() - startedAt;
+            if (elapsed < MIN_FREEZE_MS) {
+              await new Promise<void>((r) =>
+                setTimeout(r, MIN_FREEZE_MS - elapsed)
+              );
+            }
           }
           setFreezeUri(null); // 撤定格 → 无缝切回实时画面
         }

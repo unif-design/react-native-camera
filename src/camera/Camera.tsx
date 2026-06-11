@@ -139,6 +139,10 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const photoOutput = usePhotoOutput({
     quality: currentMode.quality ?? 0.9,
     targetResolution,
+    // 强制 JPEG 容器:缺省 'native' 在 iOS 默认出 HEIC,而 Skia 的 MakeImageFromEncoded 解不了 HEIC →
+    // cropToRatio/burnWatermark 走 `if (!image) return file` 静默返原图(16:9 不裁、水印不烧)。
+    // 指定 jpeg 让出图可被 Skia 解码,也与 buildPhotoFile 写死的 mime='image/jpeg' 一致。
+    containerFormat: 'jpeg',
     // 按需加键:仅在 config 显式传了优先级时写入,缺省不传 → SDK 默认。
     // 用对象展开按需加键(而非 `qualityPrioritization: undefined`):避免把 undefined 灌进 options。
     ...(resolvedQualityPrioritization

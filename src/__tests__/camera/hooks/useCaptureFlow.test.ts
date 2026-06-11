@@ -3,7 +3,10 @@ import type { RefObject } from 'react';
 import type { CustomPhotoFile, OpenConfig } from '../../../utils';
 import type { AspectRatio } from '../../../camera/setup';
 import type { CameraHandle } from '../../../camera/Camera';
-import { useCaptureFlow } from '../../../camera/hooks/useCaptureFlow';
+import {
+  useCaptureFlow,
+  MIN_FREEZE_MS,
+} from '../../../camera/hooks/useCaptureFlow';
 import { cropToRatio, burnWatermark } from '../../../camera/watermark';
 import { makePhotoFile } from '../../__helpers__/factories';
 
@@ -350,5 +353,35 @@ describe('定格回看 freezeUri', () => {
     });
     expect(result.current.freezeUri).toBeNull();
     expect(result.current.photos).toHaveLength(1);
+  });
+
+  it('无水印纯裁切:不套 MIN_FREEZE_MS,onShutter 快速完成', async () => {
+    // 16:9 无水印 = 纯裁切:cropToRatio 很快,不该被 200ms 最小定格人为拉长(用户反馈)。
+    const capture = jest.fn().mockResolvedValue(photo('p1'));
+    const { result } = setup(capture, { aspectRatio: '16:9' });
+    const t0 = Date.now();
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(Date.now() - t0).toBeLessThan(100); // 没套最小定格(改前会 ≥200ms)
+    expect(result.current.freezeUri).toBeNull();
+    expect(result.current.photos).toHaveLength(1);
+  });
+
+  it('有水印:套 MIN_FREEZE_MS,定格至少持续到最小时长', async () => {
+    // 有水印才补足最小定格(防极快烧录闪烁):4:3 + 水印 = 纯烧水印(mock 立即 resolve → 耗时≈200ms)。
+    const wmConfig: OpenConfig = {
+      cameraMode: [{ mode: 'continuous' }],
+      dataRetainedMode: 'retain',
+      watermark: { content: ['L1'], position: 'top-right' },
+    };
+    const capture = jest.fn().mockResolvedValue(photo('p1'));
+    const { result } = setup(capture, { aspectRatio: '4:3', config: wmConfig });
+    const t0 = Date.now();
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(MIN_FREEZE_MS - 50); // 套了最小定格(留抖动余量)
+    expect(result.current.freezeUri).toBeNull();
   });
 });
