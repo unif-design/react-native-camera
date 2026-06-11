@@ -11,7 +11,7 @@ export type Point = { x: number; y: number };
 export type CameraMode = {
   /** 初始前/后摄,缺省 back。H5 传入,接线为初始 device position。 */
   type?: CameraType;
-  /** 初始闪光(原版字段,保留作 API 兼容)。闪光由相机内 UI 控制,不从 config 接线。 */
+  /** 初始闪光(首项 cameraMode 生效);接线为初始闪光,运行时可在相机内左侧竖栏切换。 */
   flashMode?: FlashMode;
   /** 拍摄模式。 */
   mode: CameraModeName;

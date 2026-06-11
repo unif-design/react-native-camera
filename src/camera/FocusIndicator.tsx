@@ -53,7 +53,12 @@ export function FocusIndicator({ point, onAnimationEnd }: Props) {
         useNativeDriver: true,
       }),
     ]);
-    anim.start(() => onAnimationEnd());
+    // 仅动画**自然结束**时回调:连续点击对焦时旧实例 unmount → cleanup 的 anim.stop() 会以
+    // { finished:false } 同步触发 start 回调;若不判 finished,会把刚设的新对焦点 setFocusPoint(null)
+    // 清掉 → 新指示环闪现即消失。故只在 finished 时 onAnimationEnd。
+    anim.start(({ finished }) => {
+      if (finished) onAnimationEnd();
+    });
     return () => anim.stop();
   }, [scale, opacity, onAnimationEnd]);
 
