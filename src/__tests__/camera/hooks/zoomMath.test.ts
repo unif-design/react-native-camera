@@ -1,4 +1,4 @@
-import { clamp, pinchVzf } from '../../../camera/footer/zoomMath';
+import { clamp, pinchVzf } from '../../../camera/hooks/zoomMath';
 
 // pinchVzf 对具体上限不敏感(softMaxVzf 是入参),这里用一组「样本」参数验证 clamp 数学本身,
 // 不绑应用实际软上限(实际为 SOFT_MAX_DISPLAY=3,由 useZoomController.test 覆盖)。

@@ -9,12 +9,11 @@ import {
   type ColorTokens,
   type IconName,
 } from '@unif/react-native-design';
-import type { FlashMode } from '../../utils';
+import type { AspectRatio, FlashMode } from '../../utils';
 import { makeRailStyles } from './railStyles';
 
-// FlashMode 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
-export type { FlashMode };
-export type AspectRatio = '4:3' | '16:9';
+// FlashMode / AspectRatio 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
+export type { AspectRatio, FlashMode };
 
 type Props = {
   flash: FlashMode;

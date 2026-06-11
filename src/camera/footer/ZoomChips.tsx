@@ -19,11 +19,12 @@ import {
   type ColorTokens,
 } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
+import { activeStop } from '../hooks/zoomMath';
 
 // 仅 0.5x / 1x 两档(用户拍板去掉 2x):0.5 仅超广角机型有,1x 恒有。
 const ALL_STOPS = [0.5, 1] as const;
-// 当前档判定阈值(display 空间):display ≥ 1 → 1 档高亮,否则 0.5 档高亮(到最广=0.5x 时 0.5 档亮)。
-const ACTIVE_THRESHOLD = 1;
+// 当前档判定(display ≥ 1 → 1 档,否则 0.5 档)统一走 zoomMath.activeStop('worklet'):
+// 高亮底色/字色/实时倍数文字/兜底初值四处复用同一判式,避免阈值散落。
 
 // reanimated 不能动画 <Text> 的 children,故当前高亮档的实时倍数用
 // createAnimatedComponent(TextInput) + useAnimatedProps 写其 `text`(官方「animate text」范式):
@@ -84,15 +85,11 @@ function ZoomChip({
   // 当前档高亮:display = zoomShared × displayMul,≥ 阈值算 1 档当前,否则 0.5 档当前。
   // 全在 worklet 读 zoomShared → UI 线程驱动药丸底色/字色,pinch 全程 0 次 setState。
   const chipStyle = useAnimatedStyle(() => {
-    const display = zoomShared.value * displayMul;
-    const active = display >= ACTIVE_THRESHOLD ? 1 : 0.5;
-    const isActive = active === stop;
+    const isActive = activeStop(zoomShared.value * displayMul) === stop;
     return { backgroundColor: isActive ? c.foreground : 'transparent' };
   });
   const txtStyle = useAnimatedStyle(() => {
-    const display = zoomShared.value * displayMul;
-    const active = display >= ACTIVE_THRESHOLD ? 1 : 0.5;
-    const isActive = active === stop;
+    const isActive = activeStop(zoomShared.value * displayMul) === stop;
     return { color: isActive ? c.primary : c.foreground };
   });
 
@@ -106,15 +103,17 @@ function ZoomChip({
     () => {
       'worklet';
       const display = zoomShared.value * displayMul;
-      const activeStop = display >= ACTIVE_THRESHOLD ? 1 : 0.5;
-      return { text: activeStop === stop ? display.toFixed(1) : staticLabel };
+      return {
+        text: activeStop(display) === stop ? display.toFixed(1) : staticLabel,
+      };
     }
   );
   // value 给首帧/无动画环境(jest)兜底初值;运行时由 animatedProps.text 接管(0 次 setState)。
   const initialDisplay = zoomShared.value * displayMul;
-  const initialActiveStop = initialDisplay >= ACTIVE_THRESHOLD ? 1 : 0.5;
   const initialLabel =
-    initialActiveStop === stop ? initialDisplay.toFixed(1) : staticLabel;
+    activeStop(initialDisplay) === stop
+      ? initialDisplay.toFixed(1)
+      : staticLabel;
 
   return (
     <TouchableOpacity

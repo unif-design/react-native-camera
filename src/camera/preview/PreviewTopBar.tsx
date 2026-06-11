@@ -8,13 +8,7 @@ import {
   type ColorTokens,
 } from '@unif/react-native-design';
 import type { CustomPhotoFile, CameraModeName } from '../../utils';
-import { distinctTypes, filesOfType } from './groupTypes';
-
-const LABEL: Record<CameraModeName, string> = {
-  continuous: '连拍',
-  single: '单拍',
-  video: '视频',
-};
+import { distinctTypes, filesOfType, MODE_LABEL } from './groupTypes';
 
 type Props = {
   variant: 'confirm' | 'gallery';
@@ -53,7 +47,7 @@ export function PreviewTopBar({
                 style={[styles.tab, sel && styles.tabSel]}
               >
                 <Text style={[styles.tabTxt, sel && styles.tabTxtSel]}>
-                  {LABEL[ty]}
+                  {MODE_LABEL[ty]}
                   {filesOfType(files, ty).length}
                 </Text>
               </TouchableOpacity>

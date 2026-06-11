@@ -15,14 +15,19 @@ import { useAppActive } from './hooks/useAppActive';
 import { usePermissionFlow } from './hooks/usePermissionFlow';
 import { useZoomController } from './hooks/useZoomController';
 import { useCaptureFlow } from './hooks/useCaptureFlow';
+import { clamp } from './hooks/zoomMath';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
-import { PreviewOverlay } from './preview';
+import { PreviewOverlay, MODE_LABEL } from './preview';
 import { CaptureFlash } from './CaptureFlash';
-import { SideRail, type AspectRatio, type FlashMode } from './setup';
-import { SideActions } from './setup/SideActions';
+import {
+  SideRail,
+  SideActions,
+  type AspectRatio,
+  type FlashMode,
+} from './setup';
 import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
@@ -33,12 +38,10 @@ import { VIEWFINDER } from './colors/viewfinder';
 // 控件浮层需让出底部 footer。footer 高度由内容(快门/模式行)+ 安全区决定、随语言/机型变,
 // 故用 onLayout 实测(见 footerHeight);此处只留估值,兜底 onLayout 测得前的首帧防跳动。
 const FOOTER_FALLBACK = r(120);
-// zoomChips 离 footer 顶(模式行)的间隔。本批再减半 r(4)→r(2):药丸更贴模式行。
-// (真机可再微调:布局常量、非 worklet。)
+// zoomChips 离 footer 顶(模式行)的间隔:取小值让档位药丸紧贴模式行(布局常量、非 worklet,真机可微调)。
 const CONTROL_GAP = r(2);
-// 左侧竖栏(SideRail/SideActions)下沉:以 footer 顶为基准上抬 SIDE_RAIL_LIFT,使其底缘落在
-// 模式行(单拍/连拍)附近、与之大致水平对齐(此前 +r(30) 偏高,见 IMG_1193)。
-// 本批再减半 r(2)→r(1) 让竖栏底缘更贴 footer 顶;真机按观感再调(布局常量、非 worklet)。
+// 左侧竖栏(SideRail/SideActions)以 footer 顶为基准上抬这点距离,使其底缘落在模式行(单拍/连拍)附近、
+// 与之大致水平对齐(取近 0 的小值让竖栏底缘贴住 footer 顶;布局常量、非 worklet,真机按观感可调)。
 const SIDE_RAIL_LIFT = r(1);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
@@ -109,11 +112,12 @@ export function Container({ config, onSettle }: Props) {
   // 拍摄编排:photos / 预览态 / 快门(照片+视频)/ 保存取消 / 切模式 / 录像状态全在 hook 内。
   const {
     photos,
-    setPhotos,
     previewing,
-    setPreviewing,
     previewVariant,
-    setPreviewVariant,
+    openGallery,
+    retake,
+    deletePhoto,
+    closePreview,
     flashNonce,
     burning,
     capturing,
@@ -173,17 +177,10 @@ export function Container({ config, onSettle }: Props) {
       <PreviewOverlay
         files={photos}
         variant={previewVariant}
-        onRetake={() => {
-          setPhotos([]);
-          setPreviewing(false);
-        }}
+        onRetake={retake}
         onSave={handleSave}
-        onBack={() => setPreviewing(false)}
-        onDelete={(f) => {
-          const next = photos.filter((x) => x !== f);
-          setPhotos(next);
-          if (next.length === 0) setPreviewing(false);
-        }}
+        onBack={closePreview}
+        onDelete={deletePhoto}
       />
     );
   }
@@ -208,8 +205,7 @@ export function Container({ config, onSettle }: Props) {
 
   const modeItems: ModeItem[] = config.cameraMode.map((m, i) => ({
     key: `${m.mode}-${i}`,
-    label:
-      m.mode === 'single' ? '单拍' : m.mode === 'continuous' ? '连拍' : '视频',
+    label: MODE_LABEL[m.mode],
   }));
 
   return (
@@ -289,8 +285,9 @@ export function Container({ config, onSettle }: Props) {
             onSelect={(displayZ) => {
               // 点击档:边界用 display 空间,内部 zoom/zoomShared 仍是 vzf。
               // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
-              const vzf = Math.min(
-                Math.max(displayZ / displayMul, device.minZoom),
+              const vzf = clamp(
+                displayZ / displayMul,
+                device.minZoom,
                 device.maxZoom
               );
               setZoom(vzf);
@@ -334,12 +331,7 @@ export function Container({ config, onSettle }: Props) {
               count={photos.length}
               onShutter={onShutter}
               onFlip={onFlip}
-              onOpenPreview={() => {
-                if (photos.length > 0) {
-                  setPreviewVariant('gallery');
-                  setPreviewing(true);
-                }
-              }}
+              onOpenPreview={openGallery}
             />
           </>
         )}
@@ -381,8 +373,8 @@ const makeStyles = (c: ColorTokens) =>
     // footer 透明:早期叠半透明黑遮罩在取景底缘,与下方纯黑 root 底拼出一条
     // "浅灰带 / 一浅一深"分界 —— 改 transparent 让 footer 区直接露统一的 root
     // 黑底,消除深浅分界。zIndex 最高仍保证控件可点。
-    // footer 整体下沉、更贴底:paddingBottom 只留 home-indicator 间距(见 JSX insets.bottom+r(1)),
-    // paddingTop 本批再减半 r(4)→r(2);gap = 模式行(单拍/连拍)与快门行的间距,缩小让模式行更贴近快门。
+    // footer 整体贴底:paddingBottom 只留 home-indicator 间距(见 JSX insets.bottom+r(1)),
+    // paddingTop 取小值让 footer 更贴底;gap = 模式行(单拍/连拍)与快门行的间距,取小值让模式行贴近快门。
     bottom: {
       position: 'absolute',
       left: 0,

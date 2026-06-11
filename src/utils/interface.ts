@@ -6,6 +6,9 @@ export type DataRetainedMode = 'clear' | 'retain';
 
 export type CameraModeName = 'single' | 'continuous' | 'video';
 
+/** 取景画幅(宽:高)。单一来源在此(与 FlashMode 一致),setup/SideRail 仅 re-export 供 barrel 透出。 */
+export type AspectRatio = '4:3' | '16:9';
+
 export type Point = { x: number; y: number };
 
 export type CameraMode = {

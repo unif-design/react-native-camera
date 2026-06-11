@@ -28,3 +28,11 @@ export function pinchVzf(
     Math.min(deviceMaxZoom, softMaxVzf)
   );
 }
+
+// 当前高亮档(display 空间):display ≥ 1 → 1 档,否则 0.5 档(到最广 = 0.5x 时高亮 0.5 档)。
+// 'worklet' —— ZoomChips 在 useAnimatedStyle/useAnimatedProps 里读它驱动药丸高亮/实时倍数(0 次 setState),
+// 故须可在 UI 线程跑;只做数值比较(JS 内置),不调 design r()(worklet 内禁,见 useZoomController 注释)。
+export function activeStop(display: number): number {
+  'worklet';
+  return display >= 1 ? 1 : 0.5;
+}
