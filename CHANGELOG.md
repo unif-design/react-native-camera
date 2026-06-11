@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.21.0](https://github.com/unif-design/react-native-camera/compare/v2.20.4...v2.21.0) (2026-06-11)
+
+
+### Features
+
+* **camera:** 连拍烧水印「顺滑回看」—— 定格帧 + footer 不跳 + 滑块落位 ([#78](https://github.com/unif-design/react-native-camera/issues/78)) ([718d636](https://github.com/unif-design/react-native-camera/commit/718d636013d36f7eac2a34c8da8e8e8e1a141ce8))
+
 ## [2.20.4](https://github.com/unif-design/react-native-camera/compare/v2.20.3...v2.20.4) (2026-06-11)
 
 ## [2.20.3](https://github.com/unif-design/react-native-camera/compare/v2.20.2...v2.20.3) (2026-06-11)
