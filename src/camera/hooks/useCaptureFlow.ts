@@ -24,6 +24,8 @@ type Params = {
   setModeIndex: (i: number) => void;
   settle: (result: CameraResult) => void;
   confirm: ConfirmFn;
+  /** 拍摄/录像失败时弹顶部非阻塞错误条(不 settle、不关相机,用户可重试)。Container 传 showError。 */
+  onError: (msg: string) => void;
 };
 
 export type CaptureFlow = {
@@ -63,6 +65,7 @@ export function useCaptureFlow({
   setModeIndex,
   settle,
   confirm,
+  onError,
 }: Params): CaptureFlow {
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
@@ -98,7 +101,8 @@ export function useCaptureFlow({
       }
       const f = await cameraRef.current?.capture();
       if (!f) {
-        settle({ code: 500, data: photos, message: 'capture_failed' });
+        // 失败不关相机:弹顶部错误条让用户重拍(对齐 1.x「失败停留可重试」,而非 settle 关闭丢已拍)。
+        onError('拍摄失败,请重试');
         return;
       }
       setFlashNonce((n) => n + 1);

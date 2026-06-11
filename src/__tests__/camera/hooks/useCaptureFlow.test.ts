@@ -42,10 +42,17 @@ const config: OpenConfig = {
 // 默认 aspectRatio='4:3'(不裁切),让既有快门编排用例不受 16:9 裁切影响。
 function setup(
   capture: jest.Mock,
-  opts: { aspectRatio?: AspectRatio; config?: OpenConfig } = {}
+  opts: {
+    aspectRatio?: AspectRatio;
+    config?: OpenConfig;
+    settle?: jest.Mock;
+    onError?: jest.Mock;
+  } = {}
 ) {
   const cfg = opts.config ?? config;
-  return renderHook(() =>
+  const settle = opts.settle ?? jest.fn();
+  const onError = opts.onError ?? jest.fn();
+  const utils = renderHook(() =>
     useCaptureFlow({
       cameraRef: makeRef({ capture }),
       config: cfg,
@@ -53,10 +60,12 @@ function setup(
       aspectRatio: opts.aspectRatio ?? '4:3',
       modeIndex: 0,
       setModeIndex: jest.fn(),
-      settle: jest.fn(),
+      settle,
       confirm: jest.fn().mockResolvedValue(true),
+      onError,
     })
   );
+  return { ...utils, settle, onError };
 }
 
 beforeEach(() => {
@@ -112,14 +121,17 @@ it('上一张处理完后快门解锁,可拍下一张', async () => {
   expect(result.current.photos).toHaveLength(2);
 });
 
-it('capture 失败(settle 500)后 finally 解锁,不会卡死快门', async () => {
+it('capture 失败 → 弹错误条重试,不 settle、不关相机,finally 解锁', async () => {
   const capture = jest.fn().mockResolvedValue(null);
-  const { result } = setup(capture);
+  const { result, settle, onError } = setup(capture);
 
   await act(async () => {
     await result.current.onShutter();
   });
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(settle).not.toHaveBeenCalled();
   expect(result.current.capturing).toBe(false);
+  expect(result.current.photos).toHaveLength(0);
 });
 
 describe('出图 16:9 裁切接线', () => {

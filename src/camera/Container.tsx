@@ -131,6 +131,7 @@ export function Container({ config, onSettle }: Props) {
     setModeIndex,
     settle,
     confirm,
+    onError: showError,
   });
 
   // 初始闪光从 config 首个 mode 接线(API 兼容),缺省 off。
