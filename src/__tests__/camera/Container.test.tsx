@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent, within } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import { Container } from '../../camera/Container';
@@ -99,4 +100,33 @@ it('前置(front)不渲染变焦档', () => {
   expect(queryByTestId('zoom-chip-1')).toBeNull();
   // 倍数已无独立浮层(并入档位药丸),前置整块变焦控件不渲染。
   expect(queryByTestId('zoom-readout')).toBeNull();
+});
+
+it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 position 定位', () => {
+  // wrapper 必须 absoluteFill —— 否则唯一子节点 absolute → Yoga 下 wrapper 坍缩 0×0 锚屏幕右上,
+  // 非 top-right 档(bottom/center)在 0 尺寸盒内定位参照错位(成片烧录走像素空间不受影响,
+  // 但取景所见与成片不符)。这里断言 wrapper 是全屏,定位所有权单独交给 WatermarkStamp。
+  const ui: ReactElement = (
+    <ThemeProvider forceScheme="dark">
+      <CameraDialogProvider>
+        <Container
+          config={{
+            ...baseConfig,
+            cameraMode: [{ mode: 'single', type: 'back' }],
+            watermark: { content: ['L1'], position: 'bottom-center' },
+          }}
+          onSettle={() => {}}
+        />
+      </CameraDialogProvider>
+    </ThemeProvider>
+  );
+  const { getByTestId } = render(ui);
+  const style = StyleSheet.flatten(
+    getByTestId('watermark-wrapper').props.style
+  );
+  expect(style.position).toBe('absolute');
+  expect(style.top).toBe(0);
+  expect(style.left).toBe(0);
+  expect(style.right).toBe(0);
+  expect(style.bottom).toBe(0);
 });
