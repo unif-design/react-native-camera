@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: 录像
-description: "录像场景指南：mode 'video' 视频录制、读取 duration/mime、与拍照混合的多模式 tab、503 录像失败处理及播放方案。"
+description: "录像场景指南：mode 'video' 视频录制、读取 duration/mime、与拍照混合的多模式 tab、recTime 时长上限、录像失败的相机内重试及播放方案。"
 ---
 
 # 录像
@@ -32,9 +32,8 @@ const VideoScreen = () => {
       // video.mime === 'video/mp4'
       // video.uri — 视频文件 URI (file://)
       // video.duration — 视频时长（秒）
-    } else if (res.code === 503) {
-      // 录像失败，见下方「录像失败」
     }
+    // 录像失败不再返回 code：相机内顶部错误条提示重试、不关相机（见下方「录像失败」）
   };
 
   return (
@@ -52,38 +51,37 @@ const VideoScreen = () => {
 
 ---
 
-## 录像失败（code 503）{#failure}
+## 录像失败（不关相机，相机内重试）{#failure}
 
-若录制过程中停止视频时**没有产出有效文件**（底层 `stopVideo` 返回空），`open()` resolve 出 `code: 503`：
+录像启动失败、或停止时**没有产出有效文件**（底层 `stopVideo` 返回空）时，相机**不关闭、也不 resolve**——而是在相机内弹出**顶部错误条**提示重试，已拍内容不丢。消费者侧无需为此写 `code` 分支：
 
 ```ts
 const res = await api.open({
   cameraMode: [{ mode: 'video' }],
   dataRetainedMode: 'clear',
 });
-if (res.code === 503) {
-  // 录像失败：data 为空，提示用户重试
-}
+// 录像失败不再 resolve 出 503：用户在相机内看到错误条、可重录；
+// 真正 resolve 时要么 200（成功有文件）、要么 0（用户取消）。
 ```
 
-> `503` 专指录像失败；拍照失败是 `500`。完整状态码见 [类型 → CameraResult](/docs/api/types#cameraresult)。
+> 旧版（≤2.20）录像失败会 resolve 出 `code: 503` 关闭相机；自 2.21 起改为相机内重试（对齐 1.x「失败停留」），`503` 保留作 API 兼容但当前无触发路径。完整状态码见 [类型 → CameraResult](/docs/api/types#cameraresult)。
 
 ---
 
 ## 录制时长上限（recTime）{#rectime}
 
-`CameraMode` 类型上保留了 `recTime`（秒）字段，但当前版本**源码未对它接线（no-op）**——传入不会限制时长，也不会自动停止录制。
+`CameraMode.recTime`（秒）已接线到 vision-camera 的 `maxDuration`：录制到达该时长时**原生侧自动停止**，录好的视频**自动进入已拍列表**（与用户手动停止一致）。缺省不传则不自动停，由用户手动结束。
 
 ```tsx
 await api.open({
-  // recTime 当前不生效，录制需用户手动停止
+  // 录到 60 秒自动停止，视频自动入列；用户也可在 60 秒前手动停止
   cameraMode: [{ mode: 'video', recTime: 60 }],
   dataRetainedMode: 'clear',
 });
 ```
 
-:::warning recTime 当前为 no-op
-`recTime` 是从原版沿用的类型保留字段，目前不会限制录制时长。**需要时长上限请在业务侧自行处理**（例如拿到结果后按 `duration` 校验，或用计时器在 UI 层提示）。详见 [类型 → CameraMode](/docs/api/types#cameramode)。
+:::tip recTime 已接线（2.21 起）
+到点自动停止后，视频与手动停止产出的文件走同一路径（进预览 / 累积、`duration` 为实际时长）。无需在业务侧另写计时器。详见 [类型 → CameraMode](/docs/api/types#cameramode)。
 :::
 
 ---

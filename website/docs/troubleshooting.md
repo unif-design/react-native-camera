@@ -118,8 +118,8 @@ switch (res.code) {
   case 0:   /* 用户取消,静默 */ break;
   case 403: /* 无权限:引导去系统设置 */ break;
   case 404: /* 无摄像设备:提示不支持 */ break;
-  case 500: /* 拍摄失败 / 配置非法 */ break;
-  case 503: /* 录像失败 */ break;
+  case 500: /* 配置非法（cameraMode 为空）*/ break;
+  case 503: /* 保留码，当前不触发（录像失败走相机内重试）*/ break;
 }
 ```
 
