@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.2](https://github.com/unif-design/react-native-camera/compare/v2.20.1...v2.20.2) (2026-06-11)
+
+
+### Bug Fixes
+
+* **camera:** 代码审查 5 个 P1 修复 + 速修批 + recTime 接线 ([#74](https://github.com/unif-design/react-native-camera/issues/74)) ([eb53ffd](https://github.com/unif-design/react-native-camera/commit/eb53ffde97a51b4ef450219c49dd242a1fcd3c92))
+
 ## [2.20.1](https://github.com/unif-design/react-native-camera/compare/v2.20.0...v2.20.1) (2026-06-10)
 
 # [2.20.0](https://github.com/unif-design/react-native-camera/compare/v2.19.0...v2.20.0) (2026-06-10)
