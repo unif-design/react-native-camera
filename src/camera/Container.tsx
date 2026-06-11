@@ -267,7 +267,7 @@ export function Container({ config, onSettle }: Props) {
             onToggleSound={() => setSound((v) => !v)}
           />
           <SideActions
-            canSave={photos.length > 0}
+            canSave={photos.length > 0 && !capturing}
             onBack={handleCancel}
             onSave={handleSave}
           />

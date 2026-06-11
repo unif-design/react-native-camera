@@ -156,6 +156,8 @@ export function useCaptureFlow({
   );
 
   const onSelectMode = async (i: number) => {
+    // 在途快门(拍摄/烧水印)时不切模式:切模式会重挂 outputs,与在飞的 capture 相撞致失败。
+    if (capturingRef.current) return;
     if (i === modeIndex) return;
     if (config.dataRetainedMode === 'clear' && photos.length > 0) {
       const ok = await confirm({
@@ -170,6 +172,8 @@ export function useCaptureFlow({
 
   // 照片在快门后已逐张烧好,保存直接返回。
   const handleSave = () => {
+    // 在途快门(拍摄/烧水印)未完时不保存:否则 settle 的 photos 会漏掉在途那张(静默丢拍)。
+    if (capturingRef.current) return;
     settle({ code: 200, data: photos, message: 'ok' });
   };
 

@@ -285,3 +285,29 @@ describe('录像失败处理(不关相机)', () => {
     expect(settle).not.toHaveBeenCalled();
   });
 });
+
+describe('在途快门禁用保存(防丢拍)', () => {
+  it('handleSave 在 capturing 时被守卫挡下,不 settle', async () => {
+    let resolveCapture!: (f: CustomPhotoFile) => void;
+    const capture = jest.fn(
+      () =>
+        new Promise<CustomPhotoFile>((res) => {
+          resolveCapture = res;
+        })
+    );
+    const { result, settle } = setup(capture);
+    let shutter!: Promise<void>;
+    act(() => {
+      shutter = result.current.onShutter(); // 进入在途(capturing=true)
+    });
+    expect(result.current.capturing).toBe(true);
+    act(() => {
+      result.current.handleSave(); // 在途调保存 → 被 capturingRef 守卫挡下
+    });
+    expect(settle).not.toHaveBeenCalled(); // 不会 settle 丢掉在途那张
+    await act(async () => {
+      resolveCapture(photo('p1'));
+      await shutter;
+    });
+  });
+});

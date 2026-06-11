@@ -34,7 +34,7 @@ import type {
 | `cameraMode` | [`CameraMode[]`](#cameramode) | ✅ | — | 拍摄模式数组，至少一项；多项时底部出现模式 tab |
 | `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍照片 |
 | `watermark` | [`WatermarkType`](#watermarktype) | — | 不加水印 | 文字水印配置；传入则取景显示戳记 + 保存时烧入成片 |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认 `'balanced'`** | 照片质量优先级（全局）。缺省不传该字段、由 vision-camera 用默认 `'balanced'`；`'speed'`/`'quality'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错） |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认 `'balanced'`** | 照片质量优先级（全局）。缺省不传该字段、由 vision-camera 用默认 `'balanced'`；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'`/`'balanced'` 任何设备直传 |
 | `photoHDR` | `boolean` | — | **由相机 negotiate 决定** | 是否启用照片 HDR（多帧融合，更宽动态范围）。缺省不下发该约束、不强制开关；传 `boolean` 才作为约束下发 |
 | `videoBitRate` | `number` | — | **编码器自适应** | 录像目标码率（bps，全局，作用于 video 模式）。缺省不传、由编码器按分辨率自适应；仅在需要明确控制时传（如 4K 约 20–40 Mbps） |
 

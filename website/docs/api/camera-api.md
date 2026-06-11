@@ -125,7 +125,7 @@ useEffect(() => {
 
 | 字段 | 缺省（不传） | 传值时 |
 | --- | --- | --- |
-| `photoQualityPrioritization` | 不写入该选项 → SDK 默认 `'balanced'` | `'balanced'` 任何设备直传；`'speed'` / `'quality'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
+| `photoQualityPrioritization` | 不写入该选项 → SDK 默认 `'balanced'` | `'balanced'` / `'quality'` 任何设备直传；`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
 | `photoHDR` | 不下发 `photoHDR` 约束 → 由相机 negotiate 自行决定 | 传 `true` / `false` 作为约束下发（显式开 / 显式关） |
 | `videoBitRate` | 不写入 → 编码器按分辨率自适应 | 作为 `targetBitRate`（bps）下发；编码器会参考但可能因系统压力 / 画面运动 / 文件大小约束略有出入 |
 
