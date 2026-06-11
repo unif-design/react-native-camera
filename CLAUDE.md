@@ -55,7 +55,7 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 - **`holder` 是相机模态的 React 宿主节点,必须渲染进树**(位置不限,但节点要存在)。`useCamera.tsx` 里 holder 就是个 `<ModalView>`,`api.open` 只是 `setVisible(true)` + 存 resolver;**holder 没挂 → 没有挂载锚点 → `api.open()` 静默无效、相机不弹**。
 - **`api.open(config)` 返回 Promise**,用户在全屏模态内拍摄 → 预览确认 / 取消后 resolve 为 `CameraResult`。取消不 reject(走 `code: 0`)。`ModalView` 自带 `SafeAreaProvider` + `ThemeProvider`,模态内 UI 不依赖宿主的 provider。
 - **配置全在 `OpenConfig`**(`src/utils/interface.ts`,改 API 先看这里):
-  - `cameraMode: CameraMode[]` —— 每项 `{ mode: 'single' | 'continuous' | 'video', quality?, type?, flashMode?, recTime? }`。`type` 接线为初始前/后摄(首项生效);`flashMode` 接线为初始闪光(首项生效);`recTime` 是原版 4.x 兼容字段、**当前 no-op**(录像不到点自动停)。`quality` = JPEG 压缩 0~1,缺省 0.9。
+  - `cameraMode: CameraMode[]` —— 每项 `{ mode: 'single' | 'continuous' | 'video', quality?, type?, flashMode?, recTime? }`。`type` 接线为初始前/后摄(首项生效);`flashMode` 接线为初始闪光(首项生效);`recTime` 接线为 vision-camera `maxDuration`(秒):到点原生自动停、视频自动入已拍列表(缺省不设=不自动停)。`quality` = JPEG 压缩 0~1,缺省 0.9。
   - `dataRetainedMode: 'clear' | 'retain'` —— 用户切换拍摄模式时已拍文件:`clear` 先二次确认(相机内本地 `confirm`,见下)再清空、且「单拍 + clear」拍完直接进确认预览;`retain` 累积不清。
   - `watermark?: WatermarkType` —— 见下。
   - **拍摄质量(三个可选,全局)** —— `photoQualityPrioritization?: 'speed'|'balanced'|'quality'` / `photoHDR?: boolean` / `videoBitRate?: number`。**核心约定:缺省(不传)= 库不写入任何偏好,完全走 SDK 默认协商**(不替消费者写死取舍);只有显式传值才下发。`'speed'/'quality'` 在不支持的设备**自动安全降级**为 `'balanced'`(不 throw,见 `Camera.tsx` 的 `supportsSpeedQualityPrioritization` guard)。**与分辨率无关**:照片/录像分辨率已固定 UHD(见下「画幅」),不随这三字段变。
@@ -70,8 +70,10 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 | `0` | 取消 / 关闭 | 空 |
 | `403` | 无权限 | 空 |
 | `404` | 无相机设备 | 空 |
-| `500` | 拍摄失败 / 配置非法 | 空 |
-| `503` | 录像失败 | 空 |
+| `500` | 配置非法(`cameraMode` 为空 / 越界) | 空 |
+| `503` | 录像失败(保留码,当前不触发,见下) | 空 |
+
+> **拍照 / 录像「运行时失败」不再 settle 关相机**(对齐 1.x「失败停留可重试」):快门拍摄失败、录像启动 / 停止失败 → 相机内**顶部错误条**提示「请重试」,不关闭相机、不结束 Promise,用户可重拍、已拍照片不丢(`useCaptureFlow` 的 `onError`)。故 `500` 仅余「配置非法」(`currentMode == null`)、`503` 保留作 API 兼容但当前无触发路径(录像失败改走错误条)。
 
 ### Skia 水印(`src/camera/watermark/`)
 

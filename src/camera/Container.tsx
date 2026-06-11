@@ -119,6 +119,7 @@ export function Container({ config, onSettle }: Props) {
     recording,
     recSeconds,
     onShutter,
+    onVideoAutoFinished,
     handleSave,
     handleCancel,
     onSelectMode,
@@ -131,6 +132,7 @@ export function Container({ config, onSettle }: Props) {
     setModeIndex,
     settle,
     confirm,
+    onError: showError,
   });
 
   // 初始闪光从 config 首个 mode 接线(API 兼容),缺省 off。
@@ -238,10 +240,15 @@ export function Container({ config, onSettle }: Props) {
         // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
         // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
         onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
+        onSpontaneousVideoFinish={onVideoAutoFinished}
       />
 
       {!recording && config.watermark && (
-        <View style={styles.watermark} pointerEvents="none">
+        <View
+          style={styles.watermark}
+          pointerEvents="none"
+          testID="watermark-wrapper"
+        >
           <WatermarkStamp watermark={config.watermark} />
         </View>
       )}
@@ -345,11 +352,15 @@ const makeStyles = (c: ColorTokens) =>
     // 相机主容器固定黑底:相机 UX 惯例(取景物理常量),不走 c.background token。
     // position:relative → 内部 absolute 浮层(footer/sideRail/zoomChips)以整屏为参照。
     root: { flex: 1, backgroundColor: VIEWFINDER.black, position: 'relative' },
+    // 全屏容器:定位所有权单独交给 WatermarkStamp(它按 watermark.position 六选一 absolute 定位、
+    // 自带 maxWidth)。早期 wrapper 自己 right/top 定位 + 子节点也 absolute → wrapper 坍缩 0×0 锚屏幕
+    // 右上,非 top-right 档(bottom/center)定位参照错位。改全屏铺满让 Stamp 在全屏内正确定位。
     watermark: {
       position: 'absolute',
-      right: r(6),
-      top: r(12),
-      maxWidth: r(230),
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       zIndex: Z.overlay,
     },
     // 控件浮层的 bottom 由 footerHeight 实测内联设置(见 JSX),这里只放与底无关的样式。

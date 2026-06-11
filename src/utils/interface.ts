@@ -11,15 +11,15 @@ export type Point = { x: number; y: number };
 export type CameraMode = {
   /** 初始前/后摄,缺省 back。H5 传入,接线为初始 device position。 */
   type?: CameraType;
-  /** 初始闪光(原版字段,保留作 API 兼容)。闪光由相机内 UI 控制,不从 config 接线。 */
+  /** 初始闪光(首项 cameraMode 生效);接线为初始闪光,运行时可在相机内左侧竖栏切换。 */
   flashMode?: FlashMode;
   /** 拍摄模式。 */
   mode: CameraModeName;
   /** JPEG 压缩 0~1,缺省 0.9。质量优先级见 OpenConfig.photoQualityPrioritization(缺省走 SDK 默认 'balanced')。 */
   quality?: number;
   /**
-   * 录制时长上限(秒),video 模式。**保留字段,当前 no-op**:录像不会到点自动停,
-   * 录制由用户手动结束。原版 4.x 兼容字段,接线后续按需。
+   * 录制时长上限(秒),video 模式。已接线 vision-camera maxDuration:到点原生自动停,
+   * 录好的视频自动入已拍列表(与手动停录一致)。缺省不设 → 不自动停,由用户手动结束。
    */
   recTime?: number;
 };

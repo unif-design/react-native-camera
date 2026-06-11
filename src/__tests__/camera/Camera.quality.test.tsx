@@ -150,4 +150,9 @@ describe('videoBitRate 接线', () => {
       height: 4032,
     });
   });
+
+  it("fileType 恒为 'mp4'(iOS 默认 mov,不显式指定会让 buildPhotoFile 的 video/mp4 mime 失实)", () => {
+    renderCamera({ currentMode: videoMode });
+    expect(lastOpts(useVideoOutputMock).fileType).toBe('mp4');
+  });
 });

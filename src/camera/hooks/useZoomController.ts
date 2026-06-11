@@ -59,15 +59,15 @@ export function useZoomController(
   const [zoom, setZoom] = useState(1);
   const zoomShared = useSharedValue(1);
 
-  // 设备切换(翻转前/后摄)后,把当前 zoom clamp 回新设备的 min/max 范围。
-  // 有意只依赖 device:仅在设备切换时 clamp,不随 zoom 变化重跑。
+  // 翻转设备(前/后摄)→ 重置到新设备最广档(minZoom),不保留上一镜头变焦:
+  // 旧实现只 clamp 旧 zoom —— 后摄放大 N× 翻到前摄,若 N 落在前摄 vzf 范围内则 clamp 不生效,
+  // 而前摄关 pinch、不渲染档位药丸 → 卡在继承来的数字变焦且**无 UI 可恢复**(系统相机翻转也回默认最广)。
+  // 重置到 device.minZoom(该设备最广档)而非写死 1:长焦设备 minZoom 可能 >1,写死 1 会落到非法值。
+  // 有意只依赖 device:仅设备切换时重置(useCameraDevice 同 position 返稳定引用,不会每帧重跑)。
   useEffect(() => {
     if (device == null) return;
-    const z = Math.min(Math.max(zoom, device.minZoom), device.maxZoom);
-    if (z !== zoom) {
-      setZoom(z);
-      zoomShared.value = z;
-    }
+    setZoom(device.minZoom);
+    zoomShared.value = device.minZoom;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device]);
 

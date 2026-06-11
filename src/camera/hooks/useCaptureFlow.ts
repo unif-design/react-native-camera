@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from 'react';
+import { useCallback, useRef, useState, type RefObject } from 'react';
 import type {
   CameraMode,
   CameraResult,
@@ -24,6 +24,8 @@ type Params = {
   setModeIndex: (i: number) => void;
   settle: (result: CameraResult) => void;
   confirm: ConfirmFn;
+  /** 拍摄/录像失败时弹顶部非阻塞错误条(不 settle、不关相机,用户可重试)。Container 传 showError。 */
+  onError: (msg: string) => void;
 };
 
 export type CaptureFlow = {
@@ -43,6 +45,8 @@ export type CaptureFlow = {
   recording: boolean;
   recSeconds: number;
   onShutter: () => Promise<void>;
+  /** 原生侧自发结束录像(maxDuration 到点/磁盘满)的视频文件入 photos + 复位录制态。传给 Camera.onSpontaneousVideoFinish。 */
+  onVideoAutoFinished: (file: CustomPhotoFile) => void;
   handleSave: () => void;
   handleCancel: () => Promise<void>;
   onSelectMode: (i: number) => Promise<void>;
@@ -63,6 +67,7 @@ export function useCaptureFlow({
   setModeIndex,
   settle,
   confirm,
+  onError,
 }: Params): CaptureFlow {
   const [photos, setPhotos] = useState<CustomPhotoFile[]>([]);
   const [previewing, setPreviewing] = useState(false);
@@ -78,7 +83,7 @@ export function useCaptureFlow({
   // 「串行烧水印、峰值内存恒定」只在单次 onShutter 内成立,跨次并发必须在这里挡。
   const capturingRef = useRef(false);
 
-  const { recording, recSeconds, startRecording, stopRecording } =
+  const { recording, recSeconds, startRecording, stopRecording, markStopped } =
     useVideoRecorder(cameraRef);
 
   const onShutter = async () => {
@@ -88,17 +93,21 @@ export function useCaptureFlow({
     try {
       if (currentMode?.mode === 'video') {
         if (!recording) {
-          await startRecording();
+          // 启动失败不关相机:弹错误条让用户重试(对齐 1.x「失败停留」,而非进假录制态丢已拍)。
+          const ok = await startRecording();
+          if (!ok) onError('录像启动失败,请重试');
         } else {
           const f = await stopRecording();
           if (f) setPhotos((prev) => [...prev, f]);
-          else settle({ code: 503, data: [], message: 'video_failed' });
+          // 停止失败同样不关相机:弹错误条,用户可重录(不再 settle 503 关闭丢已拍)。
+          else onError('录像失败,请重试');
         }
         return;
       }
       const f = await cameraRef.current?.capture();
       if (!f) {
-        settle({ code: 500, data: photos, message: 'capture_failed' });
+        // 失败不关相机:弹顶部错误条让用户重拍(对齐 1.x「失败停留可重试」,而非 settle 关闭丢已拍)。
+        onError('拍摄失败,请重试');
         return;
       }
       setFlashNonce((n) => n + 1);
@@ -134,6 +143,16 @@ export function useCaptureFlow({
       setCapturing(false);
     }
   };
+
+  const onVideoAutoFinished = useCallback(
+    (file: CustomPhotoFile) => {
+      // 原生侧自发结束(maxDuration 到点 / 磁盘满 / 中断):文件入 photos + 复位录制态(与手动停录一致
+      // 累积,不进预览、不 settle)。recording 必须复位,否则计时器卡住、UI 停在假录制态。
+      setPhotos((prev) => [...prev, file]);
+      markStopped();
+    },
+    [markStopped]
+  );
 
   const onSelectMode = async (i: number) => {
     if (i === modeIndex) return;
@@ -177,6 +196,7 @@ export function useCaptureFlow({
     recording,
     recSeconds,
     onShutter,
+    onVideoAutoFinished,
     handleSave,
     handleCancel,
     onSelectMode,

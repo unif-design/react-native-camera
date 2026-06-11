@@ -42,10 +42,17 @@ const config: OpenConfig = {
 // 默认 aspectRatio='4:3'(不裁切),让既有快门编排用例不受 16:9 裁切影响。
 function setup(
   capture: jest.Mock,
-  opts: { aspectRatio?: AspectRatio; config?: OpenConfig } = {}
+  opts: {
+    aspectRatio?: AspectRatio;
+    config?: OpenConfig;
+    settle?: jest.Mock;
+    onError?: jest.Mock;
+  } = {}
 ) {
   const cfg = opts.config ?? config;
-  return renderHook(() =>
+  const settle = opts.settle ?? jest.fn();
+  const onError = opts.onError ?? jest.fn();
+  const utils = renderHook(() =>
     useCaptureFlow({
       cameraRef: makeRef({ capture }),
       config: cfg,
@@ -53,10 +60,39 @@ function setup(
       aspectRatio: opts.aspectRatio ?? '4:3',
       modeIndex: 0,
       setModeIndex: jest.fn(),
-      settle: jest.fn(),
+      settle,
       confirm: jest.fn().mockResolvedValue(true),
+      onError,
     })
   );
+  return { ...utils, settle, onError };
+}
+
+// 录像编排测试:video 模式不依赖 capture,直接桩 startVideo/stopVideo。
+function setupVideo(
+  handle: Partial<CameraHandle>,
+  opts: { settle?: jest.Mock; onError?: jest.Mock } = {}
+) {
+  const settle = opts.settle ?? jest.fn();
+  const onError = opts.onError ?? jest.fn();
+  const cfg: OpenConfig = {
+    cameraMode: [{ mode: 'video' }],
+    dataRetainedMode: 'retain',
+  };
+  const utils = renderHook(() =>
+    useCaptureFlow({
+      cameraRef: makeRef(handle),
+      config: cfg,
+      currentMode: cfg.cameraMode[0],
+      aspectRatio: '4:3',
+      modeIndex: 0,
+      setModeIndex: jest.fn(),
+      settle,
+      confirm: jest.fn().mockResolvedValue(true),
+      onError,
+    })
+  );
+  return { ...utils, settle, onError };
 }
 
 beforeEach(() => {
@@ -79,10 +115,10 @@ it('连点快门防重入:处理中后续点击被忽略,capture 只调一次', 
   let first!: Promise<void>;
   act(() => {
     first = result.current.onShutter();
-    // 第一次仍在 capture 中 —— 疯狂连点:全部应被防重入忽略
-    void result.current.onShutter();
-    void result.current.onShutter();
-    void result.current.onShutter();
+    // 第一次仍在 capture 中 —— 疯狂连点:后 3 次 fire-and-forget(故意不 await),全部应被防重入忽略。
+    result.current.onShutter();
+    result.current.onShutter();
+    result.current.onShutter();
   });
   expect(capture).toHaveBeenCalledTimes(1);
   expect(result.current.capturing).toBe(true);
@@ -112,14 +148,17 @@ it('上一张处理完后快门解锁,可拍下一张', async () => {
   expect(result.current.photos).toHaveLength(2);
 });
 
-it('capture 失败(settle 500)后 finally 解锁,不会卡死快门', async () => {
+it('capture 失败 → 弹错误条重试,不 settle、不关相机,finally 解锁', async () => {
   const capture = jest.fn().mockResolvedValue(null);
-  const { result } = setup(capture);
+  const { result, settle, onError } = setup(capture);
 
   await act(async () => {
     await result.current.onShutter();
   });
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(settle).not.toHaveBeenCalled();
   expect(result.current.capturing).toBe(false);
+  expect(result.current.photos).toHaveLength(0);
 });
 
 describe('出图 16:9 裁切接线', () => {
@@ -197,5 +236,53 @@ describe('16:9 + 水印组合', () => {
     expect(cropToRatioMock).toHaveBeenCalledWith(captured, '16:9');
     // 水印烧在裁切后的图上(顺序:crop → watermark)。
     expect(burnWatermarkMock).toHaveBeenCalledWith(cropped, wmConfig.watermark);
+  });
+});
+
+describe('录像失败处理(不关相机)', () => {
+  it('录像启动失败 → 弹错误条,不 settle、不进录制态', async () => {
+    const startVideo = jest.fn().mockRejectedValue(new Error('boom'));
+    const { result, settle, onError } = setupVideo({ startVideo });
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(settle).not.toHaveBeenCalled();
+    expect(result.current.recording).toBe(false);
+  });
+
+  it('录像停止失败(stopVideo null)→ 弹错误条,不再 settle 503', async () => {
+    const startVideo = jest.fn().mockResolvedValue(undefined);
+    const stopVideo = jest.fn().mockResolvedValue(null);
+    const { result, settle, onError } = setupVideo({ startVideo, stopVideo });
+    // 第一拍:开始录制(成功)。
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(result.current.recording).toBe(true);
+    // 第二拍:停止 → null → 弹错误条,不 settle 关相机。
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(settle).not.toHaveBeenCalled();
+  });
+
+  it('onVideoAutoFinished:自发结束的视频入 photos + 复位录制态,不 settle', async () => {
+    const startVideo = jest.fn().mockResolvedValue(undefined);
+    const { result, settle } = setupVideo({ startVideo });
+    // 先开始录制。
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(result.current.recording).toBe(true);
+    // 原生侧到点自动停(maxDuration)/磁盘满 → 自发结束回调:文件入 photos、复位录制态。
+    const vid = photo('v1');
+    act(() => {
+      result.current.onVideoAutoFinished(vid);
+    });
+    expect(result.current.photos).toContain(vid);
+    expect(result.current.recording).toBe(false);
+    expect(settle).not.toHaveBeenCalled();
   });
 });
