@@ -11,6 +11,10 @@ import type { AspectRatio } from '../setup';
 import { burnWatermark, cropToRatio } from '../watermark';
 import { useVideoRecorder } from './useVideoRecorder';
 
+// 定格最小可见时长:极快烧录(<200ms)时定格一闪而过会闪烁,补足这点时长再撤定格。
+// 体验常量,真机可调。
+const MIN_FREEZE_MS = 200;
+
 type ConfirmFn = (o: { title: string; message?: string }) => Promise<boolean>;
 
 type Params = {
@@ -43,6 +47,8 @@ export type CaptureFlow = {
   closePreview: () => void;
   flashNonce: number;
   burning: boolean;
+  /** 烧水印期间 = 刚拍原图 uri(供 Camera 取景框盖定格帧防黑屏),否则 null。 */
+  freezeUri: string | null;
   /** 一次快门(capture/烧水印/录像 start·stop)处理中:快门按钮据此禁用,防连点。 */
   capturing: boolean;
   /** 录像状态(透传 useVideoRecorder),供 Container 渲染计时器/控件。 */
@@ -80,6 +86,8 @@ export function useCaptureFlow({
   );
   const [flashNonce, setFlashNonce] = useState(0);
   const [burning, setBurning] = useState(false);
+  // 顺滑回看:烧水印时 isActive=false 取景真停(内存安全),用刚拍原图盖住取景框防黑屏。
+  const [freezeUri, setFreezeUri] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   // 防重入(同步守卫,state 异步更新挡不住同帧连点):上一次快门(UHD capture +
   // Skia 全分辨率烧水印)没处理完就忽略后续点击。没有它,疯狂连点快门会让多个
@@ -125,12 +133,23 @@ export function useCaptureFlow({
       const wm = isJpeg ? config.watermark : undefined; // 非 jpeg 不烧
       let saved = f;
       if (needCrop || wm != null) {
+        // 先把"刚拍的原图"定格盖上(取景随 burning 停,被定格图盖住 → 不黑屏);
+        // 撤定格在 finally,且补足 MIN_FREEZE_MS 防极快烧录闪烁。
+        setFreezeUri(f.uri);
+        const startedAt = Date.now(); // 组件运行时,Date.now 可用(仅 workflow 脚本里禁用)
         setBurning(true);
         try {
           if (needCrop) saved = await cropToRatio(saved, '16:9');
           if (wm != null) saved = await burnWatermark(saved, wm);
         } finally {
-          setBurning(false);
+          setBurning(false); // 取景先恢复(背后实时画面已在跑,仍被定格图盖着)
+          const elapsed = Date.now() - startedAt;
+          if (elapsed < MIN_FREEZE_MS) {
+            await new Promise<void>((r) =>
+              setTimeout(r, MIN_FREEZE_MS - elapsed)
+            );
+          }
+          setFreezeUri(null); // 撤定格 → 无缝切回实时画面
         }
       }
       setPhotos((prev) => [...prev, saved]);
@@ -225,6 +244,7 @@ export function useCaptureFlow({
     closePreview,
     flashNonce,
     burning,
+    freezeUri,
     capturing,
     recording,
     recSeconds,
