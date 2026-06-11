@@ -133,3 +133,14 @@ it('cameraRef.current 为 null:start/stop 不抛,stop 返回 null', async () => 
   expect(returned).toBeNull();
   expect(result.current.recording).toBe(false);
 });
+
+it('markStopped:原生侧自发结束(到点/磁盘满)复位 recording=false', async () => {
+  const ref = makeRef({ startVideo: jest.fn().mockResolvedValue(undefined) });
+  const { result } = renderHook(() => useVideoRecorder(ref));
+  await act(async () => {
+    await result.current.startRecording();
+  });
+  expect(result.current.recording).toBe(true);
+  act(() => result.current.markStopped());
+  expect(result.current.recording).toBe(false);
+});

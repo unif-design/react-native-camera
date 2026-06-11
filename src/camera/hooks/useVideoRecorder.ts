@@ -12,6 +12,8 @@ export type VideoRecorder = {
    * 让调用方编排(有 file 则加 photos,否则 settle 503)。
    */
   stopRecording: () => Promise<CustomPhotoFile | null>;
+  /** 录像被原生侧自行结束(maxDuration 到点/磁盘满/中断)时复位录制状态(文件由调用方入 photos)。 */
+  markStopped: () => void;
 };
 
 /**
@@ -50,5 +52,14 @@ export function useVideoRecorder(
     return f;
   }, [cameraRef]);
 
-  return { recording, recSeconds, startRecording, stopRecording };
+  // 原生侧自发结束(maxDuration 到点/磁盘满/中断):仅复位录制状态,文件由调用方(useCaptureFlow)入 photos。
+  const markStopped = useCallback(() => setRecording(false), []);
+
+  return {
+    recording,
+    recSeconds,
+    startRecording,
+    stopRecording,
+    markStopped,
+  };
 }

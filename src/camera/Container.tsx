@@ -119,6 +119,7 @@ export function Container({ config, onSettle }: Props) {
     recording,
     recSeconds,
     onShutter,
+    onVideoAutoFinished,
     handleSave,
     handleCancel,
     onSelectMode,
@@ -239,6 +240,7 @@ export function Container({ config, onSettle }: Props) {
         // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
         // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
         onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
+        onSpontaneousVideoFinish={onVideoAutoFinished}
       />
 
       {!recording && config.watermark && (

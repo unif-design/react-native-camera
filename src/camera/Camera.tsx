@@ -63,6 +63,8 @@ type Props = {
   photoHDR?: boolean;
   videoBitRate?: number;
   onCameraError?: (error: Error) => void;
+  /** 录像被原生侧自发结束(maxDuration 到点/磁盘满/中断)时回调,把文件交还上层入 photos + 复位录制态。 */
+  onSpontaneousVideoFinish?: (file: CustomPhotoFile) => void;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
@@ -81,6 +83,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     photoHDR,
     videoBitRate,
     onCameraError,
+    onSpontaneousVideoFinish,
   },
   ref
 ) {
@@ -267,10 +270,16 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         if (!hasMic) {
           await requestMic().catch(() => {});
         }
+        // recTime → maxDuration(同为秒,直传):到点原生自动停 → onRecordingFinished 回调
+        // (无 stopVideo resolver 时走 onSpontaneousVideoFinish 入 photos)。缺省不设 → 不自动停。
+        const settings =
+          currentMode.recTime != null
+            ? { maxDuration: currentMode.recTime }
+            : {};
         let recorder = preparedRecorderRef.current;
         try {
           if (recorder == null) {
-            recorder = await videoOutput.createRecorder({});
+            recorder = await videoOutput.createRecorder(settings);
           }
           preparedRecorderRef.current = null;
           if (activeRecorderRef.current != null) {
@@ -289,8 +298,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
                 true
               );
               activeRecorderRef.current = null;
-              finishResolverRef.current?.(file);
-              finishResolverRef.current = null;
+              if (finishResolverRef.current) {
+                // stopVideo 在等:兑现它的 Promise。
+                finishResolverRef.current(file);
+                finishResolverRef.current = null;
+              } else {
+                // 自发结束(maxDuration 到点/磁盘满/中断):无 resolver → 上报,别丢文件 + 复位录制态。
+                onSpontaneousVideoFinish?.(file);
+              }
             },
             (error) => {
               console.warn('recorder error', error);
@@ -302,7 +317,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             () => {}
           );
 
-          preparedRecorderRef.current = await videoOutput.createRecorder({});
+          preparedRecorderRef.current =
+            await videoOutput.createRecorder(settings);
         } catch (e) {
           console.warn('startRecording failed', e);
           activeRecorderRef.current = null;
@@ -346,12 +362,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       photoOutput,
       videoOutput,
       currentMode.mode,
+      currentMode.recTime,
       hasMic,
       requestMic,
       flash,
       device.hasFlash,
       cameraType,
       sound,
+      onSpontaneousVideoFinish,
     ]
   );
 

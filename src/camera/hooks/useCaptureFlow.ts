@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from 'react';
+import { useCallback, useRef, useState, type RefObject } from 'react';
 import type {
   CameraMode,
   CameraResult,
@@ -45,6 +45,8 @@ export type CaptureFlow = {
   recording: boolean;
   recSeconds: number;
   onShutter: () => Promise<void>;
+  /** 原生侧自发结束录像(maxDuration 到点/磁盘满)的视频文件入 photos + 复位录制态。传给 Camera.onSpontaneousVideoFinish。 */
+  onVideoAutoFinished: (file: CustomPhotoFile) => void;
   handleSave: () => void;
   handleCancel: () => Promise<void>;
   onSelectMode: (i: number) => Promise<void>;
@@ -81,7 +83,7 @@ export function useCaptureFlow({
   // 「串行烧水印、峰值内存恒定」只在单次 onShutter 内成立,跨次并发必须在这里挡。
   const capturingRef = useRef(false);
 
-  const { recording, recSeconds, startRecording, stopRecording } =
+  const { recording, recSeconds, startRecording, stopRecording, markStopped } =
     useVideoRecorder(cameraRef);
 
   const onShutter = async () => {
@@ -142,6 +144,16 @@ export function useCaptureFlow({
     }
   };
 
+  const onVideoAutoFinished = useCallback(
+    (file: CustomPhotoFile) => {
+      // 原生侧自发结束(maxDuration 到点 / 磁盘满 / 中断):文件入 photos + 复位录制态(与手动停录一致
+      // 累积,不进预览、不 settle)。recording 必须复位,否则计时器卡住、UI 停在假录制态。
+      setPhotos((prev) => [...prev, file]);
+      markStopped();
+    },
+    [markStopped]
+  );
+
   const onSelectMode = async (i: number) => {
     if (i === modeIndex) return;
     if (config.dataRetainedMode === 'clear' && photos.length > 0) {
@@ -184,6 +196,7 @@ export function useCaptureFlow({
     recording,
     recSeconds,
     onShutter,
+    onVideoAutoFinished,
     handleSave,
     handleCancel,
     onSelectMode,

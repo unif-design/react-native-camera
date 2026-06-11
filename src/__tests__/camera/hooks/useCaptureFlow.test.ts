@@ -267,4 +267,22 @@ describe('录像失败处理(不关相机)', () => {
     expect(onError).toHaveBeenCalledTimes(1);
     expect(settle).not.toHaveBeenCalled();
   });
+
+  it('onVideoAutoFinished:自发结束的视频入 photos + 复位录制态,不 settle', async () => {
+    const startVideo = jest.fn().mockResolvedValue(undefined);
+    const { result, settle } = setupVideo({ startVideo });
+    // 先开始录制。
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(result.current.recording).toBe(true);
+    // 原生侧到点自动停(maxDuration)/磁盘满 → 自发结束回调:文件入 photos、复位录制态。
+    const vid = photo('v1');
+    act(() => {
+      result.current.onVideoAutoFinished(vid);
+    });
+    expect(result.current.photos).toContain(vid);
+    expect(result.current.recording).toBe(false);
+    expect(settle).not.toHaveBeenCalled();
+  });
 });
