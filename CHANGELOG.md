@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.21.1](https://github.com/unif-design/react-native-camera/compare/v2.21.0...v2.21.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* **camera:** 水印 CJK 烧录 + 16:9 裁切 + 预览定位 + 生成中卡片美化 + reanimated/carousel 警告 ([#79](https://github.com/unif-design/react-native-camera/issues/79)) ([e409de1](https://github.com/unif-design/react-native-camera/commit/e409de1224032cadcca78a15d43179234e4c4c5e))
+
 # [2.21.0](https://github.com/unif-design/react-native-camera/compare/v2.20.4...v2.21.0) (2026-06-11)
 
 
