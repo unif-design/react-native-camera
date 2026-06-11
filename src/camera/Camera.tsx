@@ -148,6 +148,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   // config 显式传了才按需加键(下方展开,不传 undefined 进 options)。
   const videoOutput = useVideoOutput({
     enableAudio: true,
+    // fileType 显式 'mp4':iOS 录像默认容器是 .mov,不指定会产出 QuickTime 文件,而 buildPhotoFile
+    // 把视频 mime 固定报 'video/mp4' → 失实(消费者按 mime 上传/转码会错)。Android 本就 mp4、忽略此项。
+    fileType: 'mp4',
     targetResolution:
       (aspectRatio ?? '4:3') === '4:3'
         ? CommonResolutions.UHD_4_3
