@@ -49,8 +49,9 @@ export function Carousel({ data, index = 0, onIndexChange }: Props) {
           key={carouselRemountKey(data)}
           data={data}
           defaultIndex={Math.min(index, Math.max(data.length - 1, 0))}
-          width={width}
-          height={trackHeight}
+          // 尺寸走 style(不再用已废弃的 width/height prop):新版 react-native-reanimated-carousel
+          // deprecate 了 width/height 顶层 prop,改从 style 读,否则每帧打 deprecation 警告。
+          style={{ width, height: trackHeight }}
           loop={false}
           onSnapToItem={onIndexChange}
           renderItem={({ item }) => <SlideItem file={item} />}

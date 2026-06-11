@@ -87,7 +87,7 @@ test('display=0.5(vzf1×0.5,最广):高亮 0.5 档文字=实时 0.5,1 档静态 
   ).toBeTruthy();
 });
 
-test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档文字实时 0.7', () => {
+test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档实时文字 animatedProps.text=0.7', () => {
   const { getByTestId } = renderDark(
     <ZoomChips
       {...base}
@@ -96,10 +96,13 @@ test('中间倍数 display=0.7(vzf1.4×0.5):高亮 0.5 档文字实时 0.7', () 
       onSelect={() => {}}
     />
   );
-  // display=0.7 < 1 → 0.5 档高亮,文字 = (1.4×0.5).toFixed(1) = '0.7'。
-  expect(
-    within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.7')
-  ).toBeTruthy();
+  // reanimated 合规后:档位文字 defaultValue 是静态档位('0.5'),实时倍数由 animatedProps.text
+  // (worklet 读 zoomShared)驱动 —— 不再在 render 读 .value。display=0.7 < 1 → 0.5 档高亮,
+  // 实时 = (1.4×0.5).toFixed(1) = '0.7'。jest 下 TextInput 不消费 animatedProps,故读 props.animatedProps.text。
+  const input = within(getByTestId('zoom-chip-0.5')).getByDisplayValue('0.5');
+  const ap = (input.props as { animatedProps?: { text?: string } })
+    .animatedProps;
+  expect(ap?.text).toBe('0.7');
 });
 
 test('删除上方大号 readout 浮层(zoom-readout 不再渲染)', () => {

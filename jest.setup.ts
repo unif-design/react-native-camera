@@ -253,9 +253,31 @@ jest.mock('@shopify/react-native-skia', () => {
       Font: jest.fn(() => ({
         getTextWidth: () => 100,
         measureText: () => ({ width: 100 }),
+        setSize: noop,
         dispose: noop,
       })),
       Paint: jest.fn(() => ({ setColor: jest.fn(), dispose: noop })),
+      // Paragraph(命令式):桩链式 builder + build() → paragraph(layout/paint/getHeight…)。
+      // burnWatermark 改用 Paragraph(系统字体 + 字形 fallback,能烧 CJK),故水印烧图测试走这里。
+      ParagraphBuilder: {
+        Make: jest.fn(() => {
+          const builder: any = {
+            pushStyle: () => builder,
+            addText: () => builder,
+            pop: () => builder,
+            reset: () => builder,
+            build: () => ({
+              layout: noop,
+              paint: noop,
+              getHeight: () => 120,
+              getLongestLine: () => 200,
+              getMaxWidth: () => 200,
+              dispose: noop,
+            }),
+          };
+          return builder;
+        }),
+      },
       Color: jest.fn(() => 0),
       // 裁切(cropToRatio)用:返回带 x/y/width/height 的 rect 桩(drawImageRect 消费它)。
       XYWHRect: jest.fn((x: number, y: number, w: number, h: number) => ({
@@ -266,5 +288,20 @@ jest.mock('@shopify/react-native-skia', () => {
       })),
     },
     ImageFormat: { JPEG: 3 },
+    // Paragraph 文字对齐 / 字重枚举(burnWatermark 用 TextAlign.Right / FontWeight.SemiBold)。
+    TextAlign: { Left: 0, Right: 1, Center: 2, Justify: 3, Start: 4, End: 5 },
+    FontWeight: {
+      Invisible: 0,
+      Thin: 100,
+      ExtraLight: 200,
+      Light: 300,
+      Normal: 400,
+      Medium: 500,
+      SemiBold: 600,
+      Bold: 700,
+      ExtraBold: 800,
+      Black: 900,
+      ExtraBlack: 1000,
+    },
   };
 });
