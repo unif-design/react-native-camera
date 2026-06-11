@@ -126,7 +126,7 @@ export function useCaptureFlow({
       // 快门后串行处理这一张(一次只处理 1 张,峰值内存恒定):
       //   1. 16:9 → 先 cropToRatio 居中裁切(photo 流恒 4:3 全幅出图,见 Camera.tsx);
       //   2. 有水印 → 在(裁切后的)图上烧水印(水印 layout 自动按裁后宽算)。
-      // 任一步在 jpeg 上生效就置 burning(footer 显示"正在生成水印图片…",并停取景防露未裁画面);
+      // 任一步在 jpeg 上生效就置 burning(取景叠"水印生成中…"覆盖层,并停取景防露未裁画面);
       // 裁切较快、文案对纯裁切略不精确但可接受(burning 包住两步)。video 文件不裁/不烧。
       const isJpeg = f.mime === 'image/jpeg';
       const needCrop = isJpeg && aspectRatio === '16:9';
