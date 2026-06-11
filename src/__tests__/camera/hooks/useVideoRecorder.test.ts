@@ -34,15 +34,30 @@ it('初始:未录制、recSeconds=0', () => {
   expect(result.current.recSeconds).toBe(0);
 });
 
-it('startRecording:调 cameraRef.startVideo 并置 recording=true', async () => {
+it('startRecording:调 cameraRef.startVideo,成功置 recording=true 并返回 true', async () => {
   const startVideo = jest.fn().mockResolvedValue(undefined);
   const ref = makeRef({ startVideo });
   const { result } = renderHook(() => useVideoRecorder(ref));
+  let ok: boolean | undefined;
   await act(async () => {
-    await result.current.startRecording();
+    ok = await result.current.startRecording();
   });
   expect(startVideo).toHaveBeenCalledTimes(1);
+  expect(ok).toBe(true);
   expect(result.current.recording).toBe(true);
+});
+
+it('startRecording:startVideo 抛错 → 返回 false、不进假录制态(recording 保持 false)', async () => {
+  // 启动失败若仍置 recording=true → 用户按停止走 stopVideo 拿 null → 关相机丢已拍(P1#1b)。
+  const startVideo = jest.fn().mockRejectedValue(new Error('boom'));
+  const ref = makeRef({ startVideo });
+  const { result } = renderHook(() => useVideoRecorder(ref));
+  let ok: boolean | undefined;
+  await act(async () => {
+    ok = await result.current.startRecording();
+  });
+  expect(ok).toBe(false);
+  expect(result.current.recording).toBe(false);
 });
 
 it('recSeconds:录制中每秒 +1,停止后归零', async () => {
@@ -87,7 +102,7 @@ it('stopRecording:调 stopVideo、清 recording,并返回拿到的 file', async 
   expect(result.current.recording).toBe(false);
 });
 
-it('stopRecording:stopVideo 返回 null → 透传 null(由调用方 settle 503)', async () => {
+it('stopRecording:stopVideo 返回 null → 透传 null(由调用方弹错误条,不再 settle 503)', async () => {
   const ref = makeRef({
     startVideo: jest.fn().mockResolvedValue(undefined),
     stopVideo: jest.fn().mockResolvedValue(null),

@@ -68,6 +68,33 @@ function setup(
   return { ...utils, settle, onError };
 }
 
+// 录像编排测试:video 模式不依赖 capture,直接桩 startVideo/stopVideo。
+function setupVideo(
+  handle: Partial<CameraHandle>,
+  opts: { settle?: jest.Mock; onError?: jest.Mock } = {}
+) {
+  const settle = opts.settle ?? jest.fn();
+  const onError = opts.onError ?? jest.fn();
+  const cfg: OpenConfig = {
+    cameraMode: [{ mode: 'video' }],
+    dataRetainedMode: 'retain',
+  };
+  const utils = renderHook(() =>
+    useCaptureFlow({
+      cameraRef: makeRef(handle),
+      config: cfg,
+      currentMode: cfg.cameraMode[0],
+      aspectRatio: '4:3',
+      modeIndex: 0,
+      setModeIndex: jest.fn(),
+      settle,
+      confirm: jest.fn().mockResolvedValue(true),
+      onError,
+    })
+  );
+  return { ...utils, settle, onError };
+}
+
 beforeEach(() => {
   cropToRatioMock.mockClear();
   burnWatermarkMock.mockClear();
@@ -209,5 +236,35 @@ describe('16:9 + 水印组合', () => {
     expect(cropToRatioMock).toHaveBeenCalledWith(captured, '16:9');
     // 水印烧在裁切后的图上(顺序:crop → watermark)。
     expect(burnWatermarkMock).toHaveBeenCalledWith(cropped, wmConfig.watermark);
+  });
+});
+
+describe('录像失败处理(不关相机)', () => {
+  it('录像启动失败 → 弹错误条,不 settle、不进录制态', async () => {
+    const startVideo = jest.fn().mockRejectedValue(new Error('boom'));
+    const { result, settle, onError } = setupVideo({ startVideo });
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(settle).not.toHaveBeenCalled();
+    expect(result.current.recording).toBe(false);
+  });
+
+  it('录像停止失败(stopVideo null)→ 弹错误条,不再 settle 503', async () => {
+    const startVideo = jest.fn().mockResolvedValue(undefined);
+    const stopVideo = jest.fn().mockResolvedValue(null);
+    const { result, settle, onError } = setupVideo({ startVideo, stopVideo });
+    // 第一拍:开始录制(成功)。
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(result.current.recording).toBe(true);
+    // 第二拍:停止 → null → 弹错误条,不 settle 关相机。
+    await act(async () => {
+      await result.current.onShutter();
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(settle).not.toHaveBeenCalled();
   });
 });

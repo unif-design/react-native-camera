@@ -267,13 +267,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         if (!hasMic) {
           await requestMic().catch(() => {});
         }
+        let recorder = preparedRecorderRef.current;
         try {
-          let recorder = preparedRecorderRef.current;
           if (recorder == null) {
             recorder = await videoOutput.createRecorder({});
           }
           preparedRecorderRef.current = null;
-          if (activeRecorderRef.current != null) return;
+          if (activeRecorderRef.current != null) {
+            // 已在录:手头 recorder 没用上 → 放回 prepared 复用,避免泄漏原生 encoder/file handle。
+            preparedRecorderRef.current = recorder;
+            return;
+          }
           activeRecorderRef.current = recorder;
 
           await recorder.startRecording(
@@ -302,6 +306,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         } catch (e) {
           console.warn('startRecording failed', e);
           activeRecorderRef.current = null;
+          // 释放手头未挂载成功的 recorder(原生 encoder/file handle),再上抛 → useVideoRecorder
+          // 不进假录制态(不置 recording),Container 弹错误条而非 settle 关相机(P1#1b)。
+          try {
+            recorder?.dispose();
+          } catch (err) {
+            console.warn('recorder dispose failed', err);
+          }
+          throw e;
         }
       },
 

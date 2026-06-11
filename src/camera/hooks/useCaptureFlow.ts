@@ -91,11 +91,14 @@ export function useCaptureFlow({
     try {
       if (currentMode?.mode === 'video') {
         if (!recording) {
-          await startRecording();
+          // 启动失败不关相机:弹错误条让用户重试(对齐 1.x「失败停留」,而非进假录制态丢已拍)。
+          const ok = await startRecording();
+          if (!ok) onError('录像启动失败,请重试');
         } else {
           const f = await stopRecording();
           if (f) setPhotos((prev) => [...prev, f]);
-          else settle({ code: 503, data: [], message: 'video_failed' });
+          // 停止失败同样不关相机:弹错误条,用户可重录(不再 settle 503 关闭丢已拍)。
+          else onError('录像失败,请重试');
         }
         return;
       }
