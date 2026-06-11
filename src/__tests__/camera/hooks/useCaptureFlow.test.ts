@@ -115,10 +115,10 @@ it('连点快门防重入:处理中后续点击被忽略,capture 只调一次', 
   let first!: Promise<void>;
   act(() => {
     first = result.current.onShutter();
-    // 第一次仍在 capture 中 —— 疯狂连点:全部应被防重入忽略
-    void result.current.onShutter();
-    void result.current.onShutter();
-    void result.current.onShutter();
+    // 第一次仍在 capture 中 —— 疯狂连点:后 3 次 fire-and-forget(故意不 await),全部应被防重入忽略。
+    result.current.onShutter();
+    result.current.onShutter();
+    result.current.onShutter();
   });
   expect(capture).toHaveBeenCalledTimes(1);
   expect(result.current.capturing).toBe(true);
