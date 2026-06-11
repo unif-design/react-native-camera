@@ -76,7 +76,7 @@ describe('displayMul / min-maxDisplay 推导', () => {
   });
 });
 
-describe('zoom state + 设备切换 clamp', () => {
+describe('zoom state + 设备切换重置', () => {
   it('默认档 = 设备最广:后置 dual(displayMul=0.5)→ 初始 vzf=1(用户 0.5x)', () => {
     // 初值 vzf=1 = 最广镜头;设备 effect 仅 clamp(1 在 [min,max] 内不动),不改默认档为 1.0x。
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
@@ -99,36 +99,38 @@ describe('zoom state + 设备切换 clamp', () => {
     expect(result.current.zoom).toBe(3);
   });
 
-  it('切到新设备:当前 zoom 超新设备 maxZoom → clamp 回 maxZoom', () => {
-    // 起始后置 dual(vzf 范围 [1,8]),setZoom(6);切到 vzf 范围仅 [1,3] 的设备 → clamp 到 3。
+  it('翻转设备 → 重置到新设备最广档(minZoom),不保留上一镜头变焦', () => {
+    // 后置 dual 放大到 vzf 6,翻到前摄 → 不再 clamp 保留,而是重置最广 minZoom=1。
+    // (前摄关 pinch、无档位药丸,继承变焦无法恢复 → 翻转必须回默认最广档,系统相机同款。)
     const wide = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
-    const tele = makeDevice({ minZoom: 1, maxZoom: 3, switchFactors: [] });
+    const front = makeDevice({ minZoom: 1, maxZoom: 3, switchFactors: [] });
     const { result, rerender } = renderHook<ZoomController, DeviceProps>(
       ({ device }) => useZoomController(device),
       { initialProps: { device: wide } }
     );
     act(() => result.current.setZoom(6));
     expect(result.current.zoom).toBe(6);
-    // 设备切换触发 clamp effect(只依赖 device):6 > maxZoom(3) → 3。
-    rerender({ device: tele });
-    expect(result.current.zoom).toBe(3);
+    rerender({ device: front });
+    expect(result.current.zoom).toBe(1);
+    expect(result.current.zoomShared).toEqual({ value: 1 });
   });
 
-  it('切到新设备:当前 zoom 低于新设备 minZoom → clamp 回 minZoom', () => {
+  it('翻转到最广档 minZoom>1 的设备 → 重置到该设备 minZoom(非固定 1)', () => {
+    // 重置目标是「新设备最广档」= device.minZoom,不是写死 vzf 1:长焦设备 minZoom=3,
+    // 重置到 3(若写死 1 会低于 minZoom 非法)。
     const ultra = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const teleOnly = makeDevice({ minZoom: 3, maxZoom: 8, switchFactors: [] });
     const { result, rerender } = renderHook<ZoomController, DeviceProps>(
       ({ device }) => useZoomController(device),
       { initialProps: { device: ultra } }
     );
-    // 默认档 = 最广 vzf=1;手动 setZoom(1) 显式确保用户停在最广。
-    act(() => result.current.setZoom(1));
-    // 1 < teleOnly.minZoom(3) → 切换后 clamp 到 3(翻转走原 clamp 分支,不重置)。
+    act(() => result.current.setZoom(6));
     rerender({ device: teleOnly });
     expect(result.current.zoom).toBe(3);
+    expect(result.current.zoomShared).toEqual({ value: 3 });
   });
 
-  it('切到新设备但 zoom 已在范围内 → 不变(无多余 setState)', () => {
+  it('翻转设备即使原 zoom 在新设备范围内也重置最广档(回默认取景)', () => {
     const a = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const b = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [] });
     const { result, rerender } = renderHook<ZoomController, DeviceProps>(
@@ -136,7 +138,7 @@ describe('zoom state + 设备切换 clamp', () => {
       { initialProps: { device: a } }
     );
     act(() => result.current.setZoom(3));
-    rerender({ device: b }); // 3 仍在 [1,8] 内
-    expect(result.current.zoom).toBe(3);
+    rerender({ device: b }); // 3 仍在 [1,8] 内,但翻转仍回最广 minZoom=1
+    expect(result.current.zoom).toBe(1);
   });
 });
