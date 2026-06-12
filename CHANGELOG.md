@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.22.0](https://github.com/unif-design/react-native-camera/compare/v2.21.1...v2.22.0) (2026-06-12)
+
+
+### Features
+
+* **camera:** 手势迁移 RNGH 3 hook API、放宽 peer 支持 v3 ([#80](https://github.com/unif-design/react-native-camera/issues/80)) ([b4eb85d](https://github.com/unif-design/react-native-camera/commit/b4eb85dc264292746226af8554b3030264b82446))
+
 ## [2.21.1](https://github.com/unif-design/react-native-camera/compare/v2.21.0...v2.21.1) (2026-06-11)
 
 
