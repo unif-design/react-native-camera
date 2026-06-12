@@ -52,20 +52,13 @@ jest.mock('react-native-reanimated', () => {
 // Mock gesture handler
 jest.mock('react-native-gesture-handler', () => {
   const { View } = require('react-native');
-  // 链式桩:每个 builder 方法返回自身,支持任意调用顺序(enabled/onBegin/onUpdate/onEnd…)。
-  const chain: any = new Proxy(
-    {},
-    {
-      get: () => () => chain,
-    }
-  );
+  // hook API(v3):useTapGesture/usePinchGesture/useSimultaneousGestures 返回稳定 gesture
+  // 占位;GestureDetector 桩直接渲 children、不消费 gesture,故占位空对象即可。
+  const gesture = {};
   return {
-    Gesture: {
-      Pinch: () => chain,
-      Tap: () => chain,
-      Pan: () => chain,
-      Simultaneous: () => chain,
-    },
+    useTapGesture: () => gesture,
+    usePinchGesture: () => gesture,
+    useSimultaneousGestures: () => gesture,
     GestureDetector: ({ children }: any) => children,
     GestureHandlerRootView: View,
     PinchGestureHandler: View,

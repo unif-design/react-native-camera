@@ -6490,7 +6490,7 @@ __metadata:
     react: "npm:19.2.3"
     react-native: "npm:0.85.0"
     react-native-builder-bob: "npm:^0.41.0"
-    react-native-gesture-handler: "npm:^2.21.0"
+    react-native-gesture-handler: "npm:^3.0.1"
     react-native-nitro-image: "npm:^0.15.0"
     react-native-nitro-modules: "npm:^0.35.0"
     react-native-reanimated: "npm:^4.0.0"
@@ -6513,7 +6513,7 @@ __metadata:
     "@unif/react-native-design": ">=0.8.1"
     react: ">=19.0.0"
     react-native: ">=0.85.0"
-    react-native-gesture-handler: ">=2.21.0 <3"
+    react-native-gesture-handler: ">=2.21.0"
     react-native-nitro-image: "*"
     react-native-nitro-modules: "*"
     react-native-reanimated: ">=4.0.0"
@@ -17773,6 +17773,19 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/a312bb684b5de5376078e407a08a17fddef51a11ea09dd12236b3a971b18a68496f3d8c13391cdfefcc5af776fd90936066aaf20a7cfe2849d8c47c223643dd2
+  languageName: node
+  linkType: hard
+
+"react-native-gesture-handler@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "react-native-gesture-handler@npm:3.0.1"
+  dependencies:
+    "@types/react-test-renderer": "npm:^19.1.0"
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/f3a06f071f3b410f39d435f6a34105fb10c29b240e66da69e9f391f6849da0d933c713cd26350526b9d6da77ca0ee75a623049cadfbfbdc2c5b094f667b465c9
   languageName: node
   linkType: hard
 

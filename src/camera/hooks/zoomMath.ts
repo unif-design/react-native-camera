@@ -1,5 +1,5 @@
 // 变焦数学 —— 纯函数,既给单测,也是 Camera.tsx 里 Pinch worklet 的逻辑参照
-// (worklet 内必须内联同样的式子,见 Camera 的 Gesture.Pinch)。
+// (worklet 内必须内联同样的式子,见 Camera 的 usePinchGesture)。
 //
 // 约定:display = 用户倍数(0.5x/1x/…),vzf = AVFoundation videoZoomFactor(设备内部值);
 // display = vzf × displayMul(见 useZoomController 注释)。内部状态始终 vzf。

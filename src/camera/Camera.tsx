@@ -26,7 +26,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  GestureDetector,
+  usePinchGesture,
+  useSimultaneousGestures,
+  useTapGesture,
+} from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
 import { pinchVzf } from './hooks/zoomMath';
@@ -207,24 +212,26 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   );
 
   // 点击对焦。
-  const tap = Gesture.Tap().onEnd(({ x, y }) => {
-    'worklet';
-    runOnJS(handleFocus)(x, y);
+  const tap = useTapGesture({
+    onDeactivate: ({ x, y }) => {
+      'worklet';
+      runOnJS(handleFocus)(x, y);
+    },
   });
 
   // 双指 pinch 变焦:从手势起点 zoom 乘以 e.scale,clamp 到设备 vzf 范围 ∩ 软上限。
   // 不开 vision-camera 的 enableNativeZoomGesture —— 它与受控 `zoom` 互斥会 throw,故自己在
   // 回调里写 zoomShared(UI 线程,vision-camera 直接消费 → pinch 全程不触发 JS setState)。
-  // 倍数文字/档位高亮都由 zoomShared 驱动;onEnd 才回写一次 JS 侧 zoom(档位态/设备切换 clamp 用)。
+  // 倍数文字/档位高亮都由 zoomShared 驱动;onDeactivate 才回写一次 JS 侧 zoom(档位态/设备切换 clamp 用)。
   const deviceMinZoom = device.minZoom;
   const deviceMaxZoom = device.maxZoom;
-  const pinch = Gesture.Pinch()
-    .enabled(enableZoom)
-    .onBegin(() => {
+  const pinch = usePinchGesture({
+    enabled: enableZoom,
+    onBegin: () => {
       'worklet';
       pinchStartZoom.value = zoom.value;
-    })
-    .onUpdate((e) => {
+    },
+    onUpdate: (e) => {
       'worklet';
       zoom.value = pinchVzf(
         pinchStartZoom.value,
@@ -233,14 +240,15 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         deviceMaxZoom,
         softMaxVzf
       );
-    })
-    .onEnd(() => {
+    },
+    onDeactivate: () => {
       'worklet';
       if (onZoomEnd) runOnJS(onZoomEnd)(zoom.value);
-    });
+    },
+  });
 
   // pinch + 点击对焦同时识别(Simultaneous):双指缩放与单击对焦互不阻断。
-  const composed = Gesture.Simultaneous(tap, pinch);
+  const composed = useSimultaneousGestures(tap, pinch);
 
   useImperativeHandle(
     ref,
