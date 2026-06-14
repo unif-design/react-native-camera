@@ -34,6 +34,7 @@ export function buildPhotoFile(
     height: raw.height,
     mime: isVideo ? 'video/mp4' : 'image/jpeg',
     mode,
+    isRemake: false,
     ...(raw.duration != null ? { duration: raw.duration } : {}),
   };
 }

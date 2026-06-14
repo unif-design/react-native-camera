@@ -82,6 +82,8 @@ export type CustomPhotoFile = {
   mime: 'image/jpeg' | 'video/mp4';
   /** 模式(2.x 字段名,与 cameraMode 同值)。 */
   mode: CameraModeName;
+  /** 是否翻拍 —— 通用拍照恒 false(本库不做翻拍检测);厂商 AI 相机检测后回填。 */
+  isRemake: boolean;
   duration?: number;
 };
 
