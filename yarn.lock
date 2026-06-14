@@ -17809,25 +17809,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-nitro-image@npm:*":
-  version: 0.14.0
-  resolution: "react-native-nitro-image@npm:0.14.0"
+"react-native-nitro-image@npm:*, react-native-nitro-image@npm:^0.15.0":
+  version: 0.15.1
+  resolution: "react-native-nitro-image@npm:0.15.1"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: "*"
-  checksum: 10c0/5bd4d553acb354cfdbaec2a40d34285cc96b67a3ad045e77f11f24762a0028b3259c8464d546d1aad7bd5fee418673f7e0bfcd1ec61484a9ed7fb524da8a08c5
-  languageName: node
-  linkType: hard
-
-"react-native-nitro-image@npm:^0.15.0":
-  version: 0.15.0
-  resolution: "react-native-nitro-image@npm:0.15.0"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: "*"
-  checksum: 10c0/7af289336f0340a387f723a38e2533d7b121db5c146a339f0c0c49a3d2d9cd40935c06dff5a6dd8ab5eb633515d959211f727dddafd648f957476ee36903ea5c
+  checksum: 10c0/c8599543167ce1f53c838c2ec4a38923b617945d6dbea9717383a21688fa30d409f91a03a4d2645efa2fcd3523a4f06bdc97484507e99ebf10ac7236da55d735
   languageName: node
   linkType: hard
 
