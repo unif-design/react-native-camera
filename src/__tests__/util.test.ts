@@ -23,6 +23,7 @@ describe('buildPhotoFile', () => {
     expect(f.cameraMode).toBe('single');
     expect(f.mode).toBe('single');
     expect(typeof f.id).toBe('string');
+    expect(f.isRemake).toBe(false);
   });
   it('builds video file when isVideo=true', () => {
     const f = buildPhotoFile(
