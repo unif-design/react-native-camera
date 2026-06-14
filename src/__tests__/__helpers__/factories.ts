@@ -30,6 +30,7 @@ export function makePhotoFile(
     height: 1,
     mime: resolvedMode === 'video' ? 'video/mp4' : 'image/jpeg',
     mode: resolvedMode,
+    isRemake: overrides.isRemake ?? false,
     ...overrides,
   };
 }
