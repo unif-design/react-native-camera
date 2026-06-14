@@ -1,5 +1,12 @@
 # Changelog
 
+# [2.23.0](https://github.com/unif-design/react-native-camera/compare/v2.22.0...v2.23.0) (2026-06-14)
+
+
+### Features
+
+* 给 CustomPhotoFile 加 isRemake 字段(通用拍照恒 false) ([#81](https://github.com/unif-design/react-native-camera/issues/81)) ([f238182](https://github.com/unif-design/react-native-camera/commit/f23818244211d3f6f8adeaab2f8c93163c7eb638))
+
 # [2.22.0](https://github.com/unif-design/react-native-camera/compare/v2.21.1...v2.22.0) (2026-06-12)
 
 
