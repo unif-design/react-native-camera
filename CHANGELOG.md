@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.1](https://github.com/unif-design/react-native-camera/compare/v2.23.0...v2.23.1) (2026-06-25)
+
+
+### Bug Fixes
+
+* **camera:** 取景底部拍照前不显空框/死按钮 + 翻转键提亮 + 补 a11y ([#84](https://github.com/unif-design/react-native-camera/issues/84)) ([e6d4d0f](https://github.com/unif-design/react-native-camera/commit/e6d4d0ff3724faad2ce0bbc1e4b88580fde07783))
+
 # [2.23.0](https://github.com/unif-design/react-native-camera/compare/v2.22.0...v2.23.0) (2026-06-14)
 
 
