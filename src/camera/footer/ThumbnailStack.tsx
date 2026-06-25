@@ -7,7 +7,9 @@ import {
   type ColorTokens,
 } from '@unif/react-native-design';
 
-type Props = { latestUri?: string; count: number; onPress: () => void };
+// 只在「已拍照」(有 latestUri)时渲染:拍照前的空位由 ActionRow 用惰性 slot 占位,
+// 不在此显空框 / 死按钮。
+type Props = { latestUri: string; count: number; onPress: () => void };
 
 export function ThumbnailStack({ latestUri, count, onPress }: Props) {
   const styles = useThemedStyles(makeStyles);
@@ -16,12 +18,10 @@ export function ThumbnailStack({ latestUri, count, onPress }: Props) {
       testID="thumbnail-stack"
       onPress={onPress}
       style={styles.wrap}
+      accessibilityRole="button"
+      accessibilityLabel="查看已拍照片"
     >
-      {latestUri ? (
-        <Image source={{ uri: latestUri }} style={styles.img} />
-      ) : (
-        <View style={styles.empty} />
-      )}
+      <Image source={{ uri: latestUri }} style={styles.img} />
       {count > 1 && (
         <View style={styles.badge} testID="thumb-badge">
           <Text style={styles.badgeText}>{count}</Text>
@@ -40,14 +40,6 @@ const makeStyles = (c: ColorTokens) =>
       borderRadius: r(6),
       borderWidth: 2,
       borderColor: c.foreground,
-    },
-    empty: {
-      width: r(44),
-      height: r(44),
-      borderRadius: r(8),
-      borderWidth: 1.5,
-      borderColor: c.foregroundSubtle,
-      backgroundColor: c.glassSeparator,
     },
     badge: {
       position: 'absolute',

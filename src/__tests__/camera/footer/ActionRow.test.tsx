@@ -13,13 +13,23 @@ const base = {
 
 // ActionRow 组合 Shutter/FlipButton/ThumbnailStack(均用 useThemedStyles)—— renderDark 包 dark Provider。
 
-test('取景底部只有 缩略图|快门|翻转,无返回/保存', () => {
-  const { getByTestId, queryByTestId } = renderDark(<ActionRow {...base} />);
+test('已拍照(有 latestUri):底部为 缩略图|快门|翻转,无返回/保存', () => {
+  const { getByTestId, queryByTestId } = renderDark(
+    <ActionRow {...base} latestUri="file:///a.jpg" count={1} />
+  );
   expect(getByTestId('thumbnail-stack')).toBeTruthy();
   expect(getByTestId('shutter-btn')).toBeTruthy();
   expect(getByTestId('flip-btn')).toBeTruthy();
   expect(queryByTestId('back-btn')).toBeNull();
   expect(queryByTestId('save-btn')).toBeNull();
+});
+
+test('拍照前(无 latestUri):左下角为惰性占位、不渲染可点缩略图(消除空框 + 死按钮)', () => {
+  const { queryByTestId, getByTestId } = renderDark(<ActionRow {...base} />);
+  expect(queryByTestId('thumbnail-stack')).toBeNull();
+  // 快门 / 翻转仍在
+  expect(getByTestId('shutter-btn')).toBeTruthy();
+  expect(getByTestId('flip-btn')).toBeTruthy();
 });
 
 test('点快门触发 onShutter', () => {

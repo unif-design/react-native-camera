@@ -28,7 +28,7 @@ export function ActionRow({
 }: Props) {
   return (
     <View style={styles.row}>
-      {!recording ? (
+      {!recording && latestUri ? (
         <ThumbnailStack
           latestUri={latestUri}
           count={count}
