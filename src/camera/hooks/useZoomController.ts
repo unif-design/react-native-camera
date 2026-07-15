@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type { CameraDevice } from 'react-native-vision-camera';
+import { defaultZoomVzf } from './zoomMath';
 
 // 变焦软上限(用户倍数 display 空间)。device.maxZoom 在多镜头机型可达 ~123x,
 // 但 >3x 已是纯数字裁切(画质崩、不实用),故 pinch 放大 + 档位上限统一软钳到 3x
@@ -53,21 +54,22 @@ export function useZoomController(
     SOFT_MAX_DISPLAY
   );
 
-  // 初值 1(vzf)= 设备最广镜头 = 默认档:后置超广角机型 displayMul=0.5 → 用户 0.5x;
-  // 前置/无超广角 displayMul=1 → 用户 1x。不在首帧改默认档(device 异步、首帧 displayMul 未 ready,
-  // 强设「用户 1.0x 的 vzf」会落空仍停在 0.5x);默认就用最广,用户要更近自行 pinch/点档。
+  // 首帧初值 1(vzf):device 异步、首帧 displayMul 未 ready 算不出目标档,先给最广占位;
+  // device ready 后下面的 effect 立刻把它设成默认档(用户 1.0x,见 defaultZoomVzf)。
   const [zoom, setZoom] = useState(1);
   const zoomShared = useSharedValue(1);
 
-  // 翻转设备(前/后摄)→ 重置到新设备最广档(minZoom),不保留上一镜头变焦:
-  // 旧实现只 clamp 旧 zoom —— 后摄放大 N× 翻到前摄,若 N 落在前摄 vzf 范围内则 clamp 不生效,
-  // 而前摄关 pinch、不渲染档位药丸 → 卡在继承来的数字变焦且**无 UI 可恢复**(系统相机翻转也回默认最广)。
-  // 重置到 device.minZoom(该设备最广档)而非写死 1:长焦设备 minZoom 可能 >1,写死 1 会落到非法值。
+  // 相机打开 / 翻转设备(前/后摄)→ 落到默认档 = 用户 1.0x(defaultZoomVzf,非设备最广的 0.5x):
+  // 后置超广角机型 vzf 2.0 = 广角 = 用户 1x;要更广(0.5x)/更近由用户自行 pinch/点档。
+  // 不保留上一镜头变焦:后摄放大 N× 翻到前摄,若 N 落在前摄 vzf 范围内则 clamp 不生效,
+  // 而前摄关 pinch、不渲染档位药丸 → 卡在继承来的数字变焦且**无 UI 可恢复**。
+  // defaultZoomVzf 内部 clamp 到 [minZoom,maxZoom]:长焦设备 minZoom 可能 >1,兜底到 minZoom。
   // 有意只依赖 device:仅设备切换时重置(useCameraDevice 同 position 返稳定引用,不会每帧重跑)。
   useEffect(() => {
     if (device == null) return;
-    setZoom(device.minZoom);
-    zoomShared.value = device.minZoom;
+    const oneX = defaultZoomVzf(displayMul, device.minZoom, device.maxZoom);
+    setZoom(oneX);
+    zoomShared.value = oneX;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device]);
 
