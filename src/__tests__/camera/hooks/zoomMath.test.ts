@@ -1,4 +1,8 @@
-import { clamp, pinchVzf } from '../../../camera/hooks/zoomMath';
+import {
+  clamp,
+  defaultZoomVzf,
+  pinchVzf,
+} from '../../../camera/hooks/zoomMath';
 
 // pinchVzf 对具体上限不敏感(softMaxVzf 是入参),这里用一组「样本」参数验证 clamp 数学本身,
 // 不绑应用实际软上限(实际为 SOFT_MAX_DISPLAY=3,由 useZoomController.test 覆盖)。
@@ -55,5 +59,24 @@ describe('pinchVzf (双指 scale → 受控 vzf)', () => {
     // 单广角:devMin=1, devMax=8, softMaxVzf=min(8,10)=8。
     expect(pinchVzf(1, 0.5, 1, 8, 8)).toBe(1); // 不能缩到 <1(无 0.5x)
     expect(pinchVzf(1, 100, 1, 8, 8)).toBe(8); // 放大封顶 8x
+  });
+});
+
+describe('defaultZoomVzf (默认档 = 用户 1.0x 的 vzf,非最广 0.5x)', () => {
+  test('后置超广角(displayMul=0.5)→ vzf 2.0(= 广角 = 用户 1x)', () => {
+    // 1/0.5=2.0;设备 vzf [1,123] 内 → 2.0。用户倍数 = 2.0×0.5 = 1.0x。
+    expect(defaultZoomVzf(0.5, 1, 123)).toBe(2);
+  });
+
+  test('无超广角(displayMul=1)→ vzf 1.0(= 用户 1x)', () => {
+    expect(defaultZoomVzf(1, 1, 8)).toBe(1);
+  });
+
+  test('clamp 下限:长焦 minZoom=3 > 目标 1.0 → 兜到 minZoom', () => {
+    expect(defaultZoomVzf(1, 3, 8)).toBe(3);
+  });
+
+  test('clamp 上限:目标 2.0 超 maxZoom=1.5 → 兜到 maxZoom', () => {
+    expect(defaultZoomVzf(0.5, 1, 1.5)).toBe(1.5);
   });
 });

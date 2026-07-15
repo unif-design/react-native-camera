@@ -72,23 +72,23 @@ describe('displayMul / min-maxDisplay 推导', () => {
   it('暴露 zoomShared SharedValue(UI 线程驱动倍数与高亮),不再暴露 pinching', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
-    // 默认档 = 设备最广(vzf 初值 1,clamp 不动):dual(displayMul=0.5)→ 用户 0.5x,zoomShared=1。
-    expect(result.current.zoomShared).toEqual({ value: 1 });
+    // 默认档 = 用户 1x:dual(displayMul=0.5)→ device effect 设 vzf 2.0(=用户 1x),zoomShared=2。
+    expect(result.current.zoomShared).toEqual({ value: 2 });
     // pinching 已从对外链路彻底移除(倍数挪进高亮档药丸文字,不再有外部「大号浮层」读它)。
     expect((result.current as { pinching?: unknown }).pinching).toBeUndefined();
   });
 });
 
 describe('zoom state + 设备切换重置', () => {
-  it('默认档 = 设备最广:后置 dual(displayMul=0.5)→ 初始 vzf=1(用户 0.5x)', () => {
-    // 初值 vzf=1 = 最广镜头;设备 effect 仅 clamp(1 在 [min,max] 内不动),不改默认档为 1.0x。
+  it('默认档 = 用户 1x:后置 dual(displayMul=0.5)→ device effect 设 vzf=2(用户 1x)', () => {
+    // device ready 后 effect 把默认档设成用户 1x:dual displayMul=0.5 → vzf 2.0(=广角=用户 1x)。
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
-    expect(result.current.zoom).toBe(1);
-    expect(result.current.zoomShared).toEqual({ value: 1 });
+    expect(result.current.zoom).toBe(2);
+    expect(result.current.zoomShared).toEqual({ value: 2 });
   });
 
-  it('默认档 = 设备最广:无超广角(displayMul=1)→ 初始 vzf=1(用户 1x)', () => {
+  it('默认档 = 用户 1x:无超广角(displayMul=1)→ vzf=1(用户 1x)', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [] });
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.zoom).toBe(1);
@@ -102,7 +102,7 @@ describe('zoom state + 设备切换重置', () => {
     expect(result.current.zoom).toBe(3);
   });
 
-  it('翻转设备 → 重置到新设备最广档(minZoom),不保留上一镜头变焦', () => {
+  it('翻转设备 → 重置到新设备默认档(用户 1x),不保留上一镜头变焦', () => {
     // 后置 dual 放大到 vzf 6,翻到前摄 → 不再 clamp 保留,而是重置最广 minZoom=1。
     // (前摄关 pinch、无档位药丸,继承变焦无法恢复 → 翻转必须回默认最广档,系统相机同款。)
     const wide = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
@@ -118,9 +118,8 @@ describe('zoom state + 设备切换重置', () => {
     expect(result.current.zoomShared).toEqual({ value: 1 });
   });
 
-  it('翻转到最广档 minZoom>1 的设备 → 重置到该设备 minZoom(非固定 1)', () => {
-    // 重置目标是「新设备最广档」= device.minZoom,不是写死 vzf 1:长焦设备 minZoom=3,
-    // 重置到 3(若写死 1 会低于 minZoom 非法)。
+  it('翻转到 minZoom>1 的设备 → 默认档 clamp 兜底到该设备 minZoom', () => {
+    // 默认档目标用户 1x(vzf 1),但长焦 minZoom=3 > 1 → defaultZoomVzf clamp 到 3。
     const ultra = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const teleOnly = makeDevice({ minZoom: 3, maxZoom: 8, switchFactors: [] });
     const { result, rerender } = renderHook<ZoomController, DeviceProps>(
@@ -133,7 +132,7 @@ describe('zoom state + 设备切换重置', () => {
     expect(result.current.zoomShared).toEqual({ value: 3 });
   });
 
-  it('翻转设备即使原 zoom 在新设备范围内也重置最广档(回默认取景)', () => {
+  it('翻转设备即使原 zoom 在新设备范围内也重置默认档(回默认取景)', () => {
     const a = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const b = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [] });
     const { result, rerender } = renderHook<ZoomController, DeviceProps>(
@@ -141,7 +140,7 @@ describe('zoom state + 设备切换重置', () => {
       { initialProps: { device: a } }
     );
     act(() => result.current.setZoom(3));
-    rerender({ device: b }); // 3 仍在 [1,8] 内,但翻转仍回最广 minZoom=1
+    rerender({ device: b }); // 3 仍在 [1,8] 内,但翻转仍回默认档 vzf=1
     expect(result.current.zoom).toBe(1);
   });
 });

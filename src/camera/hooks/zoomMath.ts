@@ -36,3 +36,14 @@ export function activeStop(display: number): number {
   'worklet';
   return display >= 1 ? 1 : 0.5;
 }
+
+// 默认档 vzf —— 用户 1.0x(而非设备最广的 0.5x 超广角)。vzf = 1/displayMul,clamp 到设备 [minZoom,maxZoom]。
+// 后置超广角机型 displayMul=0.5 → vzf 2.0 = 广角镜头 = 用户 1x;无超广角 displayMul=1 → vzf 1.0。
+// 相机打开 / 翻转设备后落在这一档(useZoomController 的 device effect 调用)。
+export function defaultZoomVzf(
+  displayMul: number,
+  deviceMinZoom: number,
+  deviceMaxZoom: number
+): number {
+  return clamp(1 / displayMul, deviceMinZoom, deviceMaxZoom);
+}
