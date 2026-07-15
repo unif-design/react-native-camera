@@ -1,5 +1,17 @@
 # Changelog
 
+# [2.24.0](https://github.com/unif-design/react-native-camera/compare/v2.23.1...v2.24.0) (2026-07-15)
+
+
+### Bug Fixes
+
+* **ci:** release 锁 npm@^11 —— npm@latest 滚到 12 engines 断发版 ([#93](https://github.com/unif-design/react-native-camera/issues/93)) ([71c27e5](https://github.com/unif-design/react-native-camera/commit/71c27e5bbcfa78f91b79d66da4ae9506d89d324e)), closes [#92](https://github.com/unif-design/react-native-camera/issues/92)
+
+
+### Features
+
+* **camera:** 默认档改用户 1.0x(原默认最广 0.5x) ([#92](https://github.com/unif-design/react-native-camera/issues/92)) ([65b55af](https://github.com/unif-design/react-native-camera/commit/65b55afa32879ff7b9c0952278146a160e8ccc22))
+
 ## [2.23.1](https://github.com/unif-design/react-native-camera/compare/v2.23.0...v2.23.1) (2026-06-25)
 
 
