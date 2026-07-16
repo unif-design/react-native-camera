@@ -111,9 +111,11 @@ const makeStyles = (c: ColorTokens) =>
       letterSpacing: 1,
     },
     txtSel: { color: c.primary, fontWeight: fw.semi },
+    // 单模式即当前生效模式 —— 与多模式选中态同款主题色(灰会读成不可用)。
     singleLabel: {
-      color: c.foregroundMuted,
+      color: c.primary,
       fontSize: t.sm,
+      fontWeight: fw.semi,
       letterSpacing: 2,
       alignSelf: 'center',
     },
