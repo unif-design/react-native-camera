@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.1](https://github.com/unif-design/react-native-camera/compare/v2.24.0...v2.24.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* **camera:** 单模式标签用主题色 ([#94](https://github.com/unif-design/react-native-camera/issues/94)) ([3218164](https://github.com/unif-design/react-native-camera/commit/32181647fc6a2e6e98f9e2dc15bf1eead32af698))
+
 # [2.24.0](https://github.com/unif-design/react-native-camera/compare/v2.23.1...v2.24.0) (2026-07-15)
 
 
