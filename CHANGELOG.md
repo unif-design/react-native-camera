@@ -1,5 +1,18 @@
 # Changelog
 
+# [3.0.0](https://github.com/unif-design/react-native-camera/compare/v2.24.1...v3.0.0) (2026-07-30)
+
+
+### Features
+
+* **carousel:** migrate preview to stable v5 ([4eeb72a](https://github.com/unif-design/react-native-camera/commit/4eeb72a8915634d2e08a6d2269f556cead93ba50))
+
+
+### BREAKING CHANGES
+
+* **carousel:** require React Native Gesture Handler 3, Reanimated 4.5,
+Worklets 0.11, Carousel 5, and @unif/react-native-design 0.20.
+
 ## [2.24.1](https://github.com/unif-design/react-native-camera/compare/v2.24.0...v2.24.1) (2026-07-17)
 
 
