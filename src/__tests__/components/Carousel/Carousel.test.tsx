@@ -1,5 +1,15 @@
-import { carouselRemountKey } from '../../../components/Carousel/Carousel';
+import { fireEvent, render } from '@testing-library/react-native';
+import {
+  Carousel,
+  carouselRemountKey,
+} from '../../../components/Carousel/Carousel';
 import { makePhotoFile } from '../../__helpers__/factories';
+
+const rnCarouselRenderSpy = (
+  jest.requireMock('react-native-reanimated-carousel') as {
+    __carouselRenderSpy: jest.Mock;
+  }
+).__carouselRenderSpy;
 
 const f = (id: string) =>
   makePhotoFile({
@@ -23,6 +33,12 @@ describe('carouselRemountKey', () => {
     );
   });
 
+  it('首尾相同但中间项替换 → key 不同,避免旧实例 callback generation 碰撞', () => {
+    expect(carouselRemountKey([f('a'), f('b'), f('c')])).not.toBe(
+      carouselRemountKey([f('a'), f('x'), f('c')])
+    );
+  });
+
   it('删除一张(长度变)→ key 不同 → remount', () => {
     expect(carouselRemountKey([f('a'), f('b')])).not.toBe(
       carouselRemountKey([f('a')])
@@ -37,5 +53,55 @@ describe('carouselRemountKey', () => {
 
   it('空数组不崩,返回字符串', () => {
     expect(typeof carouselRemountKey([])).toBe('string');
+  });
+});
+
+describe('Carousel stable v5 props', () => {
+  beforeEach(() => {
+    rnCarouselRenderSpy.mockClear();
+  });
+
+  it('layout 后使用 named Carousel 所需的 itemSize/keyExtractor/defaultIndex 与 settled callbacks', () => {
+    const data = [f('a'), f('b')];
+    const onScrollStart = jest.fn();
+    const onIndexChange = jest.fn();
+    const { getByTestId } = render(
+      <Carousel
+        data={data}
+        index={1}
+        onScrollStart={onScrollStart}
+        onIndexChange={onIndexChange}
+      />
+    );
+
+    // Carousel 先等真实 pager 高度,收到 layout 后才 mount stable v5 组件。
+    expect(rnCarouselRenderSpy).not.toHaveBeenCalled();
+    fireEvent(getByTestId('camera-preview-carousel-track'), 'layout', {
+      nativeEvent: {
+        layout: { x: 0, y: 0, width: 390, height: 480 },
+      },
+    });
+
+    const calls = rnCarouselRenderSpy.mock.calls;
+    const props = calls[calls.length - 1]?.[0];
+    expect(props).toMatchObject({
+      data,
+      defaultIndex: 1,
+      loop: false,
+      onScrollStart,
+    });
+    expect(props.onSnapToItem).toEqual(expect.any(Function));
+    expect(props.itemSize).toEqual(expect.any(Number));
+    expect(props.itemSize).toBeGreaterThan(0);
+    expect(props.style).toEqual({
+      width: props.itemSize,
+      height: 480,
+    });
+    expect(props.keyExtractor(data[0], 0)).toBe('a');
+
+    fireEvent.press(getByTestId('rnrc-scroll-start'));
+    expect(onScrollStart).toHaveBeenCalledTimes(1);
+    fireEvent.press(getByTestId('rnrc-snap-0'));
+    expect(onIndexChange).toHaveBeenCalledWith(0);
   });
 });

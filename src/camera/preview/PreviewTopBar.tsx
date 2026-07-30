@@ -14,6 +14,7 @@ type Props = {
   variant: 'confirm' | 'gallery';
   files: CustomPhotoFile[];
   activeType: CameraModeName;
+  tabsDisabled?: boolean;
   onSelectType: (t: CameraModeName) => void;
 };
 
@@ -21,6 +22,7 @@ export function PreviewTopBar({
   variant,
   files,
   activeType,
+  tabsDisabled = false,
   onSelectType,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -39,11 +41,15 @@ export function PreviewTopBar({
         <View style={styles.tabs}>
           {types.map((ty) => {
             const sel = ty === activeType;
+            const disabled = sel || tabsDisabled;
             return (
               <TouchableOpacity
                 key={ty}
                 testID={`type-tab-${ty}`}
                 onPress={() => onSelectType(ty)}
+                disabled={disabled}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: sel, disabled }}
                 style={[styles.tab, sel && styles.tabSel]}
               >
                 <Text style={[styles.tabTxt, sel && styles.tabTxtSel]}>

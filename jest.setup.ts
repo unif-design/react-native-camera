@@ -68,8 +68,79 @@ jest.mock('react-native-gesture-handler', () => {
 
 // Mock reanimated-carousel
 jest.mock('react-native-reanimated-carousel', () => {
-  const { View } = require('react-native');
-  return { __esModule: true, default: View };
+  const React = require('react');
+  const { Pressable, View } = require('react-native');
+
+  // 保留 stable v5 的关键行为契约:
+  // - named export + forwardRef
+  // - defaultIndex 只在 mount 时消费
+  // - onScrollStart / onSnapToItem 由测试显式驱动
+  // 这样 PreviewOverlay 测试能覆盖 settled-index,而不是把 Carousel 降成永不回调的 View。
+  const carouselRenderSpy = jest.fn(function CarouselMock(
+    props: any,
+    ref: any
+  ) {
+    const data = props.data ?? [];
+    const initialIndex = Math.max(
+      0,
+      Math.min(props.defaultIndex ?? 0, Math.max(data.length - 1, 0))
+    );
+    const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
+
+    const snapTo = (nextIndex: number) => {
+      const safeIndex = Math.max(
+        0,
+        Math.min(nextIndex, Math.max(data.length - 1, 0))
+      );
+      setCurrentIndex(safeIndex);
+      props.onSnapToItem?.(safeIndex);
+    };
+
+    React.useImperativeHandle(ref, () => ({
+      prev: () => snapTo(currentIndex - 1),
+      next: () => snapTo(currentIndex + 1),
+      getCurrentIndex: () => currentIndex,
+      scrollTo: ({ index }: { index: number }) => snapTo(index),
+    }));
+
+    const currentItem = data[currentIndex];
+    const renderedItem =
+      currentItem === undefined
+        ? null
+        : props.renderItem({
+            item: currentItem,
+            index: currentIndex,
+            relativeProgress: { value: 0 },
+          });
+
+    return React.createElement(
+      View,
+      {
+        testID: props.testID ?? 'rnrc-carousel-mock',
+        style: props.style,
+      },
+      renderedItem,
+      React.createElement(Pressable, {
+        testID: 'rnrc-scroll-start',
+        onPress: props.onScrollStart,
+      }),
+      ...data.map((item: unknown, itemIndex: number) =>
+        React.createElement(Pressable, {
+          key: props.keyExtractor?.(item, itemIndex) ?? String(itemIndex),
+          testID: `rnrc-snap-${itemIndex}`,
+          onPress: () => snapTo(itemIndex),
+        })
+      )
+    );
+  });
+  const Carousel = React.forwardRef(carouselRenderSpy);
+  Carousel.displayName = 'CarouselMock';
+
+  return {
+    __esModule: true,
+    Carousel,
+    __carouselRenderSpy: carouselRenderSpy,
+  };
 });
 
 // Worklets

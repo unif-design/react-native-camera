@@ -17,6 +17,7 @@ type Props = {
   onSave: () => void;
   onBack: () => void;
   onDelete: () => void;
+  deleteDisabled?: boolean;
 };
 
 export function PreviewBottomBar({
@@ -27,6 +28,7 @@ export function PreviewBottomBar({
   onSave,
   onBack,
   onDelete,
+  deleteDisabled = false,
 }: Props) {
   const insets = useSafeAreaInsets();
   const c = useColors();
@@ -73,6 +75,7 @@ export function PreviewBottomBar({
               tone="danger"
               onPress={onDelete}
               testID="delete-btn"
+              disabled={deleteDisabled}
             />
           </>
         )}
@@ -91,12 +94,14 @@ function PreviewActionButton({
   tone,
   onPress,
   testID,
+  disabled = false,
 }: {
   icon: IconName;
   label: string;
   tone: 'primary' | 'danger' | 'neutral';
   onPress: () => void;
   testID: string;
+  disabled?: boolean;
 }) {
   const c = useColors();
   const bg =
@@ -109,9 +114,15 @@ function PreviewActionButton({
     <Pressable
       testID={testID}
       onPress={onPress}
-      style={({ pressed }) => [styles.item, pressed && { opacity: 0.7 }]}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.item,
+        pressed && { opacity: 0.7 },
+        disabled && styles.itemDisabled,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
     >
       <View
         style={[
@@ -142,6 +153,7 @@ const styles = StyleSheet.create({
     columnGap: r(40),
   },
   item: { alignItems: 'center', rowGap: r(7) },
+  itemDisabled: { opacity: 0.45 },
   circle: {
     // trash(垃圾桶,3 条 stroke)在小尺寸会挤一起糊成一团 → 图标 r(26) 取清晰,
     // 圆盘相应放大到 r(56) 让图标透气(见上 Icon size)。
