@@ -1,34 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   useWindowDimensions,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
-import RNCarousel from 'react-native-reanimated-carousel';
+import { Carousel as RNCarousel } from 'react-native-reanimated-carousel';
 import type { CustomPhotoFile } from '../../utils';
 import { SlideItem } from './SlideItem';
 
 /**
  * Carousel remount key:数据集「换了一批」就 remount,重置 RNCarousel 的虚拟化滚动 offset。
- * 纳入首/尾项 id 而非只绑 length —— gallery 切类型 tab 时新旧组可能等长(如 2 张单拍 ↔ 2 段视频),
- * 只用 length 不会 remount → 旧 offset 停在被切走的组、index 已归 0 → 屏上显示张与 current 错位
- * → 删除删错文件(P1#2 根因)。首/尾 id 覆盖「等长换组」「换尾」,length 覆盖增删。
+ * 纳入完整 id 序列,避免等长且首尾相同的中间项替换复用旧实例。
+ * itemSize 传入时也纳入 key:viewport 变化若直接让 RNRC 更新 itemSize,会取消进行中的
+ * Reanimated spring 且不触发 onSnapToItem;remount 可回到父级最后 settled index。
  */
-export function carouselRemountKey(data: CustomPhotoFile[]): string {
-  const first = data[0]?.id ?? '';
-  const last = data[data.length - 1]?.id ?? '';
-  return `${data.length}-${first}-${last}`;
+export function carouselRemountKey(
+  data: CustomPhotoFile[],
+  itemSize?: number
+): string {
+  return JSON.stringify([itemSize ?? null, data.map((item) => item.id)]);
 }
 
 type Props = {
   data: CustomPhotoFile[];
-  /** 受控当前下标(删除后由父级 clamp);用作 defaultIndex,删除 remount 后落回正确张。 */
+  /** 已落位的当前下标(删除后由父级 clamp);用作 defaultIndex,删除 remount 后落回正确张。 */
   index?: number;
+  /** 手势真正开始移动时触发;父级据此冻结会依赖 settled index 的操作。 */
+  onScrollStart?: () => void;
+  /** viewport 宽度变化导致内部 Carousel remount 时触发。 */
+  onViewportChange?: () => void;
+  /** Carousel 完成落位后触发。 */
   onIndexChange?: (i: number) => void;
 };
 
-export function Carousel({ data, index = 0, onIndexChange }: Props) {
+export function Carousel({
+  data,
+  index = 0,
+  onScrollStart,
+  onViewportChange,
+  onIndexChange,
+}: Props) {
   const { width } = useWindowDimensions();
   // 高度按实际容器(预览页 pager,夹在 top/bottom bar 之间)onLayout 实测,
   // 不再用整屏 useWindowDimensions().height —— 后者比 pager 高,RNCarousel 撑出
@@ -37,23 +49,50 @@ export function Carousel({ data, index = 0, onIndexChange }: Props) {
   const [trackHeight, setTrackHeight] = useState(0);
   const onLayout = (e: LayoutChangeEvent) =>
     setTrackHeight(e.nativeEvent.layout.height);
+  const instanceKey = carouselRemountKey(data, width);
+  const activeInstanceKeyRef = useRef(instanceKey);
+  const previousWidthRef = useRef(width);
+
+  useLayoutEffect(() => {
+    activeInstanceKeyRef.current = instanceKey;
+  }, [instanceKey]);
+
+  useEffect(() => {
+    if (previousWidthRef.current === width) return;
+    previousWidthRef.current = width;
+    onViewportChange?.();
+  }, [onViewportChange, width]);
+
+  const handleIndexChange = (nextIndex: number) => {
+    // RNRC 从 UI thread 排队到 RN thread 的旧实例 callback 可能晚于 remount 到达。
+    if (activeInstanceKeyRef.current !== instanceKey) return;
+    onIndexChange?.(nextIndex);
+  };
 
   return (
-    <View style={styles.root} onLayout={onLayout}>
+    <View
+      style={styles.root}
+      onLayout={onLayout}
+      testID="camera-preview-carousel-track"
+    >
       {trackHeight > 0 && (
         <RNCarousel
-          // key = 数据集身份签名(length + 首/尾 id):数据「换了一批」就 remount,重置 RNCarousel
-          // 内部虚拟化滚动 offset。不能只绑 length —— 切类型 tab 时新旧组可能等长 → 不 remount →
-          // 旧 offset 停在被切走的组、显示张与 index 错位 → 删除删错文件(见 carouselRemountKey)。
-          // remount 后用 defaultIndex 落回父级 clamp 过的当前下标(停在正确的剩余照片)。
-          key={carouselRemountKey(data)}
+          // key = 数据完整身份 + viewport width:数据或 itemSize 变化就 remount,
+          // 回到父级最后 settled index,同时隔离旧实例延迟到达的 callback。
+          key={instanceKey}
           data={data}
-          defaultIndex={Math.min(index, Math.max(data.length - 1, 0))}
+          defaultIndex={Math.max(
+            0,
+            Math.min(index, Math.max(data.length - 1, 0))
+          )}
+          itemSize={width}
+          keyExtractor={(item) => item.id}
           // 尺寸走 style(不再用已废弃的 width/height prop):新版 react-native-reanimated-carousel
           // deprecate 了 width/height 顶层 prop,改从 style 读,否则每帧打 deprecation 警告。
           style={{ width, height: trackHeight }}
           loop={false}
-          onSnapToItem={onIndexChange}
+          onScrollStart={onScrollStart}
+          onSnapToItem={handleIndexChange}
           renderItem={({ item }) => <SlideItem file={item} />}
         />
       )}

@@ -66,3 +66,24 @@ test('gallery 只含返回/删除,无完成按钮', () => {
   expect(getByTestId('delete-btn')).toBeTruthy();
   expect(queryByTestId('complete-btn')).toBeNull();
 });
+
+test('gallery moving 时删除按钮禁用并暴露 a11y disabled', () => {
+  const onDelete = jest.fn();
+  const { getByRole, getByTestId } = renderDark(
+    <PreviewBottomBar
+      variant="gallery"
+      index={0}
+      total={2}
+      onRetake={() => {}}
+      onSave={() => {}}
+      onBack={() => {}}
+      onDelete={onDelete}
+      deleteDisabled
+    />
+  );
+  const deleteButton = getByTestId('delete-btn');
+  expect(deleteButton).toBeDisabled();
+  expect(getByRole('button', { name: '删除', disabled: true })).toBeTruthy();
+  fireEvent.press(deleteButton);
+  expect(onDelete).not.toHaveBeenCalled();
+});

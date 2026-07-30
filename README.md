@@ -29,6 +29,23 @@ yarn add @unif/react-native-camera \
   @sbaiahmed1/react-native-blur @unif/react-native-design
 ```
 
+> ⚠️ **npm 安装前先加 scoped override**:`react-native-reanimated-carousel@5.0.0`
+> 的 peer 范围暂未包含 Gesture Handler 3,而本库使用 Gesture Handler 3 的 Hook API。
+> npm 消费端须先在根 `package.json` 加入以下配置,再执行 `npm install`:
+>
+> ```json
+> {
+>   "overrides": {
+>     "react-native-reanimated-carousel": {
+>       "react-native-gesture-handler": "$react-native-gesture-handler"
+>     }
+>   }
+> }
+> ```
+>
+> `$react-native-gesture-handler` 会复用根依赖中的 RNGH 3,不要改成全局 override,
+> 也不要用 `--force` 绕过 peer 检查。完整说明见下方文档站链接。
+
 > `package.json` 的 `peerDependencies` 另声明了 `react-native-webview`(历史保留,`src` 未直接引用),并含 `react` / `react-native` 本身。**完整、权威的清单以 `package.json` 的 `peerDependencies` 为准。**
 
 > ⚠️ **文件系统用 fork**:本库依赖 `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`,装错会冲突。

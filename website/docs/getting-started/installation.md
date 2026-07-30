@@ -54,14 +54,33 @@ yarn add @unif/react-native-camera \
 | `@shopify/react-native-skia` | `>=2` | 水印离屏合成 |
 | `@dr.pogodin/react-native-fs` | `>=2` | 文件读写(**fork,非 `react-native-fs`**,见下) |
 | `react-native-video` | `>=7.0.0-beta.0` | 录像预览播放 |
-| `react-native-reanimated` | `>=4.0.0` | 取景器 / 预览动画 |
-| `react-native-worklets` | `*` | reanimated 4 / vision-camera 的 worklet 运行时 |
-| `react-native-reanimated-carousel` | `>=5.0.0-beta.0` | 预览页轮播 |
-| `react-native-gesture-handler` | `>=2.21.0` | pinch 变焦 / 对焦手势 |
+| `react-native-reanimated` | `>=4.5.0 <4.6.0` | 取景器 / 预览动画 |
+| `react-native-worklets` | `>=0.11.0 <0.12.0` | reanimated 4 / vision-camera 的 worklet 运行时 |
+| `react-native-reanimated-carousel` | `>=5.0.0 <6.0.0` | 预览页轮播 |
+| `react-native-gesture-handler` | `>=3.0.0 <4.0.0` | pinch 变焦 / 对焦手势 |
 | `react-native-safe-area-context` | `>=5.0.0` | 安全区适配 |
 | `react-native-svg` | `>=15` | 矢量绘制(design `Icon` 等) |
 | `@sbaiahmed1/react-native-blur` | `>=4` | 界面毛玻璃 |
-| `@unif/react-native-design` | `>=0.8.1` | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()` |
+| `@unif/react-native-design` | `>=0.20.0` | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()` |
+
+:::caution npm 需要 scoped override
+`react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,
+而本库使用 Gesture Handler 3 的 Hook API。使用 npm 安装时,请在消费端根
+`package.json` 加入**仅作用于 Carousel 的 scoped override**,再执行 `npm install`:
+
+```json
+{
+  "overrides": {
+    "react-native-reanimated-carousel": {
+      "react-native-gesture-handler": "$react-native-gesture-handler"
+    }
+  }
+}
+```
+
+不要使用全局 override 或 `--force`。上面的 `$react-native-gesture-handler` 会复用消费端
+根依赖中满足 `>=3.0.0 <4.0.0` 的版本,避免安装第二份 Gesture Handler。
+:::
 
 :::note 关于 `react-native-webview`
 `package.json` 的 `peerDependencies` 中还列有 `react-native-webview`(`*`),这是**早期版本遗留保留**的声明,当前源码已不直接引用它。新接入无需为本库单独安装;若项目其他依赖已带它,保持原样即可。

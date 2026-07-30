@@ -29,22 +29,29 @@ it('confirm 变体不显示类型分类(未保留不分类)', () => {
 });
 
 it('gallery 单一类型也显示该类型 tab', () => {
-  const { getByTestId } = renderDark(
+  const onSelectType = jest.fn();
+  const { getByRole, getByTestId } = renderDark(
     <PreviewTopBar
       variant="gallery"
       files={[f('single', 'a'), f('single', 'b')]}
       activeType="single"
-      onSelectType={() => {}}
+      onSelectType={onSelectType}
     />
   );
   // 保留(gallery)只要有类型就显示 tab —— 只拍单拍也显示「单拍」tab。
-  expect(getByTestId('type-tab-single')).toBeTruthy();
+  const activeTab = getByTestId('type-tab-single');
+  expect(activeTab).toBeDisabled();
+  expect(
+    getByRole('tab', { name: /单拍/, selected: true, disabled: true })
+  ).toBeTruthy();
+  fireEvent.press(activeTab);
+  expect(onSelectType).not.toHaveBeenCalled();
 });
 
 it('gallery 多类型显示 tab,点 tab 回调', () => {
   const onSelectType = jest.fn();
   const files = [f('continuous', 'a'), f('continuous', 'b'), f('single', 'c')];
-  const { getByTestId } = renderDark(
+  const { getByRole, getByTestId } = renderDark(
     <PreviewTopBar
       variant="gallery"
       files={files}
@@ -52,6 +59,11 @@ it('gallery 多类型显示 tab,点 tab 回调', () => {
       onSelectType={onSelectType}
     />
   );
-  fireEvent.press(getByTestId('type-tab-single'));
+  const inactiveTab = getByTestId('type-tab-single');
+  expect(inactiveTab).not.toBeDisabled();
+  expect(
+    getByRole('tab', { name: /单拍/, selected: false, disabled: false })
+  ).toBeTruthy();
+  fireEvent.press(inactiveTab);
   expect(onSelectType).toHaveBeenCalledWith('single');
 });
