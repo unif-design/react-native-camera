@@ -7,3 +7,5 @@ export type RegisterSessionController = (
   sessionId: number,
   controller: SessionControllerBridge
 ) => () => void;
+
+export type RegisterSessionContainer = (sessionId: number) => () => void;

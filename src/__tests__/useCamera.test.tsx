@@ -21,6 +21,7 @@ type ContainerSnapshot = {
   sessionId?: number;
   fileRegistry?: FileRegistry;
   onSettle: (result: CameraResult) => void;
+  registerContainer?: (sessionId: number) => () => void;
   registerController?: (
     sessionId: number,
     controller: ControllerBridge
@@ -44,6 +45,19 @@ jest.mock('../camera', () => {
       ReactModule.useEffect(() => {
         mockContainerSnapshots.push(props);
       }, [props]);
+      ReactModule.useEffect(() => {
+        if (
+          props.sessionId !== undefined &&
+          props.registerContainer !== undefined
+        ) {
+          return props.registerContainer(props.sessionId);
+        }
+
+        // 复刻修复前真实 Container 的 cleanup：StrictMode replay 和真实 unmount
+        // 都会同步 settle，用它保证 coordinator 测试能发现生产 cleanup 顺序回归。
+        return () =>
+          props.onSettle({ code: 0, data: [], message: 'cancelled' });
+      }, [props.onSettle, props.registerContainer, props.sessionId]);
       return <ReactNative.View testID={`container-${props.sessionId}`} />;
     },
     ModalView: ({
@@ -91,6 +105,15 @@ function Harness() {
   );
 }
 
+function DetachableHolderHarness() {
+  const [api, holder] = useCamera();
+  const [holderMounted, setHolderMounted] = React.useState(true);
+  currentApi = api;
+  detachHolder = () => setHolderMounted(false);
+
+  return holderMounted ? holder : <View testID="holder-detached" />;
+}
+
 function StrictModeOpenHarness({
   onOpen,
 }: {
@@ -110,6 +133,7 @@ function StrictModeOpenHarness({
 }
 
 let currentApi: CameraApi | null = null;
+let detachHolder: (() => void) | null = null;
 
 function getApi(): CameraApi {
   if (!currentApi) throw new Error('camera API is not mounted');
@@ -194,6 +218,7 @@ async function flushMicrotasks() {
 
 beforeEach(() => {
   currentApi = null;
+  detachHolder = null;
   mockContainerSnapshots.length = 0;
   mockModalSnapshots.length = 0;
   mockUnlink.mockReset();
@@ -344,6 +369,51 @@ it('real unmount drains its registry and settles without waiting for unlink', as
 
   pendingUnlink.resolve();
   await flushMicrotasks();
+});
+
+it('real hook unmount force-tears down once before settling and draining', async () => {
+  const view = render(<Harness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const registry = registryOf(container);
+  registry.register('/unmount-with-controller.jpg');
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  registerController(container, bridge);
+
+  act(() => view.unmount());
+  await flushMicrotasks();
+
+  await expect(promise).resolves.toEqual(cancelledResult);
+  expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);
+  expect(registry.stateOf('/unmount-with-controller.jpg')).toBe('deleted');
+  expect(mockUnlink).toHaveBeenCalledWith('/unmount-with-controller.jpg');
+});
+
+it('detaching the holder while the hook stays mounted force-cancels the session', async () => {
+  render(<DetachableHolderHarness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  const disposeController = registerController(container, bridge);
+  const registry = registryOf(container);
+  registry.register('/detached-holder.jpg');
+
+  act(() => {
+    disposeController();
+    if (!detachHolder) throw new Error('holder detach control is unavailable');
+    detachHolder();
+  });
+  await flushMicrotasks();
+
+  await expect(promise).resolves.toEqual(cancelledResult);
+  expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);
+  expect(registry.stateOf('/detached-holder.jpg')).toBe('deleted');
 });
 
 it('unlink failure cannot change the exactly-once cancelled result', async () => {
@@ -501,6 +571,32 @@ it('keeps a replacement bridge when the previous bridge disposer runs late', asy
   await expect(promise).resolves.toEqual(cancelledResult);
 });
 
+it('does not let delayed controller cleanup clear a replacement registration', async () => {
+  render(<Harness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const firstBridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  const secondBridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  const disposeFirst = registerController(container, firstBridge);
+
+  act(() => disposeFirst());
+  registerController(container, secondBridge);
+  await flushMicrotasks();
+  act(() => latestModal().onClose());
+
+  expect(firstBridge.requestUserCancel).not.toHaveBeenCalled();
+  expect(secondBridge.requestUserCancel).toHaveBeenCalledTimes(1);
+
+  act(() => getApi().close());
+  await expect(promise).resolves.toEqual(cancelledResult);
+});
+
 it('falls back to cancelled after the current bridge is disposed', async () => {
   render(<Harness />);
   const promise = open(createConfig());
@@ -553,6 +649,33 @@ it('ignores stale session registration and disposal after a new session owns the
   expect(staleBridge.requestUserCancel).not.toHaveBeenCalled();
   expect(secondBridge.requestUserCancel).toHaveBeenCalledTimes(1);
 
+  act(() => getApi().close());
+  await expect(secondPromise).resolves.toEqual(cancelledResult);
+});
+
+it('ignores an old session presence disposer after the new session mounts', async () => {
+  render(<Harness />);
+  const firstPromise = open(createConfig());
+  const firstContainer = latestContainer();
+  if (
+    firstContainer.sessionId === undefined ||
+    firstContainer.registerContainer === undefined
+  ) {
+    throw new Error('Container did not receive a presence registrar');
+  }
+  const staleDetach = firstContainer.registerContainer(
+    firstContainer.sessionId
+  );
+
+  const secondPromise = open(createConfig('video'));
+  const secondResolved = jest.fn();
+  secondPromise.then(secondResolved);
+  await expect(firstPromise).resolves.toEqual(cancelledResult);
+
+  act(() => staleDetach());
+  await flushMicrotasks();
+
+  expect(secondResolved).not.toHaveBeenCalled();
   act(() => getApi().close());
   await expect(secondPromise).resolves.toEqual(cancelledResult);
 });
@@ -644,6 +767,33 @@ it('settles once when force teardown reentrantly settles before throwing', async
 
   expect(resolved).toHaveBeenCalledTimes(1);
   expect(resolved).toHaveBeenCalledWith(cancelledResult);
+});
+
+it('normalizes a saved result emitted reentrantly during force teardown to cancelled', async () => {
+  render(<Harness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const registry = registryOf(container);
+  const savedPhoto = createPhoto('/reentrant-save.jpg');
+  registry.register(savedPhoto.path);
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(() => {
+      container.onSettle({
+        code: 200,
+        data: [savedPhoto],
+        message: 'success',
+      });
+    }),
+  };
+  registerController(container, bridge);
+
+  act(() => getApi().close());
+
+  await expect(promise).resolves.toEqual(cancelledResult);
+  expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);
+  expect(registry.stateOf(savedPhoto.path)).toBe('deleted');
+  expect(mockUnlink).toHaveBeenCalledWith(savedPhoto.path);
 });
 
 it('falls back to cancelled when the user-cancel bridge throws', async () => {

@@ -11,6 +11,7 @@ import type { CameraApi, CameraResult, OpenConfig } from '../utils';
 import { validateOpenConfig } from '../utils/validateOpenConfig';
 import { Container, ModalView } from '../camera';
 import type {
+  RegisterSessionContainer,
   RegisterSessionController,
   SessionControllerBridge,
 } from '../camera/session/controllerBridge';
@@ -21,17 +22,22 @@ import {
 
 type RegisteredController = {
   bridge: SessionControllerBridge;
+  active: boolean;
 };
+
+type RegisteredContainer = Record<string, never>;
 
 type SessionResources = {
   files: FileRegistry;
   controller: RegisteredController | null;
+  container: RegisteredContainer | null;
 };
 
 type SessionRecord = {
   id: number;
   config: OpenConfig;
   status: 'active' | 'settling' | 'settled';
+  forceCancelRequested: boolean;
   resolve: (result: CameraResult) => void;
   resources: SessionResources;
 };
@@ -43,6 +49,7 @@ type RenderedSession = Pick<SessionRecord, 'id' | 'config'> & {
 type SessionContainerProps = React.ComponentProps<typeof Container> & {
   sessionId: number;
   fileRegistry: FileRegistry;
+  registerContainer: RegisterSessionContainer;
   registerController: RegisterSessionController;
 };
 
@@ -68,7 +75,10 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       }
 
       session.status = 'settling';
-      const finalResult = mountedRef.current ? result : cancelledResult();
+      const finalResult =
+        mountedRef.current && !session.forceCancelRequested
+          ? result
+          : cancelledResult();
       if (finalResult.code === 200) {
         session.resources.files.transfer(
           finalResult.data.map((file) => file.path)
@@ -95,6 +105,18 @@ export function useCamera(): [CameraApi, React.ReactElement] {
 
   const forceCancel = useCallback(
     (session: SessionRecord): void => {
+      if (
+        currentSessionRef.current !== session ||
+        session.status !== 'active'
+      ) {
+        return;
+      }
+      if (session.forceCancelRequested) {
+        finish(session.id, cancelledResult());
+        return;
+      }
+      // 先锁定取消结果；teardown 同步重入的 save/onSettle 也只能得到 cancelled。
+      session.forceCancelRequested = true;
       try {
         session.resources.controller?.bridge.forceTeardown();
       } catch (error) {
@@ -150,8 +172,9 @@ export function useCamera(): [CameraApi, React.ReactElement] {
             id: sessionId,
             config: validated.config,
             status: 'active',
+            forceCancelRequested: false,
             resolve,
-            resources: { files, controller: null },
+            resources: { files, controller: null, container: null },
           };
           const nextRenderedSession = {
             id: session.id,
@@ -182,8 +205,10 @@ export function useCamera(): [CameraApi, React.ReactElement] {
 
       if (session.resources.controller) {
         try {
-          session.resources.controller.bridge.requestUserCancel();
-          return;
+          if (session.resources.controller.active) {
+            session.resources.controller.bridge.requestUserCancel();
+            return;
+          }
         } catch (error) {
           console.warn('camera session user cancel failed', error);
         }
@@ -200,7 +225,10 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       if (session?.id !== sessionId || session.status !== 'active') {
         return () => {};
       }
-      const registration: RegisteredController = { bridge: controller };
+      const registration: RegisteredController = {
+        bridge: controller,
+        active: true,
+      };
       session.resources.controller = registration;
 
       return () => {
@@ -212,10 +240,59 @@ export function useCamera(): [CameraApi, React.ReactElement] {
         ) {
           return;
         }
-        currentSession.resources.controller = null;
+        registration.active = false;
+        // effect cleanup 与 Container presence cleanup 同在一个 commit；推迟清空，
+        // 让真实 detach 仍能 force teardown，StrictMode replay 的新注册则靠 identity 保住。
+        queueMicrotask(() => {
+          const latestSession = currentSessionRef.current;
+          if (
+            latestSession?.id !== sessionId ||
+            latestSession.status !== 'active' ||
+            latestSession.resources.controller !== registration ||
+            latestSession.resources.container === null ||
+            !mountedRef.current
+          ) {
+            return;
+          }
+          latestSession.resources.controller = null;
+        });
       };
     },
     []
+  );
+
+  const registerContainer = useCallback<RegisterSessionContainer>(
+    (sessionId) => {
+      const session = currentSessionRef.current;
+      if (session?.id !== sessionId || session.status !== 'active') {
+        return () => {};
+      }
+      const registration: RegisteredContainer = {};
+      session.resources.container = registration;
+
+      return () => {
+        const currentSession = currentSessionRef.current;
+        if (
+          currentSession?.id !== sessionId ||
+          currentSession.status !== 'active' ||
+          currentSession.resources.container !== registration
+        ) {
+          return;
+        }
+        currentSession.resources.container = null;
+        queueMicrotask(() => {
+          const detachedSession = currentSessionRef.current;
+          if (
+            detachedSession?.id === sessionId &&
+            detachedSession.status === 'active' &&
+            detachedSession.resources.container === null
+          ) {
+            forceCancel(detachedSession);
+          }
+        });
+      };
+    },
+    [forceCancel]
   );
 
   const holder = (
@@ -232,6 +309,7 @@ export function useCamera(): [CameraApi, React.ReactElement] {
           fileRegistry={renderedSession.fileRegistry}
           config={renderedSession.config}
           onSettle={(result) => finish(renderedSession.id, result)}
+          registerContainer={registerContainer}
           registerController={registerController}
         />
       )}

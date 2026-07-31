@@ -1,6 +1,7 @@
-import type { ReactElement } from 'react';
+import { StrictMode, type ReactElement } from 'react';
 import { StyleSheet } from 'react-native';
-import { fireEvent, within } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
 import { renderDark } from '../__helpers__/renderDark';
@@ -75,6 +76,29 @@ it('前置(front)不渲染变焦档', () => {
   expect(queryByTestId('zoom-chip-1')).toBeNull();
   // 倍数已无独立浮层(并入档位药丸),前置整块变焦控件不渲染。
   expect(queryByTestId('zoom-readout')).toBeNull();
+});
+
+it('React 19 StrictMode effect replay 不把活跃 Container 当成真实卸载', () => {
+  const onSettle = jest.fn();
+  // StrictMode 必须位于测试根；若经 renderDark wrapper 包在 ThemeProvider 里面，
+  // React 不会 replay 这棵子树的 effect，测试会假绿。
+  render(
+    <StrictMode>
+      <ThemeProvider forceScheme="dark">
+        <CameraDialogProvider>
+          <Container
+            config={{
+              ...baseConfig,
+              cameraMode: [{ mode: 'single', type: 'back' }],
+            }}
+            onSettle={onSettle}
+          />
+        </CameraDialogProvider>
+      </ThemeProvider>
+    </StrictMode>
+  );
+
+  expect(onSettle).not.toHaveBeenCalled();
 });
 
 it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 position 定位', () => {

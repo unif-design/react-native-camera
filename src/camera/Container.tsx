@@ -15,8 +15,8 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import { cancelledResult } from '../utils';
 import type { CameraResult, OpenConfig } from '../utils';
+import type { RegisterSessionContainer } from './session/controllerBridge';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { useAppActive } from './hooks/useAppActive';
 import { usePermissionFlow } from './hooks/usePermissionFlow';
@@ -57,9 +57,17 @@ const Z = { overlay: 7, sideRail: 9, footer: 10 };
 type Props = {
   config: OpenConfig;
   onSettle: (r: CameraResult) => void;
+  /** useCamera coordinator 的内部 presence lease；Container 不是公共入口。 */
+  sessionId?: number;
+  registerContainer?: RegisterSessionContainer;
 };
 
-export function Container({ config, onSettle }: Props) {
+export function Container({
+  config,
+  onSettle,
+  sessionId,
+  registerContainer,
+}: Props) {
   // 本地弹窗:切模式/放弃拍摄的二次确认走相机 Modal 内部 host(见 ui/CameraDialogHost),
   // 不走 design 全局 confirm —— 后者会被相机 Modal 盖住。showError 同源(顶部非阻塞错误条)。
   const { confirm, showError } = useCameraDialog();
@@ -77,15 +85,12 @@ export function Container({ config, onSettle }: Props) {
     [onSettle]
   );
 
-  useEffect(
-    () => () => {
-      if (!settledRef.current) {
-        onSettle(cancelledResult());
-        settledRef.current = true;
-      }
-    },
-    [onSettle]
-  );
+  useEffect(() => {
+    if (sessionId === undefined || registerContainer === undefined) {
+      return undefined;
+    }
+    return registerContainer(sessionId);
+  }, [registerContainer, sessionId]);
 
   const state = usePermissionFlow();
 
