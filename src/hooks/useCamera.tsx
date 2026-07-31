@@ -73,8 +73,14 @@ export function useCamera(): [CameraApi, React.ReactElement] {
 
   const forceCancel = useCallback(
     (session: SessionRecord): void => {
-      session.resources.controller?.forceTeardown();
-      finish(session.id, cancelledResult());
+      try {
+        session.resources.controller?.forceTeardown();
+      } catch (error) {
+        console.warn('camera session force teardown failed', error);
+      } finally {
+        // bridge 可能同步回调 onSettle；ID/status 门禁保证这里重复 finish 仍是 no-op。
+        finish(session.id, cancelledResult());
+      }
     },
     [finish]
   );
@@ -138,8 +144,12 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       }
 
       if (session.resources.controller) {
-        session.resources.controller.requestUserCancel();
-        return;
+        try {
+          session.resources.controller.requestUserCancel();
+          return;
+        } catch (error) {
+          console.warn('camera session user cancel failed', error);
+        }
       }
 
       finish(sessionId, cancelledResult());

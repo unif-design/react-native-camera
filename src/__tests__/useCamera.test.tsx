@@ -290,3 +290,84 @@ it('uses force teardown for close, supersede, and unmount', async () => {
   await expect(unmountPromise).resolves.toEqual(cancelledResult);
   expect(unmountBridge.forceTeardown).toHaveBeenCalledTimes(1);
 });
+
+it.each(['close', 'supersede', 'unmount'] as const)(
+  'settles cancelled when %s force teardown throws',
+  async (action) => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const view = render(<Harness />);
+    const promise = open(createConfig());
+    const resolved = jest.fn();
+    promise.then(resolved);
+    const bridge: ControllerBridge = {
+      requestUserCancel: jest.fn(),
+      forceTeardown: jest.fn(() => {
+        throw new Error('force teardown failed');
+      }),
+    };
+    act(() => latestContainer().onControllerChange?.(bridge));
+
+    expect(() => {
+      act(() => {
+        if (action === 'close') getApi().close();
+        if (action === 'supersede') getApi().open(createConfig('video'));
+        if (action === 'unmount') view.unmount();
+      });
+    }).not.toThrow();
+    await flushMicrotasks();
+
+    expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);
+    expect(resolved).toHaveBeenCalledTimes(1);
+    expect(resolved).toHaveBeenCalledWith(cancelledResult);
+  }
+);
+
+it('settles once when force teardown reentrantly settles before throwing', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  render(<Harness />);
+  const promise = open(createConfig());
+  const resolved = jest.fn();
+  promise.then(resolved);
+  const container = latestContainer();
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(() => {
+      container.onSettle(cancelledResult);
+      throw new Error('force teardown failed after settle');
+    }),
+  };
+  act(() => container.onControllerChange?.(bridge));
+
+  expect(() => {
+    act(() => getApi().close());
+  }).not.toThrow();
+  await flushMicrotasks();
+
+  expect(resolved).toHaveBeenCalledTimes(1);
+  expect(resolved).toHaveBeenCalledWith(cancelledResult);
+});
+
+it('falls back to cancelled when the user-cancel bridge throws', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  render(<Harness />);
+  const promise = open(createConfig());
+  const resolved = jest.fn();
+  promise.then(resolved);
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(() => {
+      throw new Error('user cancel failed');
+    }),
+    forceTeardown: jest.fn(),
+  };
+  act(() => latestContainer().onControllerChange?.(bridge));
+
+  expect(() => {
+    act(() => latestModal().onClose());
+  }).not.toThrow();
+  await flushMicrotasks();
+
+  expect(bridge.requestUserCancel).toHaveBeenCalledTimes(1);
+  expect(bridge.forceTeardown).not.toHaveBeenCalled();
+  expect(resolved).toHaveBeenCalledTimes(1);
+  expect(resolved).toHaveBeenCalledWith(cancelledResult);
+});
