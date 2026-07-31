@@ -70,6 +70,37 @@ it('等价 watermark 新对象保持同一语义快照，不重建或提前 disp
   expect(builder.dispose).not.toHaveBeenCalled();
 });
 
+it('省略 position 与显式 top-right 共用快照，切到其他 position 才替换', () => {
+  const skia = require('@shopify/react-native-skia');
+  const rendered = renderDark(
+    <WatermarkStamp frame={frame} watermark={{ content: ['水印'] }} />
+  );
+  const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
+  const oldParagraph = oldBuilder.build.mock.results[0].value;
+
+  rendered.rerender(
+    <WatermarkStamp
+      frame={frame}
+      watermark={{ content: ['水印'], position: 'top-right' }}
+    />
+  );
+
+  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(1);
+  expect(oldParagraph.dispose).not.toHaveBeenCalled();
+  expect(oldBuilder.dispose).not.toHaveBeenCalled();
+
+  rendered.rerender(
+    <WatermarkStamp
+      frame={frame}
+      watermark={{ content: ['水印'], position: 'top-left' }}
+    />
+  );
+
+  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(2);
+  expect(oldParagraph.dispose).toHaveBeenCalledTimes(1);
+  expect(oldBuilder.dispose).toHaveBeenCalledTimes(1);
+});
+
 it('watermark 语义变化时替换 Paragraph，并只释放被替换的快照', () => {
   const skia = require('@shopify/react-native-skia');
   const rendered = renderDark(
