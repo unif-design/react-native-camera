@@ -289,6 +289,7 @@ jest.mock('@dr.pogodin/react-native-fs', () => ({
   TemporaryDirectoryPath: '/tmp',
   readFile: jest.fn().mockResolvedValue('BASE64DATA'),
   writeFile: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined),
 }));
 
 // @shopify/react-native-skia:native 模块,jest 下桩离屏合成(返 1080×1440)

@@ -5,18 +5,27 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { cancelledResult } from '../utils';
 import type { CameraApi, CameraResult, OpenConfig } from '../utils';
 import { validateOpenConfig } from '../utils/validateOpenConfig';
 import { Container, ModalView } from '../camera';
+import type {
+  RegisterSessionController,
+  SessionControllerBridge,
+} from '../camera/session/controllerBridge';
+import {
+  createFileRegistry,
+  type FileRegistry,
+} from '../camera/session/fileRegistry';
 
-export type SessionControllerBridge = {
-  requestUserCancel(): void;
-  forceTeardown(): void;
+type RegisteredController = {
+  bridge: SessionControllerBridge;
 };
 
 type SessionResources = {
-  controller: SessionControllerBridge | null;
+  files: FileRegistry;
+  controller: RegisteredController | null;
 };
 
 type SessionRecord = {
@@ -27,15 +36,17 @@ type SessionRecord = {
   resources: SessionResources;
 };
 
-type RenderedSession = Pick<SessionRecord, 'id' | 'config'>;
+type RenderedSession = Pick<SessionRecord, 'id' | 'config'> & {
+  fileRegistry: FileRegistry;
+};
 
 type SessionContainerProps = React.ComponentProps<typeof Container> & {
   sessionId: number;
-  onControllerChange(controller: SessionControllerBridge | null): void;
+  fileRegistry: FileRegistry;
+  registerController: RegisterSessionController;
 };
 
-// Task 1 先把 session identity 与 controller 注册入口送到 Container 边界；
-// 后续状态机接入时 Container 会显式消费这两个 prop。
+// Container 在状态机接线前尚未声明 session resources；这里先把真实边界送入渲染树。
 const SessionContainer =
   Container as React.ComponentType<SessionContainerProps>;
 
@@ -47,6 +58,7 @@ export function useCamera(): [CameraApi, React.ReactElement] {
   const renderedSessionRef = useRef<RenderedSession | null>(null);
   const nextSessionIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const mountGenerationRef = useRef(0);
 
   const finish = useCallback(
     (sessionId: number, result: CameraResult): void => {
@@ -56,9 +68,19 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       }
 
       session.status = 'settling';
+      const finalResult = mountedRef.current ? result : cancelledResult();
+      if (finalResult.code === 200) {
+        session.resources.files.transfer(
+          finalResult.data.map((file) => file.path)
+        );
+      }
+      // drain 在首个 await 前同步摘除 owned；unlink I/O 永远不阻塞 Promise settle。
+      session.resources.files.drain().catch((error) => {
+        console.warn('camera session file cleanup failed', error);
+      });
       currentSessionRef.current = null;
       session.status = 'settled';
-      session.resolve(result);
+      session.resolve(finalResult);
 
       if (!mountedRef.current || renderedSessionRef.current?.id !== sessionId) {
         return;
@@ -74,7 +96,7 @@ export function useCamera(): [CameraApi, React.ReactElement] {
   const forceCancel = useCallback(
     (session: SessionRecord): void => {
       try {
-        session.resources.controller?.forceTeardown();
+        session.resources.controller?.bridge.forceTeardown();
       } catch (error) {
         console.warn('camera session force teardown failed', error);
       } finally {
@@ -85,14 +107,27 @@ export function useCamera(): [CameraApi, React.ReactElement] {
     [finish]
   );
 
+  const cancelUnmountedGeneration = useCallback(
+    (generation: number) => {
+      if (mountedRef.current || mountGenerationRef.current !== generation) {
+        return;
+      }
+      const session = currentSessionRef.current;
+      if (session) forceCancel(session);
+    },
+    [forceCancel]
+  );
+
   useEffect(() => {
+    const generation = ++mountGenerationRef.current;
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      const session = currentSessionRef.current;
-      if (session) forceCancel(session);
+      // React 19 StrictMode 会立即 replay effect；等一个 microtask，只有真实 unmount
+      // 没有后继 generation 时才 teardown，避免开发环境误取消仍活跃的 session。
+      queueMicrotask(() => cancelUnmountedGeneration(generation));
     };
-  }, [forceCancel]);
+  }, [cancelUnmountedGeneration]);
 
   const api = useMemo<CameraApi>(
     () => ({
@@ -110,16 +145,18 @@ export function useCamera(): [CameraApi, React.ReactElement] {
         if (previousSession) forceCancel(previousSession);
 
         return new Promise<CameraResult>((resolve) => {
+          const files = createFileRegistry(RNFS.unlink);
           const session: SessionRecord = {
             id: sessionId,
             config: validated.config,
             status: 'active',
             resolve,
-            resources: { controller: null },
+            resources: { files, controller: null },
           };
           const nextRenderedSession = {
             id: session.id,
             config: session.config,
+            fileRegistry: files,
           };
 
           currentSessionRef.current = session;
@@ -145,7 +182,7 @@ export function useCamera(): [CameraApi, React.ReactElement] {
 
       if (session.resources.controller) {
         try {
-          session.resources.controller.requestUserCancel();
+          session.resources.controller.bridge.requestUserCancel();
           return;
         } catch (error) {
           console.warn('camera session user cancel failed', error);
@@ -157,13 +194,26 @@ export function useCamera(): [CameraApi, React.ReactElement] {
     [finish]
   );
 
-  const setController = useCallback(
-    (sessionId: number, controller: SessionControllerBridge | null): void => {
+  const registerController = useCallback<RegisterSessionController>(
+    (sessionId, controller) => {
       const session = currentSessionRef.current;
       if (session?.id !== sessionId || session.status !== 'active') {
-        return;
+        return () => {};
       }
-      session.resources.controller = controller;
+      const registration: RegisteredController = { bridge: controller };
+      session.resources.controller = registration;
+
+      return () => {
+        const currentSession = currentSessionRef.current;
+        if (
+          currentSession?.id !== sessionId ||
+          currentSession.status !== 'active' ||
+          currentSession.resources.controller !== registration
+        ) {
+          return;
+        }
+        currentSession.resources.controller = null;
+      };
     },
     []
   );
@@ -179,11 +229,10 @@ export function useCamera(): [CameraApi, React.ReactElement] {
         <SessionContainer
           key={renderedSession.id}
           sessionId={renderedSession.id}
+          fileRegistry={renderedSession.fileRegistry}
           config={renderedSession.config}
           onSettle={(result) => finish(renderedSession.id, result)}
-          onControllerChange={(controller) =>
-            setController(renderedSession.id, controller)
-          }
+          registerController={registerController}
         />
       )}
     </ModalView>
