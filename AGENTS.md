@@ -34,7 +34,9 @@
 
 ## 共享与本仓规则边界
 
-本区块外的内容属于本仓规则,同步时必须保留。模板已有的通用规则不得在仓库正文重复。
+- 本区块外的内容属于本仓规则,同步时必须保留;模板已有的通用规则不得在仓库正文重复。
+- 同步脚本只保留正文结构,不证明正文语义仍然正确。同步或迁移 `AGENTS.md` 后,必须逐条对照当前代码、类型、测试、`package.json`、有效文档与已批准规格,删除或改写失效、重复和互相矛盾的说明。
+- 已落地行为写成当前事实;已批准但尚未实现的契约写成开发约束,不得伪装为已经实现。无法确认时先查证,不能沿用旧正文猜测。
 
 <!-- END UNIF REACT NATIVE STANDARD -->
 
@@ -90,15 +92,16 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 ### 弹窗式相机(核心心智)
 
 - **`useCamera()` 无参** → 返回 `[api, holder]`。`api: { open(config): Promise<CameraResult>; close(): void }`。
-- **`holder` 是相机模态的 React 宿主节点,必须渲染进树**(位置不限,但节点要存在)。`useCamera.tsx` 里 holder 就是个 `<ModalView>`,`api.open` 只是 `setVisible(true)` + 存 resolver;**holder 没挂 → 没有挂载锚点 → `api.open()` 静默无效、相机不弹**。
-- **`api.open(config)` 返回 Promise**,用户在全屏模态内拍摄 → 预览确认 / 取消后 resolve 为 `CameraResult`。取消不 reject(走 `code: 0`)。`ModalView` 自带 `SafeAreaProvider` + `ThemeProvider`,模态内 UI 不依赖宿主的 provider。
+- **`holder` 是相机模态的 React 宿主节点,必须渲染进树**(位置不限,但节点要存在)。缺少 holder 时 Modal 不会挂载,有效 `open()` 返回的 Promise 也无法由 `Container` 完成。
+- **`api.open(config)` 先在 Hook 边界校验配置**(`validateOpenConfig.ts`)。非法配置直接 resolve `{code: 500, data: [], message: 'invalid_config'}`,不分配 session、不关闭或替换已经打开的有效 session;合法配置会深拷贝 `cameraMode[]`、每个 mode、watermark 与 `content[]`,消费者后续修改原对象不会改变本次 session。
+- **每个合法 `open()` 都有单调递增的 session ID**。第二次合法 `open()` 先以 `code: 0` 完成旧 Promise,再安装新 session;`finish(sessionId, result)` 同时校验 ID 与 active status,所以保存、关闭、卸载和旧 Container 晚到 callback 只能有一个结果。`api.close()` 与 Hook 卸载同样以取消完成 active Promise。`ModalView` 自带 `SafeAreaProvider` + `ThemeProvider`,模态内 UI 不依赖宿主 provider。
 - **配置全在 `OpenConfig`**(`src/utils/interface.ts`,改 API 先看这里):
   - `cameraMode: CameraMode[]` —— 每项 `{ mode: 'single' | 'continuous' | 'video', quality?, type?, flashMode?, recTime? }`。`type` 接线为初始前/后摄(首项生效);`flashMode` 接线为初始闪光(首项生效);`recTime` 接线为 vision-camera `maxDuration`(秒):到点原生自动停、视频自动入已拍列表(缺省不设=不自动停)。`quality` = JPEG 压缩 0~1,缺省 0.9。
   - `dataRetainedMode: 'clear' | 'retain'` —— 用户切换拍摄模式时已拍文件:`clear` 先二次确认(相机内本地 `confirm`,见下)再清空、且「单拍 + clear」拍完直接进确认预览;`retain` 累积不清。
   - `watermark?: WatermarkType` —— 见下。
   - **拍摄质量(三个可选,全局)** —— `photoQualityPrioritization?: 'speed'|'balanced'|'quality'` / `photoHDR?: boolean` / `videoBitRate?: number`。**核心约定:缺省(不传)= 库不写入任何偏好,完全走 SDK 默认协商**(不替消费者写死取舍);只有显式传值才下发。`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`(不 throw);`'quality'`/`'balanced'` 任何设备直传(质量优先与 speed 能力位无关,见 `Camera.tsx` guard)。**与分辨率无关**:照片/录像分辨率已固定 UHD(见下「画幅」),不随这三字段变。
 
-### Result codes(`CameraResult.code`,在 `Container.tsx` 接线)
+### Result codes(`CameraResult.code`,`useCamera.tsx` + `Container.tsx`)
 
 判成功务必 `code === 200`,别把 `0`(取消)当成功 —— 取消 / 失败时 `data` 为空。
 
@@ -106,18 +109,20 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 | --- | --- | --- |
 | `200` | **成功(唯一成功码)** | `CustomPhotoFile[]` |
 | `0` | 取消 / 关闭 | 空 |
-| `403` | 无权限 | 空 |
-| `404` | 无相机设备 | 空 |
-| `500` | 配置非法(`cameraMode` 为空 / 越界) | 空 |
+| `403` | Camera 权限被拒 | 空 |
+| `404` | 当前选择方向无可用相机设备 | 空 |
+| `500` | `OpenConfig` runtime 校验失败(`invalid_config`) | 空 |
 | `503` | 录像失败(保留码,当前不触发,见下) | 空 |
 
-> **拍照 / 录像「运行时失败」不再 settle 关相机**(对齐 1.x「失败停留可重试」):快门拍摄失败、录像启动 / 停止失败 → 相机内**顶部错误条**提示「请重试」,不关闭相机、不结束 Promise,用户可重拍、已拍照片不丢(`useCaptureFlow` 的 `onError`)。故 `500` 仅余「配置非法」(`currentMode == null`)、`503` 保留作 API 兼容但当前无触发路径(录像失败改走错误条)。
+> **拍照 / 录像 runtime 失败不 settle 关相机**:快门失败、录像启动 / 停止失败走顶部错误条,保留 session 与此前文件。`500` 只用于 `open()` 边界的配置校验;校验覆盖非空 `cameraMode`、所有公开 enum、`quality` 的 finite `0...1`、`recTime` / `videoBitRate` 的 finite 正数、boolean 字段及 watermark shape。空 watermark content 合法。`Container` 的 `currentMode == null` 分支只是防御兜底,不是正常的校验入口;native、录像或照片处理错误不得复用 `500`。`503` 只保留兼容 code,当前无生产触发路径。
 
-### Skia 水印(`src/camera/watermark/`)
+### 照片处理 / Skia 水印(`src/camera/image/` + `src/camera/watermark/`)
 
 - `WatermarkType`:`content: string[]`(每项一行,第 0 行加粗)+ `position`(六选一,缺省 `'top-right'`)。
-- 烧录在快门后**串行逐张**进行(一次只烧 1 张,峰值内存恒定;footer 显示「正在生成水印图片…」)。`burnWatermark.ts` 走 `@dr.pogodin/react-native-fs` 读字节 → Skia 离屏全分辨率 surface 画原图 + 逐行画字 → 编码 JPEG → 写临时文件。
-- **只对照片(`mime === 'image/jpeg'`)生效,录像无水印**。烧录任何异常(解码/分配/读写失败)**都返回原图,绝不阻断保存**。Skia 是 C++ 包装对象,`finally` 里按逆序 `dispose()` 释放原生内存(防大图反复烧 OOM)—— 改这段务必保留 dispose。
+- **Container 已接线路径**:`useCaptureFlow` 对 JPEG 串行调用 `cropToRatio()` 再调用 `burnWatermark()`;两个兼容 helper 都吞掉异常并返回各自输入 file。因此失败时可能把 raw、仅裁切或仅水印的结果加入 `photos`,不会显示「照片处理失败」。这是当前对外行为。
+- **内部原子 processor 契约**:`processPhoto()` 会快照 session / capture ID、画幅、quality、watermark 与实际 camera position;需要 16:9 或存在可见水印时只 decode / draw / JPEG encode 一次,quality 使用当前 mode。处理失败通过 registry best-effort 清理 raw 与可能存在的部分输出,再抛出 `.code === 'photo_processing_failed'` 的 `PhotoProcessingError`,绝不返回未满足请求的照片。
+- `processPhoto()` 与 `createFileRegistry()` 当前没有生产调用点,不能把其原子失败语义写成 `Container` 已生效行为。接入它的调用方必须在失败时不追加 raw,恢复可拍状态并显示「照片处理失败,请重试」,同时保留此前 files。录像不进入照片 processor。
+- Skia Data、Image、Surface、Paint、Paragraph Builder / Paragraph 与 Snapshot 都是 native 包装对象;所有成功 / 失败路径必须按依赖逆序 dispose,单个 dispose 失败不能遮蔽原错误或阻断其余清理。
 
 ### 与 `@unif/react-native-design` 的耦合(peer `>=0.20.0`)
 
@@ -172,13 +177,20 @@ design 是必装 peer,本库从它取这些(不自造):
 
 ### 拍摄编排 / 预览 / 生命周期(`Container.tsx` + `src/camera/hooks/`)
 
-`Container.tsx` 是相机内 UI 总装,**逻辑已抽成 5 个 hook**(改交互流先定位到对应 hook,别在 Container 里堆):
+`Container.tsx` 是相机内 UI 总装,**生产交互状态由 5 个 hook + 局部 state / ref 驱动**(改交互流先定位到对应 hook,别在 Container 里堆):
 
 - `usePermissionFlow` —— 权限态(`pending`/`granted`/`denied`);`denied`→`NoPermission`(code 403),`pending`→Loading。
 - `useZoomController(device)` —— vzf↔display 推导 + `zoomShared` + 设备切换 clamp(见上「变焦」)。
 - `useVideoRecorder(cameraRef)` —— 录像状态机(`recording`/`recSeconds` + start/stop)。
 - `useCaptureFlow({...})` —— **拍摄编排核心**:`photos` / 预览态(`previewing` + `previewVariant`)/ 快门(照片+视频分支)/ 保存·取消·切模式 全在这。
 - `useAppActive` —— App 前后台(切后台停取景,对齐官方 `isActive=appActive&&isScreenFocused`)。
+
+#### 状态机接线边界
+
+- **跨 session coordinator 已生效**:`useCamera.tsx` 负责 session ID、配置快照、supersede、exactly-once finish 与 stale callback 门禁。
+- **取消 bridge 未由真实 Container 注册**:`useCamera.tsx` 会传 `sessionId/onControllerChange`,但 `Container` 的真实 Props 只声明并消费 `config/onSettle`。因此 coordinator 中的 controller 当前保持 `null`;hardware back 会直接 settle `code: 0`,不会经过录像确认或 UI capability。`close()` / supersede / unmount 的 native 收尾依赖 Container / Camera 卸载 cleanup。
+- **统一 reducer 与 configuration generation 是内部纯逻辑契约**:`src/camera/session/{types,reducer,configuration,deviceSelection,frameRect}.ts` 当前没有生产 import,`Container` 也没有 dispatch reducer,`Camera` 没有向上提供带 generation 的 `onConfigured`。不要把 phase capability、operation token、device fallback 或 generation gate 描述成已接线行为。
+- 内部 `nativeConfigurationKey` 排除 photo 画幅和相同 photo output 参数的 `single ↔ continuous`;device、photo / video output、photo quality / prioritization / HDR、video 画幅 / bitrate 会改变 key。reducer 只在 key 变化时递增 generation,且只有最新 generation 的 `CONFIGURED` 能恢复 `ready`。
 
 关键行为(都在 `useCaptureFlow` / `Camera.tsx`):
 
@@ -187,6 +199,12 @@ design 是必装 peer,本库从它取这些(不自造):
 - **`onError` → 顶部非阻塞错误条,绝不关相机** —— `onError` 是「session 遇到任何错误」的诊断回调(`error` 是普通 Error、无 code 判致命性,且含重开/激活时 session 重启这类**可恢复**瞬时错误)。故只 `warn` + 冒泡给 Container 弹错误条(`useCameraDialog().showError`,带去抖 `ERROR_DEDUPE_MS`、4s 自动消失),**绝不据此 `settle(500)`**:早期无条件 settle 会把重开时的瞬时错误误当致命 → 第二次打开即报错关闭。
 - **预览页两种 variant**(`PreviewOverlay`)—— `confirm`(单拍 clear 拍完即进、不分类 tab、显示全 files)/ `gallery`(累积多张、按 `cameraMode` 分类 tab,**单类型也显示其 tab**)。图片 `contain` + **固定灰画布**(`VIEWFINDER.previewCanvas` `#1C1C1E`)：外层容器恒定,只图片比例变 → 不同画幅外层观感一致。
 - 镜头翻转图标 `camera-flip`(系统相机通用形态,比 `lens-flip` 直白);翻转直接切 `position`(无翻转动画,真机反馈奇怪故移除)。
+
+### 临时文件与所有权
+
+- **Container 已接线路径没有 per-session registry**。照片 raw temp、`cropToRatio()` 输出、`burnWatermark()` 输出和已完成视频都直接进入局部 `photos`;删除、重拍、`clear` 切模式、取消与卸载只清 React state,不会调用 `RNFS.unlink()`。裁切后再烧水印还可能遗留 raw 与中间文件。
+- `src/camera/session/fileRegistry.ts` 的内部契约只允许删除已登记为 `owned` 的 path;删除前同步标记 `deleted`,不先 `exists()`;单项 unlink 失败只告警。`replace()` 先登记 final 再删除 raw,`transfer()` 保护成功返回文件,`drain()` 清理其余 owned path。该 registry 当前没有 session owner 或生产调用点。
+- `code: 200` 当前返回的是临时 path,不是持久相册文件。消费者需要长期保留时必须自行复制到持久目录;不要声称库已经在取消 / 删除时回收文件,或已经在成功时执行 ownership transfer。
 
 ## 关键坑
 
@@ -203,7 +221,7 @@ design 是必装 peer,本库从它取这些(不自造):
 - **相机弹窗 / toast 自洽,无需为相机挂 host** —— 二次确认 / toast 由相机内部 `CameraDialogHost`(`useCameraDialog()`)在相机 Modal 子树内渲染,不依赖 App 根的 design `<ConfirmHost/>` / `<ToastHost/>`(见上「与 design 的耦合」)。若消费者用 design 其它命令式组件(本库之外),仍按 design 文档自行挂 host。
 - **必须真机调试** —— 相机 + 水印需要真机摄像头硬件 + Skia GPU。iOS 模拟器 / Android 模拟器 / web 都跑不起来,这是**预期行为,不是 bug**。
 - **仅新架构** —— 依赖 Nitro / vision-camera 5.x,旧架构(Bridge)不支持。**iOS 15.1+** / Android API 24+。(最低 iOS 由 RN 0.85 core 决定:RN 0.80+ 把 `min_ios_version_supported` 抬到 `15.1`,vision-camera / nitro / nitro-image / video / fs / blur 等 RN-core podspec 都继承它;Skia 写死 14.0、reanimated/worklets 13.4 更低,取**最高**即 15.1。)
-- **权限键别漏** —— iOS Info.plist:`NSCameraUsageDescription` / `NSMicrophoneUsageDescription` / `NSPhotoLibraryAddUsageDescription`;Android Manifest:`CAMERA` / `RECORD_AUDIO` / `READ_MEDIA_IMAGES`(13+)。缺则 `code: 403` 或运行崩。
+- **权限按实际能力配置** —— Camera 是拍照 / 录像必需权限:iOS `NSCameraUsageDescription`,Android `android.permission.CAMERA`;用户拒绝后走 `code: 403`。Microphone 只在使用 video 时需要:iOS `NSMicrophoneUsageDescription`,Android `android.permission.RECORD_AUDIO`;本库在开始录像前请求,拒绝时不创建 Recorder、不 settle `403`,而是留在当前 session 显示录像启动错误。库只返回临时文件,不写系统相册,因此 `NSPhotoLibraryAddUsageDescription` / `READ_MEDIA_IMAGES` 不是本库无条件要求;消费者另行保存或读取相册时再按自己的实现配置。
 
 ## 测试
 
@@ -218,15 +236,6 @@ design 是必装 peer,本库从它取这些(不自造):
 ## 构建(`react-native-builder-bob`)
 
 `yarn prepare` 输出到 `lib/`:`lib/module`(ESM,`esm: true`)+ `lib/typescript`(`.d.ts`,用 `tsconfig.build.json` —— 继承 `tsconfig.json` 并排除 `example/` `website/` `lib/`)。`package.json#exports` 暴露两个入口:`.`(主包)和 `./mock`,各自三元组 `source: src/*.tsx`(workspace 消费者)+ `default: lib/module/*.js` + `types: lib/typescript/src/*.d.ts` —— 不要破坏这个映射。
-
-## 文档与 skill 同步
-
-- **API / props / 类型全量** → 文档站 + 远程 llms.txt(按需 fetch,**不在本仓镜像**):
-  - 文档站:https://unif-design.github.io/react-native-camera/
-  - llms 索引:https://unif-design.github.io/react-native-camera/llms.txt
-  - llms 全文:https://unif-design.github.io/react-native-camera/llms-full.txt
-- **website docs 是 llms.txt 的唯一来源** —— 改了组件 / API / 类型,**同步改 `website/docs/`** 再 `yarn workspace @unif/react-native-camera-website build:llms` 重生成,否则 AI 读到的会过时(`website/scripts/build-llms.js`)。
-- **改 API 也要同步消费侧 `camera` Skill** —— `../skills/skills/camera/SKILL.md`:**手写部分**(快速开始 / 坑 / `assets/` 模板)手动改;**全量 props** 已路由 llms.txt,随 docs 自动跟随。
 
 ## 仓库内注释风格
 

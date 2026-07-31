@@ -118,8 +118,10 @@ await api.open({
 ```tsx
 // ❌ Incorrect：拿了 holder 却没放进 React 树
 const [api, holder] = useCamera();
-return <Button title="拍照" onPress={() => api.open(cfg)} />; // api.open() 静默无效
+return <Button title="拍照" onPress={() => api.open(cfg)} />; // UI 不挂载,合法 open Promise 持续 pending
 ```
+
+缺少 `holder` 时调用并非已经完成:合法 `open()` 会创建会话,但没有 `Container` 可以完成拍摄,Promise 会保持 pending,直到 `close()`、下一次合法 `open()` 或 Hook 卸载取消它。
 
 ```tsx
 // ✅ Correct：holder 必须在树里（位置不限）

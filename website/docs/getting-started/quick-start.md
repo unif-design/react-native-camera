@@ -39,7 +39,7 @@ export default function PhotoScreen() {
   return (
     <View>
       <Button title="拍照" onPress={onShoot} />
-      {holder}{/* ② holder 必须渲染进树,否则相机不弹 */}
+      {holder}{/* ② holder 必须渲染进树,否则相机不弹且 Promise 保持 pending */}
     </View>
   );
 }
@@ -68,7 +68,7 @@ const [api, holder] = useCamera();
 {holder}
 ```
 
-`holder` **必须出现在 React 树中**,它是全屏相机模态的挂载点。位置不影响视觉(打开时全屏覆盖),但**节点必须存在**,否则 `api.open()` 静默无效、相机不弹。
+`holder` **必须出现在 React 树中**,它是全屏相机模态的挂载点。位置不影响视觉(打开时全屏覆盖),但**节点必须存在**。缺少它时,合法 `api.open()` 仍会创建会话并返回 Promise,只是相机不弹、`Container` 无法完成该 Promise;它会保持 pending,直到 `close()`、下一次合法 `open()` 或 Hook 卸载取消它。
 
 ### ③ 打开相机
 
@@ -83,6 +83,8 @@ const res = await api.open({
 
 - **`cameraMode`** —— 拍摄模式数组,至少一项。`mode: 'single'` 单拍;`quality`(0~1)是 JPEG 压缩系数,默认 `0.9`。想给用户多个模式 tab,就多传几项,如 `[{ mode: 'single' }, { mode: 'continuous' }, { mode: 'video' }]`。
 - **`dataRetainedMode`** —— 用户切换模式时:`'clear'` 清除已拍文件,`'retain'` 保留。
+
+调用时会先做运行时校验。非法配置直接 resolve `500/invalid_config`,不会替换当前有效会话;若配置合法且已有会话,旧会话先以 `code: 0` 取消,再启动新会话。`close()`、Hook 卸载和过期回调竞争时,同一个 Promise 最多 resolve 一次。
 
 ### ④ 按 `code` 处理结果
 
@@ -100,7 +102,7 @@ if (res.code === 200) {
 | `0` | 用户取消(未拍或点返回) |
 | `403` | 无相机权限 |
 | `404` | 无可用摄像设备 |
-| `500` | 配置非法(`cameraMode` 为空) |
+| `500` | 配置非法(`cameraMode` / `dataRetainedMode` 或可选字段不合法) |
 | `503` | 保留码,当前不触发 |
 
 > **拍照 / 录像运行时失败不再返回 code 关相机**:快门拍摄失败、录像启动 / 停止失败 → 相机内顶部错误条提示「请重试」,不关闭相机、不结束 `open()`,用户可重拍。故 `500` 仅余「配置非法」、`503` 当前无触发路径(录像失败改走相机内重试)。

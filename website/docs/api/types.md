@@ -34,7 +34,7 @@ import type {
 | `cameraMode` | [`CameraMode[]`](#cameramode) | ✅ | — | 拍摄模式数组，至少一项；多项时底部出现模式 tab |
 | `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍照片 |
 | `watermark` | [`WatermarkType`](#watermarktype) | — | 不加水印 | 文字水印配置；传入则取景显示戳记 + 保存时烧入成片 |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认 `'balanced'`** | 照片质量优先级（全局）。缺省不传该字段、由 vision-camera 用默认 `'balanced'`；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'`/`'balanced'` 任何设备直传 |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认** | 照片质量优先级（全局）。缺省时库不传该字段，由 SDK 自行决定；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'` / `'balanced'` 任何设备直传 |
 | `photoHDR` | `boolean` | — | **由相机 negotiate 决定** | 是否启用照片 HDR（多帧融合，更宽动态范围）。缺省不下发该约束、不强制开关；传 `boolean` 才作为约束下发 |
 | `videoBitRate` | `number` | — | **编码器自适应** | 录像目标码率（bps，全局，作用于 video 模式）。缺省不传、由编码器按分辨率自适应；仅在需要明确控制时传（如 4K 约 20–40 Mbps） |
 
@@ -55,7 +55,7 @@ import type {
 | `mode` | `'single' \| 'continuous' \| 'video'` | ✅ | — | 拍摄模式：单拍 / 连拍 / 视频 |
 | `type` | `'back' \| 'front'` | — | `'back'` | 初始前/后摄。**仅数组首项生效**（决定相机打开时的初始镜头） |
 | `flashMode` | `'auto' \| 'on' \| 'off'` | — | `'off'` | 初始闪光。**仅数组首项生效**作初始值；闪光开关之后由相机内 UI 控制 |
-| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认 `'balanced'`） |
+| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认） |
 | `recTime` | `number` | — | — | 录制时长上限（秒）。已接线 vision-camera `maxDuration`：到点原生自动停止、视频自动入已拍列表（缺省不设=不自动停） |
 
 :::note `type` / `flashMode` / `recTime` 的现状
@@ -94,11 +94,15 @@ import type {
 | `0` | 取消 | 用户取消、点返回或调用 `api.close()`（`data` 为空） |
 | `403` | 无权限 | 相机权限被拒 |
 | `404` | 无设备 | 没有可用摄像设备 |
-| `500` | 配置非法 | `cameraMode` 为空数组 / 无效项（拍照运行时失败不再返回此码，见下） |
+| `500` | 配置非法 | `cameraMode` / `dataRetainedMode` 或任一可选字段未通过运行时类型、枚举或数值范围校验（拍照运行时失败不再返回此码，见下） |
 | `503` | 录像失败 | 保留码，当前不触发（录像失败改走相机内重试，见下） |
 
 :::info 拍照 / 录像运行时失败：相机内重试，不返回 code
 自 2.21 起，快门拍摄失败、录像启动 / 停止失败**不再 resolve 关相机**，而是在相机内弹顶部错误条提示重试、不丢已拍（对齐 1.x「失败停留」）。故 `500` 仅余「配置非法」、`503` 当前无触发路径，二者保留作 API 兼容。
+:::
+
+:::note 非法配置不会打断当前会话
+`open(config)` 会先做运行时校验。非法调用直接 resolve `500/invalid_config`，不会替换正在进行的有效会话；第二次合法调用才会先以 `code: 0` 取消旧会话，再启动新会话。
 :::
 
 :::warning 判成功务必 `=== 200`
@@ -126,6 +130,10 @@ import type {
 
 :::info `cameraMode` 与 `mode` 的关系
 `cameraMode` 与 `mode` 是**同一值的两个别名**，始终相等：`cameraMode` 是原版（1.x）字段名，`mode` 是 2.x 引入的字段名。两者同时存在以保证向后兼容，按习惯选用其一即可。
+:::
+
+:::warning `path` / `uri` 指向临时文件，需要自行转存
+拍摄产物写在系统临时目录（`RNFS.TemporaryDirectoryPath`），不写入系统相册。要长期保留，就在拿到 `code === 200` 的 `data` 后复制到业务目录或直接上传。**当前实现不会自动清理这些文件**，磁盘占用与保留时长由消费方负责；系统也可能在任意时刻回收临时目录，不要把这些路径当作持久存储。
 :::
 
 ---

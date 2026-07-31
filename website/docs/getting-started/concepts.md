@@ -47,7 +47,7 @@ return (
 **`holder` 必须出现在 React 树中**,原因:
 
 - 相机模态是通过 React 组件树挂载的,不是 imperative 的原生调用。
-- `holder` 是相机 UI 的挂载锚点;缺它,`api.open()` 找不到渲染目标,调用**静默无效**。
+- `holder` 是相机 UI 的挂载锚点;缺它,合法 `api.open()` 仍会创建会话,但 UI 不会出现,`Container` 也无法完成 Promise。Promise 会保持 pending,直到 `close()`、后续合法 `open()` 或 Hook 卸载取消它。
 - `holder` 的位置(在父节点哪一层)不影响视觉——相机打开时全屏覆盖——但**节点必须存在于组件树内**。
 
 推荐在页面组件或根 App 里一次性放置 `{holder}`,无需每次调用前重新挂载。
@@ -61,6 +61,9 @@ return (
 ```
 api.open(config)
     │
+    ▼
+  [校验]  非法配置直接 resolve 500,不替换 active session
+    │ 合法
     ▼
   [打开]  全屏模态弹出,进入拍摄界面
     │
@@ -81,6 +84,8 @@ Promise.resolve(CameraResult)
 
 - **挂起调用方** —— `await api.open(...)` 会等整个流程(确认或取消)完成才继续。
 - **取消也 resolve** —— 用户取消时 `code` 为 `0`,**不会 reject**。
+- **合法重入先取消旧会话** —— 当前会话尚未完成时再次合法 `open()`,旧 Promise 先 resolve `code: 0`,然后新会话开始;非法新配置只返回 `500/invalid_config`,不影响旧会话。
+- **每个 Promise 最多完成一次** —— `close()`、Hook 卸载、保存回调或取消回调同时发生时,只有当前会话的第一个终态生效;旧会话的过期回调会被忽略。
 - **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间 footer 提示「正在生成水印图片…」)。Promise resolve 时水印已烧入成片。
 
 ### `config`:`cameraMode` 与 `dataRetainedMode`
@@ -105,7 +110,7 @@ Promise.resolve(CameraResult)
 | `0` | 取消 / 关闭 | 静默,`data` 为空 |
 | `403` | 无相机权限 | 引导用户去系统设置开权限 |
 | `404` | 无可用摄像设备 | 提示设备不支持 |
-| `500` | 配置非法(`cameraMode` 为空) | 兜底提示,排查 `config` |
+| `500` | 配置非法(`cameraMode` / `dataRetainedMode` 或可选字段不合法) | 兜底提示,排查 `config` |
 | `503` | 保留码,当前不触发 | —— |
 
 > **拍照 / 录像运行时失败不再返回 code 关相机**:快门拍摄失败、录像启动 / 停止失败 → 相机内顶部错误条提示「请重试」,不关闭相机、不结束 `open()`,用户可重拍、已拍不丢。故 `500` 仅余「配置非法」、`503` 当前无触发路径。

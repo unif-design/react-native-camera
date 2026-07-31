@@ -11,7 +11,7 @@
 
 - **单拍 / 连拍 / 视频录制** — 一个 `useCamera()` Hook 统一编排
 - **弹窗式交互** — `await api.open(config)`,拍完 / 取消后 Promise resolve `CameraResult`
-- **手势** — 滚条变焦(连续、对数曲线、含 0.5x 超广角档)、点击对焦、前后摄翻转
+- **手势** — 双指 pinch 变焦(`Gesture.Pinch` 乘性:起点倍数 × 手势 scale,clamp 到设备区间与软上限)、0.5x / 1x 档位药丸、点击对焦、前后摄翻转
 - **Skia 水印** — 拍照后将文字水印离屏烧入成片(仅照片,录像无水印)
 - **公开面极简** — 唯一入口 `useCamera()`,不直接暴露 vision-camera 的 `<Camera>`
 
@@ -51,7 +51,7 @@ yarn add @unif/react-native-camera \
 > ⚠️ **文件系统用 fork**:本库依赖 `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`,装错会冲突。
 > ⚠️ **worklets 必装**:vision-camera 5.x 内部 `require` 了 `react-native-vision-camera-worklets`,缺它 Metro 报 `Unable to resolve module react-native-vision-camera-worklets`。
 
-iOS 升级原生依赖后须重新 `cd ios && bundle exec pod install`。权限键(iOS Info.plist / Android Manifest)、为何各 peer 必装 —— 见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。相机的确认弹窗 / toast 已内部自洽,**无需为相机挂 `<ConfirmHost/>` / `<ToastHost/>`**。
+iOS 升级原生依赖后须重新 `cd ios && bundle exec pod install`。使用相机必须声明 Camera 权限,只有启用录像才需要 Microphone 权限;本库只返回临时文件,不读写系统相册,因此不会无条件要求相册权限。完整原生配置与 peer 清单见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。相机的确认弹窗 / toast 已内部自洽,**无需为相机挂 `<ConfirmHost/>` / `<ToastHost/>`**。
 
 ## 快速开始
 
@@ -69,17 +69,19 @@ function PhotoScreen() {
     if (res.code === 200) {
       // 成功:res.data 为 CustomPhotoFile[],每项含 .uri / .path / .width / .height / .mime
     }
-    // 0 取消 / 403 无权限 / 404 无设备 / 500 拍摄失败 / 503 录像失败
+    // 0 取消 / 403 无权限 / 404 无设备 / 500 配置非法 / 503 保留码
   };
 
   return (
     <View>
       <Button title="拍照" onPress={onShoot} />
-      {holder}{/* ← 缺 holder 相机不弹 */}
+      {holder}{/* ← 缺 holder 时相机不弹,有效 open Promise 会保持 pending */}
     </View>
   );
 }
 ```
+
+`open(config)` 会先做运行时校验:非法配置直接 resolve `500/invalid_config`,不会替换当前有效会话;第二次合法 `open()` 会先以 `code: 0` 取消旧会话,再启动新会话。`close()`、Hook 卸载和过期回调都受当前会话门禁保护,同一个 Promise 最多 resolve 一次。
 
 > 相机 + 水印需真机(摄像头硬件 + Skia GPU);模拟器 / web 跑不起来,属预期行为。
 
@@ -87,7 +89,7 @@ function PhotoScreen() {
 
 - 完整文档(安装 · 原生配置 · API · 水印 · 测试 · 故障排查 · 升级):**https://unif-design.github.io/react-native-camera/**
 - 喂给 AI 的纯 Markdown:[llms.txt](https://unif-design.github.io/react-native-camera/llms.txt) · [llms-full.txt](https://unif-design.github.io/react-native-camera/llms-full.txt)
-- Claude Code / Cursor 等接入:Agent Skill **`unif-camera`**(`unif` 插件)
+- **Agent Skill** `camera`(`unif` plugin):`/plugin marketplace add unif-design/skills` → `/plugin install unif@skills`
 
 ## 兼容性
 
