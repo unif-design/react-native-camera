@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import type { RefObject } from 'react';
 import type { CustomPhotoFile, OpenConfig } from '../../../utils';
 import type { AspectRatio } from '../../../camera/setup';
-import type { CameraHandle } from '../../../camera/Camera';
+import type { CameraHandle, VideoCallbacks } from '../../../camera/Camera';
 import {
   useCaptureFlow,
   MIN_FREEZE_MS,
@@ -253,16 +253,22 @@ describe('录像失败处理(不关相机)', () => {
     expect(result.current.recording).toBe(false);
   });
 
-  it('录像停止失败(stopVideo null)→ 弹错误条,不再 settle 503', async () => {
-    const startVideo = jest.fn().mockResolvedValue(undefined);
-    const stopVideo = jest.fn().mockResolvedValue(null);
+  it('录像停止的 native error callback → 弹错误条,不再 settle 503', async () => {
+    let callbacks!: VideoCallbacks;
+    const startVideo = jest.fn((nextCallbacks: VideoCallbacks) => {
+      callbacks = nextCallbacks;
+      return Promise.resolve<'started'>('started');
+    });
+    const stopVideo = jest.fn(async () => {
+      callbacks.onError(new Error('stop failed'));
+    });
     const { result, settle, onError } = setupVideo({ startVideo, stopVideo });
     // 第一拍:开始录制(成功)。
     await act(async () => {
       await result.current.onShutter();
     });
     expect(result.current.recording).toBe(true);
-    // 第二拍:停止 → null → 弹错误条,不 settle 关相机。
+    // 第二拍:停止走 callback 唯一终态 → null → 弹错误条,不 settle 关相机。
     await act(async () => {
       await result.current.onShutter();
     });

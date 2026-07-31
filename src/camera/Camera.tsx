@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -17,7 +18,7 @@ import {
   type CameraDevice,
   type CameraOutput,
   type FocusOptions,
-  type Recorder,
+  type RecordingFinishedReason,
 } from 'react-native-vision-camera';
 import Animated, {
   runOnJS,
@@ -38,14 +39,28 @@ import { pinchVzf } from './hooks/zoomMath';
 import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
+import { createRecorderController } from './recording/recorderController';
 import type { AspectRatio, FlashMode } from './setup';
 
 const NEUTRAL_ZOOM = 1;
 
+export type VideoCallbacks = {
+  onFinished: (
+    file: CustomPhotoFile,
+    reason: RecordingFinishedReason,
+    duration: number
+  ) => void;
+  onError: (error: Error) => void;
+  /** Camera 的 native output identity 被替换或 owner dispose；不是录像 native error。 */
+  onCancelled?: () => void;
+};
+
 export type CameraHandle = {
   capture: () => Promise<CustomPhotoFile | null>;
-  startVideo: () => Promise<void>;
-  stopVideo: () => Promise<CustomPhotoFile | null>;
+  startVideo: (callbacks: VideoCallbacks) => Promise<'started' | 'denied'>;
+  stopVideo: () => Promise<void>;
+  cancelVideo: () => Promise<void>;
+  getRecordedDuration: () => number;
 };
 
 type Props = {
@@ -178,11 +193,15 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const { hasPermission: hasMic, requestPermission: requestMic } =
     useMicrophonePermission();
 
-  const activeRecorderRef = useRef<Recorder | null>(null);
-  const preparedRecorderRef = useRef<Recorder | null>(null);
-  const finishResolverRef = useRef<
-    ((file: CustomPhotoFile | null) => void) | null
-  >(null);
+  const recorderController = useMemo(
+    () =>
+      createRecorderController({
+        createRecorder: (settings) => videoOutput.createRecorder(settings),
+      }),
+    [videoOutput]
+  );
+  // 兼容 Task 4 期间的自动结束 prop：手动 stop 与自动上限同时竞争时，只能由一条路径入 photos。
+  const manualStopRequestedRef = useRef(false);
 
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
@@ -274,103 +293,63 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         }
       },
 
-      startVideo: async () => {
-        if (!hasMic) {
-          await requestMic().catch(() => {});
-        }
+      startVideo: async (callbacks) => {
         // recTime → maxDuration(同为秒,直传):到点原生自动停 → onRecordingFinished 回调
-        // (无 stopVideo resolver 时走 onSpontaneousVideoFinish 入 photos)。缺省不设 → 不自动停。
+        // 缺省不设 → 不自动停。每次 start 都现算并创建一次性 Recorder,不跨设置预热/复用。
         const settings =
           currentMode.recTime != null
             ? { maxDuration: currentMode.recTime }
             : {};
-        let recorder = preparedRecorderRef.current;
-        try {
-          if (recorder == null) {
-            recorder = await videoOutput.createRecorder(settings);
-          }
-          preparedRecorderRef.current = null;
-          if (activeRecorderRef.current != null) {
-            // 已在录:手头 recorder 没用上 → 放回 prepared 复用,避免泄漏原生 encoder/file handle。
-            preparedRecorderRef.current = recorder;
-            return;
-          }
-          activeRecorderRef.current = recorder;
-
-          await recorder.startRecording(
-            (filePath, _reason) => {
+        manualStopRequestedRef.current = false;
+        return recorderController.start({
+          hasMicrophonePermission: hasMic,
+          requestMicrophonePermission: requestMic,
+          settings,
+          callbacks: {
+            onFinished: (filePath, reason, duration) => {
               const file = buildPhotoFile(
-                { path: filePath, width: 0, height: 0 },
+                { path: filePath, width: 0, height: 0, duration },
                 'video',
                 cameraType,
                 true
               );
-              activeRecorderRef.current = null;
-              if (finishResolverRef.current) {
-                // stopVideo 在等:兑现它的 Promise。
-                finishResolverRef.current(file);
-                finishResolverRef.current = null;
-              } else {
-                // 自发结束(maxDuration 到点/磁盘满/中断):无 resolver → 上报,别丢文件 + 复位录制态。
-                onSpontaneousVideoFinish?.(file);
+              const stoppedByCaller = manualStopRequestedRef.current;
+              manualStopRequestedRef.current = false;
+              try {
+                // Task 5 会在此 callback 的 operation-token 判断前注入 session registry 登记。
+                callbacks.onFinished(file, reason, duration);
+              } finally {
+                // 尚无手动 stop waiter 的自动结束继续走既有 prop 入 photos；两条路径互斥。
+                if (reason !== 'stopped' && !stoppedByCaller) {
+                  onSpontaneousVideoFinish?.(file);
+                }
               }
             },
-            (error) => {
-              console.warn('recorder error', error);
-              activeRecorderRef.current = null;
-              finishResolverRef.current?.(null);
-              finishResolverRef.current = null;
+            onError: (error) => {
+              manualStopRequestedRef.current = false;
+              callbacks.onError(error);
             },
-            () => {},
-            () => {}
-          );
-
-          preparedRecorderRef.current =
-            await videoOutput.createRecorder(settings);
-        } catch (e) {
-          console.warn('startRecording failed', e);
-          activeRecorderRef.current = null;
-          // 释放手头未挂载成功的 recorder(原生 encoder/file handle),再上抛 → useVideoRecorder
-          // 不进假录制态(不置 recording),Container 弹错误条而非 settle 关相机(P1#1b)。
-          try {
-            recorder?.dispose();
-          } catch (err) {
-            console.warn('recorder dispose failed', err);
-          }
-          throw e;
-        }
+            onCancelled: () => {
+              manualStopRequestedRef.current = false;
+              callbacks.onCancelled?.();
+            },
+          },
+        });
       },
 
       stopVideo: async () => {
-        const active = activeRecorderRef.current;
-        if (active == null) return null;
-        try {
-          const durationSec = active.recordedDuration;
-          const finishedPromise = new Promise<CustomPhotoFile | null>(
-            (resolve) => {
-              finishResolverRef.current = (file) => {
-                if (file != null && durationSec != null) {
-                  resolve({ ...file, duration: durationSec });
-                } else {
-                  resolve(file);
-                }
-              };
-            }
-          );
-          await active.stopRecording();
-          return await finishedPromise;
-        } catch (e) {
-          console.warn('stopRecording failed', e);
-          activeRecorderRef.current = null;
-          // 清 stale resolver:stop 失败后别留指向已弃 Promise 的回调(否则下次 finish 误兑现旧 Promise)。
-          finishResolverRef.current = null;
-          return null;
-        }
+        manualStopRequestedRef.current = true;
+        await recorderController.stop();
       },
+      cancelVideo: async () => {
+        manualStopRequestedRef.current = false;
+        await recorderController.cancel();
+      },
+      getRecordedDuration: () => recorderController.getRecordedDuration(),
     }),
     [
       photoOutput,
-      videoOutput,
+      recorderController,
       currentMode.mode,
       currentMode.recTime,
       hasMic,
@@ -383,29 +362,16 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     ]
   );
 
-  // 卸载/离开 video 时清理 recorder:Nitro 对象 GC 延迟,prepared 但未用的 recorder
-  // 仍持有原生 encoder/file handle —— 不主动释放会泄漏。active 在录则 cancelRecording()
-  // (异步,删临时文件);prepared 直接 dispose()(同步,HybridObject 释放原生资源)。
+  // Controller 变更(例如 video output identity 改变)或卸载时强制取消；pending permission/create
+  // 也会被 attempt token 失效，晚到 Recorder 只清理、不再 start。
   useEffect(() => {
     return () => {
-      const active = activeRecorderRef.current;
-      if (active != null) {
-        active.cancelRecording().catch(() => {});
-        activeRecorderRef.current = null;
-      }
-      const prepared = preparedRecorderRef.current;
-      if (prepared != null) {
-        // dispose() 同步释放原生资源,对象已处异常状态时可能 throw —— unmount cleanup
-        // 里 throw 会红屏,故吞掉(资源最终由 GC 兜底)。
-        try {
-          prepared.dispose();
-        } catch (e) {
-          console.warn('recorder dispose failed', e);
-        }
-        preparedRecorderRef.current = null;
-      }
+      manualStopRequestedRef.current = false;
+      recorderController.dispose().catch((error) => {
+        console.warn('recorder cancel failed', error);
+      });
     };
-  }, []);
+  }, [recorderController]);
 
   const outputs: CameraOutput[] =
     currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
