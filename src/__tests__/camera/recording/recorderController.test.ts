@@ -465,7 +465,7 @@ describe('recorderController', () => {
     expect(harness.recorder.cancelRecording).not.toHaveBeenCalled();
   });
 
-  it('dispose 在 start Promise pending 时立即发出 cancel 终态，晚到 resolve 只能返回 denied', async () => {
+  it('dispose 后 native start 永久 pending 也立即发出 cancel 终态，并让外部 start 返回 denied', async () => {
     const harness = makeRecorder({ deferredStart: true });
     const callbacks = makeCallbacks();
     const controller = createRecorderController({
@@ -481,11 +481,34 @@ describe('recorderController', () => {
     expect(callbacks.onFinished).not.toHaveBeenCalled();
     expect(callbacks.onError).not.toHaveBeenCalled();
 
-    harness.startDeferred?.resolve();
-    await expect(starting).resolves.toBe('denied');
-    await disposing;
+    await expect(disposing).resolves.toBeUndefined();
+    await expect(
+      Promise.race([starting, Promise.resolve('still-pending')])
+    ).resolves.toBe('denied');
     expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(1);
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('首次 cancel 已成功时，native start 迟到 resolve 不会重复 post-start cancel', async () => {
+    const harness = makeRecorder({ deferredStart: true });
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: jest.fn().mockResolvedValue(harness.recorder),
+    });
+
+    const starting = controller.start(startOptions(callbacks));
+    await flushMicrotasks();
+    await expect(controller.cancel()).resolves.toBeUndefined();
+    await expect(starting).resolves.toBe('denied');
+    expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+
+    harness.startDeferred?.resolve();
+    await flushMicrotasks();
+    expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(callbacks.onFinished).not.toHaveBeenCalled();
+    expect(callbacks.onError).not.toHaveBeenCalled();
   });
 
   it('stop 先快照 native duration，文件只由早到的 finish callback 交付', async () => {
@@ -932,9 +955,7 @@ describe('recorderController', () => {
     await expect(starting).resolves.toBe('denied');
     await expect(cancelling).resolves.toBeUndefined();
 
-    expect(
-      jest.mocked(harness.recorder.cancelRecording).mock.calls.length
-    ).toBeGreaterThan(1);
+    expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(2);
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(callbacks.onFinished).not.toHaveBeenCalled();
     expect(callbacks.onError).not.toHaveBeenCalled();
@@ -942,9 +963,12 @@ describe('recorderController', () => {
     warn.mockRestore();
   });
 
-  it('start 永不 settle 时取消等待窗超时后仍有界 dispose，且不会盲目重试 cancel', async () => {
+  it('start-settle 等待窗超时后迟到 resolve 仍执行一次 bounded post-start cancel', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const harness = makeRecorder({ deferredStart: true });
+    const harness = makeRecorder({
+      deferredStart: true,
+      deferredCancel: true,
+    });
     jest
       .mocked(harness.recorder.cancelRecording)
       .mockRejectedValueOnce(new Error('Not currently recording!'));
@@ -971,8 +995,60 @@ describe('recorderController', () => {
     expect(callbacks.onFinished).not.toHaveBeenCalled();
     expect(callbacks.onError).not.toHaveBeenCalled();
     expect(timers.pending()).toHaveLength(0);
+    await expect(
+      Promise.race([starting, Promise.resolve('still-pending')])
+    ).resolves.toBe('denied');
+
+    // cancel() 已按等待窗有界返回并 dispose，但 native start 仍可能随后真正开录。
+    // 迟到 resolve 必须补一次 bounded cancel；第二次 cancel 自身挂死也不能拖住 start。
     harness.startDeferred?.resolve();
+    await flushMicrotasks();
+    expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(2);
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(timers.pending()).toHaveLength(1);
+    expect(timers.pending()[0]?.ms).toBe(CANCEL_ATTEMPT_TIMEOUT_MS);
+    timers.trigger();
+
+    await flushMicrotasks();
+    expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(2);
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(callbacks.onFinished).not.toHaveBeenCalled();
+    expect(callbacks.onError).not.toHaveBeenCalled();
+    expect(timers.pending()).toHaveLength(0);
+    warn.mockRestore();
+  });
+
+  it('start resolve 与等待窗 timeout 同轮竞争时 post-start cancel 仍恰好一次', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const harness = makeRecorder({ deferredStart: true });
+    jest
+      .mocked(harness.recorder.cancelRecording)
+      .mockRejectedValueOnce(new Error('Not currently recording!'));
+    const callbacks = makeCallbacks();
+    const timers = makeTimerHarness();
+    const controller = createRecorderController({
+      createRecorder: jest.fn().mockResolvedValue(harness.recorder),
+      scheduleTimeout: timers.scheduleTimeout,
+    });
+
+    const starting = controller.start(startOptions(callbacks));
+    await flushMicrotasks();
+    const cancelling = controller.cancel();
+    await flushMicrotasks();
+
+    // 同一轮里 timeout 先取得 race 终态、start 紧接着 resolve；两条 continuation
+    // 都可能观察 cancelled，但必须共享同一个 late cleanup，不能各打一刀。
+    timers.trigger();
+    harness.startDeferred?.resolve();
+
+    await expect(cancelling).resolves.toBeUndefined();
     await expect(starting).resolves.toBe('denied');
+    await flushMicrotasks();
+    expect(harness.recorder.cancelRecording).toHaveBeenCalledTimes(2);
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(callbacks.onFinished).not.toHaveBeenCalled();
+    expect(callbacks.onError).not.toHaveBeenCalled();
+    expect(timers.pending()).toHaveLength(0);
     warn.mockRestore();
   });
 
@@ -1036,9 +1112,9 @@ describe('recorderController', () => {
   it('dispose 期间 native cancel 抛错也不向外 reject，只 warn', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const harness = makeRecorder();
-    jest
-      .mocked(harness.recorder.cancelRecording)
-      .mockRejectedValue(new Error('Not currently recording!'));
+    jest.mocked(harness.recorder.cancelRecording).mockImplementation(() => {
+      throw new Error('Not currently recording!');
+    });
     const callbacks = makeCallbacks();
     const timers = makeTimerHarness();
     const controller = createRecorderController({

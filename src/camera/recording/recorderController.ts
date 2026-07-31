@@ -89,6 +89,19 @@ type RecorderOperation = {
   /** native `startRecording()` continuation resolve 或 reject 后 settle，用于取消补救。 */
   startSettled: Promise<'resolved' | 'rejected'>;
   markStartSettled: (outcome: 'resolved' | 'rejected') => void;
+  /**
+   * 首次 cancel 明确 reject 后，native start 若最终 resolve，必须补一次有界 cancel。
+   * 等待窗超时只允许当前 teardown 返回，不能抹掉这份迟到收尾责任。
+   */
+  postStartCancelRequired: boolean;
+  /** teardown 与 start continuation 共享，防 timeout 边界竞争时重复调用 native cancel。 */
+  postStartCancelPromise: Promise<void> | null;
+  /**
+   * 公开 start() 与这条 operation-local intent 竞速：native start 永不 settle 时，
+   * cancel/dispose 仍能及时把外部 waiter 收敛为 denied；native continuation 留在后台收尾。
+   */
+  cancelIntent: Promise<'denied'>;
+  markCancelIntent: () => void;
 };
 
 type RecorderAttempt = {
@@ -370,6 +383,37 @@ export function createRecorderController({
   };
 
   /**
+   * 执行首次 reject 之后的 post-start cancel。它既可能由等待窗内的 teardown 调用，
+   * 也可能由等待窗超时后的迟到 start continuation 调用；共享 Promise 保证两者并发时
+   * 只执行同一组 bounded attempts。首次 cancel 已成功/挂起时不会设置 required，因而
+   * 不会在 start 迟到 resolve 后无条件多打一刀。
+   */
+  const ensurePostStartCancellation = (
+    operation: RecorderOperation
+  ): Promise<void> => {
+    if (!operation.postStartCancelRequired) return Promise.resolve();
+    if (operation.postStartCancelPromise != null) {
+      return operation.postStartCancelPromise;
+    }
+
+    const cleanup = (async () => {
+      try {
+        for (let attempt = 2; attempt <= CANCEL_MAX_ATTEMPTS; attempt += 1) {
+          const outcome = await cancelRecorderWithinTimeout(operation.recorder);
+          if (outcome !== 'rejected') return;
+        }
+      } catch (error) {
+        console.warn('recorder post-start teardown failed', error);
+      } finally {
+        operation.postStartCancelRequired = false;
+        disposeRecorder(operation);
+      }
+    })();
+    operation.postStartCancelPromise = cleanup;
+    return cleanup;
+  };
+
+  /**
    * 取消一个已取得取消终态的 operation，并保证 recorder 恰好被 dispose 一次。
    *
    * 为什么要重试：`HybridVideoRecorder.swift` 的 `cancelRecording()` 开头是
@@ -387,16 +431,14 @@ export function createRecorderController({
       const initial = await cancelRecorderWithinTimeout(operation.recorder);
       if (initial !== 'rejected') return;
 
+      // 一旦明确 reject，这份责任必须跨越 start-settle 等待窗；timeout 不能把它丢掉。
+      operation.postStartCancelRequired = true;
       const startOutcome = await raceWithTimer<
         'resolved' | 'rejected' | 'timeout'
       >(operation.startSettled, CANCEL_START_SETTLE_TIMEOUT_MS, 'timeout');
       if (startOutcome !== 'resolved') return;
 
-      // start 已明确 resolve 后再补救；持续 reject 时仍有固定次数上限，绝不无限循环。
-      for (let attempt = 2; attempt <= CANCEL_MAX_ATTEMPTS; attempt += 1) {
-        const outcome = await cancelRecorderWithinTimeout(operation.recorder);
-        if (outcome !== 'rejected') return;
-      }
+      await ensurePostStartCancellation(operation);
     } catch (error) {
       console.warn('recorder teardown failed', error);
     } finally {
@@ -471,6 +513,16 @@ export function createRecorderController({
       startSettlement = outcome;
       resolveStartSettled(outcome);
     };
+    let resolveCancelIntent!: () => void;
+    let cancelIntentSettled = false;
+    const cancelIntent = new Promise<'denied'>((resolve) => {
+      resolveCancelIntent = () => resolve('denied');
+    });
+    const markCancelIntent = () => {
+      if (cancelIntentSettled) return;
+      cancelIntentSettled = true;
+      resolveCancelIntent();
+    };
     const operation: RecorderOperation = {
       recorder,
       callbacks,
@@ -485,40 +537,58 @@ export function createRecorderController({
       reportedProducedPaths: new Set(),
       startSettled,
       markStartSettled,
+      postStartCancelRequired: false,
+      postStartCancelPromise: null,
+      cancelIntent,
+      markCancelIntent,
     };
     if (pendingAttempt === attempt) pendingAttempt = null;
     active = operation;
     lastDuration = 0;
 
-    try {
-      await recorder.startRecording(
-        (path, reason) => finalizeFinished(operation, path, reason),
-        (error) => finalizeNativeError(operation, error),
-        () => {},
-        () => {}
-      );
-      markStartSettled('resolved');
-      // 官方语义：startRecording 的 Promise 在 onRecordingStarted 才 resolve = 录像真正开始。
-      // 把 monotonic 锚点重置到此刻，否则权限请求 / createRecorder / native 启动的开销都会被
-      // 算进 fallback duration（真机上常见数百毫秒到数秒的系统性高估）。
-      // 只在仍 pending 时重锚：已 finalized/cancelled 的 operation 不能被晚到 continuation 改写。
-      if (operation.state === 'pending') operation.startedAt = monotonicNow();
-      // cancel/dispose 可能先于 native start continuation；只有 cancel 要映射 denied。
-      // finish/error callback 已 finalized 时仍返回 started，让上层以 callback 真值收口。
-      return operation.state === 'cancelled' ? 'denied' : 'started';
-    } catch (error) {
-      const normalized = asError(error);
-      markStartSettled('rejected');
-      // callback 可能已先完成；此时 callback 是唯一终态，晚到 continuation 只能 no-op。
-      const ownedFailure = await abortWithError(operation, normalized);
-      if (!ownedFailure) {
-        return operation.state === 'cancelled' ? 'denied' : 'started';
+    const nativeContinuation = (async (): Promise<'started' | 'denied'> => {
+      try {
+        await recorder.startRecording(
+          (path, reason) => finalizeFinished(operation, path, reason),
+          (error) => finalizeNativeError(operation, error),
+          () => {},
+          () => {}
+        );
+        markStartSettled('resolved');
+        if (operation.state === 'cancelled') {
+          // 外部 start 可能已由 cancel intent 返回；native 迟到开录仍在这里完成有界收尾。
+          await ensurePostStartCancellation(operation);
+          return 'denied';
+        }
+        // 官方语义：startRecording 的 Promise 在 onRecordingStarted 才 resolve = 录像真正开始。
+        // 把 monotonic 锚点重置到此刻，否则权限请求 / createRecorder / native 启动的开销都会被
+        // 算进 fallback duration（真机上常见数百毫秒到数秒的系统性高估）。
+        // 只在仍 pending 时重锚：已 finalized/cancelled 的 operation 不能被晚到 continuation 改写。
+        if (operation.state === 'pending') operation.startedAt = monotonicNow();
+        // finish/error callback 已 finalized 时仍返回 started，让上层以 callback 真值收口。
+        return 'started';
+      } catch (error) {
+        const normalized = asError(error);
+        markStartSettled('rejected');
+        if (operation.state === 'cancelled') {
+          // native start 最终 reject，证明没有迟到开录；不再保留 post-start cancel 责任。
+          operation.postStartCancelRequired = false;
+        }
+        // callback 可能已先完成；此时 callback 是唯一终态，晚到 continuation 只能 no-op。
+        const ownedFailure = await abortWithError(operation, normalized);
+        if (!ownedFailure) {
+          return operation.state === 'cancelled' ? 'denied' : 'started';
+        }
+        throw normalized;
+      } finally {
+        // 防御同步异常绕过分支；幂等 marker 不会把已 resolve 的 start 改写成 reject。
+        operation.markStartSettled('rejected');
       }
-      throw normalized;
-    } finally {
-      // 防御同步异常绕过分支；幂等 marker 不会把已 resolve 的 start 改写成 reject。
-      operation.markStartSettled('rejected');
-    }
+    })();
+
+    // cancel intent 只负责及时收敛公开 waiter；native promise 继续被上方 continuation 持有，
+    // 因而迟到 resolve/reject、file callback 与 post-start cancel 都不会变成悬空工作。
+    return Promise.race([nativeContinuation, operation.cancelIntent]);
   };
 
   const stop = async () => {
@@ -557,6 +627,7 @@ export function createRecorderController({
 
     // await 前先原子占有取消终态；同期 finish/error callback 只能 no-op，不能交付文件。
     operation.state = 'cancelled';
+    operation.markCancelIntent();
     clearActive(operation);
     if (notifyOwner) notifyCancelled(operation.callbacks);
     // cancel()/dispose() 一律不向外 reject：调用方是 effect cleanup / session 收尾，
