@@ -293,6 +293,8 @@ jest.mock('@dr.pogodin/react-native-fs', () => ({
 
 // @shopify/react-native-skia:native 模块,jest 下桩离屏合成(返 1080×1440)
 jest.mock('@shopify/react-native-skia', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   const noop = () => {};
   const mkImage = { width: () => 1080, height: () => 1440, dispose: noop };
   const mkCanvas = {
@@ -307,11 +309,16 @@ jest.mock('@shopify/react-native-skia', () => {
   const mkSurface = {
     getCanvas: () => mkCanvas,
     makeImageSnapshot: () => mkSnapshot,
+    width: () => 1080,
+    height: () => 1440,
     dispose: noop,
   };
   return {
     Skia: {
-      Data: { fromBase64: jest.fn(() => ({ dispose: noop })) },
+      Data: {
+        fromURI: jest.fn(async () => ({ dispose: noop })),
+        fromBase64: jest.fn(() => ({ dispose: noop })),
+      },
       Image: { MakeImageFromEncoded: jest.fn(() => mkImage) },
       Surface: { MakeOffscreen: jest.fn(() => mkSurface) },
       Font: jest.fn(() => ({
@@ -325,19 +332,21 @@ jest.mock('@shopify/react-native-skia', () => {
       // burnWatermark 改用 Paragraph(系统字体 + 字形 fallback,能烧 CJK),故水印烧图测试走这里。
       ParagraphBuilder: {
         Make: jest.fn(() => {
+          const paragraph = {
+            layout: jest.fn(),
+            paint: jest.fn(),
+            getHeight: jest.fn(() => 120),
+            getLongestLine: jest.fn(() => 200),
+            getMaxWidth: jest.fn(() => 200),
+            dispose: jest.fn(),
+          };
           const builder: any = {
-            pushStyle: () => builder,
-            addText: () => builder,
-            pop: () => builder,
-            reset: () => builder,
-            build: () => ({
-              layout: noop,
-              paint: noop,
-              getHeight: () => 120,
-              getLongestLine: () => 200,
-              getMaxWidth: () => 200,
-              dispose: noop,
-            }),
+            pushStyle: jest.fn(() => builder),
+            addText: jest.fn(() => builder),
+            pop: jest.fn(() => builder),
+            reset: jest.fn(() => builder),
+            build: jest.fn(() => paragraph),
+            dispose: jest.fn(),
           };
           return builder;
         }),
@@ -367,5 +376,12 @@ jest.mock('@shopify/react-native-skia', () => {
       Black: 900,
       ExtraBlack: 1000,
     },
+    Canvas: ({ children, ...props }: any) =>
+      React.createElement(View, props, children),
+    Paragraph: (props: any) =>
+      React.createElement(View, {
+        ...props,
+        testID: 'watermark-paragraph',
+      }),
   };
 });

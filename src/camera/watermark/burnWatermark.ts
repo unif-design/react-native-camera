@@ -1,20 +1,13 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import {
-  Skia,
-  ImageFormat,
-  TextAlign,
-  FontWeight,
-} from '@shopify/react-native-skia';
-import type {
-  SkData,
-  SkImage,
-  SkSurface,
-  SkParagraph,
-} from '@shopify/react-native-skia';
+import { Skia, ImageFormat } from '@shopify/react-native-skia';
+import type { SkData, SkImage, SkSurface } from '@shopify/react-native-skia';
 import type { CustomPhotoFile, WatermarkType } from '../../utils';
 import { toFileUri } from '../../utils';
-import { VIEWFINDER } from '../colors/viewfinder';
-import { computeWatermarkLayout } from './layout';
+import {
+  createWatermarkParagraph,
+  hasVisibleWatermark,
+  type WatermarkParagraph,
+} from './paragraph';
 
 /**
  * 把水印烧进照片:读字节 → Skia 解码 → 离屏全分辨率 surface 画原图 + Paragraph 画水印
@@ -35,8 +28,9 @@ export async function burnWatermark(
   let image: SkImage | null = null;
   let surface: SkSurface | null = null;
   let snapshot: SkImage | null = null;
-  let paragraph: SkParagraph | null = null;
+  let prepared: WatermarkParagraph | null = null;
   try {
+    if (!hasVisibleWatermark(wm)) return file;
     const base64 = await RNFS.readFile(file.path, 'base64');
     data = Skia.Data.fromBase64(base64);
     image = Skia.Image.MakeImageFromEncoded(data);
@@ -48,48 +42,13 @@ export async function burnWatermark(
     const canvas = surface.getCanvas();
     canvas.drawImage(image, 0, 0);
 
-    const L = computeWatermarkLayout(w, wm);
-    const align =
-      L.align === 'left'
-        ? TextAlign.Left
-        : L.align === 'right'
-          ? TextAlign.Right
-          : TextAlign.Center;
-
-    // 白字 + 黑色模糊阴影(对齐预览:白字浮在任意照片上靠阴影保证可读)。阴影色同预览 watermarkShadow。
-    const shadow = {
-      color: Skia.Color(VIEWFINDER.watermarkShadow),
-      blurRadius: Math.max(2, Math.round(L.fontSize * 0.1)),
-      offset: { x: 0, y: 0 },
-    };
-    // 不传第二参(typefaceProvider)→ Paragraph 用系统字体管理器 + 自动 fallback。
-    const builder = Skia.ParagraphBuilder.Make({ textAlign: align });
-    L.content.forEach((line, i) => {
-      builder
-        .pushStyle({
-          color: Skia.Color('white'),
-          fontSize: L.fontSize,
-          // 第 0 行加粗(对齐预览 WatermarkStamp 的 title);其余常规。
-          fontStyle: {
-            weight: i === 0 ? FontWeight.SemiBold : FontWeight.Normal,
-          },
-          shadows: [shadow],
-        })
-        // 多行用换行拼进同一 Paragraph(最后一行不加),整体在 layout 宽度内按 align 对齐。
-        .addText(i === L.content.length - 1 ? line : `${line}\n`)
-        .pop();
-    });
-    paragraph = builder.build();
-
-    // 在 [pad, w-pad] 宽度内按 align 排版,文字块左上角绘制到 (pad, y) → 右对齐文字右边缘落在 w-pad。
-    // bottom 锚定取 h-pad-块高(getHeight 须在 layout 后调用)。
-    const blockW = Math.max(1, w - 2 * L.pad);
-    paragraph.layout(blockW);
-    const y =
-      L.anchorY === 'top'
-        ? L.pad
-        : Math.max(0, h - L.pad - paragraph.getHeight());
-    paragraph.paint(canvas, L.pad, y);
+    // 兼容入口暂留给旧 useCaptureFlow；Paragraph 的样式、换行宽度与放置已统一走共享 helper。
+    prepared = createWatermarkParagraph(w, h, wm);
+    prepared.paragraph.paint(
+      canvas,
+      prepared.placement.x,
+      prepared.placement.y
+    );
 
     snapshot = surface.makeImageSnapshot();
     const outB64 = snapshot.encodeToBase64(ImageFormat.JPEG, 92);
@@ -101,9 +60,8 @@ export async function burnWatermark(
     return file;
   } finally {
     // 释放 Skia native 对象(按依赖逆序,后创建的先释放),避免全分辨率大图反复烧后内存增长/OOM。
-    // Paragraph 同为 native 包装(extends SkJSIInstance),也需 dispose。
-    paragraph?.dispose();
     snapshot?.dispose();
+    prepared?.dispose();
     surface?.dispose();
     image?.dispose();
     data?.dispose();

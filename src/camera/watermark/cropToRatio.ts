@@ -8,6 +8,7 @@ import type {
 } from '@shopify/react-native-skia';
 import type { CustomPhotoFile } from '../../utils';
 import { toFileUri } from '../../utils';
+import { computeCropRect } from '../image/cropGeometry';
 
 /**
  * 出图 16:9 居中裁切:photo 流恒 4:3 全幅出图(session 零重配,见 Camera.tsx),16:9 视野
@@ -38,24 +39,9 @@ export async function cropToRatio(
     const w = image.width();
     const h = image.height();
 
-    // 目标竖屏宽/高比(ratio='16:9' → portraitWH = 9/16)。竖屏 4:3 原图(h>w):**等高裁宽**
-    // cropW = h*portraitWH,居中取(offsetX = (w-cropW)/2)。若 cropW > w(图本就偏窄,fallback)
-    // 改**等宽裁高**:cropH = w/portraitWH,居中取(offsetY = (h-cropH)/2)。
-    // '16:9' 是横向写法;竖屏取景旋转 90° → 竖屏宽/高 = 短边/长边 = 9/16。
-    const [rw, rh] = ratio.split(':').map(Number) as [number, number];
-    const portraitWH = rh / rw; // 16:9 → 9/16(竖屏:短边/长边)
-    let cropW = Math.round(h * portraitWH);
-    let cropH = h;
-    let offsetX = Math.round((w - cropW) / 2);
-    let offsetY = 0;
-    if (cropW > w) {
-      cropW = w;
-      cropH = Math.round(w / portraitWH);
-      offsetX = 0;
-      offsetY = Math.round((h - cropH) / 2);
-    }
+    const crop = computeCropRect(w, h, ratio);
 
-    surface = Skia.Surface.MakeOffscreen(cropW, cropH);
+    surface = Skia.Surface.MakeOffscreen(crop.width, crop.height);
     if (!surface) return file;
     const canvas = surface.getCanvas();
     // 局部 const(类型非空)供绘制,同时存进 let 供 finally 逆序 dispose —— 免非空断言。
@@ -63,8 +49,8 @@ export async function cropToRatio(
     paint = p;
     canvas.drawImageRect(
       image,
-      Skia.XYWHRect(offsetX, offsetY, cropW, cropH),
-      Skia.XYWHRect(0, 0, cropW, cropH),
+      Skia.XYWHRect(crop.x, crop.y, crop.width, crop.height),
+      Skia.XYWHRect(0, 0, crop.width, crop.height),
       p
     );
 
@@ -76,8 +62,8 @@ export async function cropToRatio(
       ...file,
       path: outPath,
       uri: toFileUri(outPath),
-      width: cropW,
-      height: cropH,
+      width: crop.width,
+      height: crop.height,
     };
   } catch {
     // 解码/分配/读写任何异常都返原图,绝不阻断保存(红线同水印烧录)。
