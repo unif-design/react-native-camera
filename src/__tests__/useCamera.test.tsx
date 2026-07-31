@@ -452,10 +452,10 @@ it('does not cancel an active session during React StrictMode effect replay', as
   await flushMicrotasks();
 
   expect(resolved).not.toHaveBeenCalled();
-  expect(latestContainer()).toBeDefined();
+  const container = latestContainer();
 
-  act(() => getApi().close());
-  await expect(promise).resolves.toEqual(cancelledResult);
+  act(() => container.onSettle(savedResult));
+  await expect(promise).resolves.toEqual(savedResult);
 });
 
 it('ignores stale Container settle and Modal close callbacks', async () => {
@@ -520,6 +520,93 @@ it('settles the active session on hook unmount without late state updates', asyn
   expect(resolved).toHaveBeenCalledTimes(1);
   expect(resolved).toHaveBeenCalledWith(cancelledResult);
   expect(consoleError).not.toHaveBeenCalled();
+});
+
+it('still force-tears down after hook unmount when stale settle wins before the queued microtask', async () => {
+  const view = render(<Harness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const registry = registryOf(container);
+  registry.register('/stale-unmount.jpg');
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  registerController(container, bridge);
+
+  act(() => view.unmount());
+  act(() => container.onSettle(savedResult));
+
+  expect(bridge.forceTeardown).not.toHaveBeenCalled();
+  expect(registry.stateOf('/stale-unmount.jpg')).toBe('deleted');
+  await flushMicrotasks();
+
+  await expect(promise).resolves.toEqual(cancelledResult);
+  expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);
+});
+
+it('locks holder detach to cancelled before stale save and still tears down once', async () => {
+  render(<DetachableHolderHarness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const registry = registryOf(container);
+  const savedPhoto = createPhoto('/stale-detach-save.jpg');
+  registry.register(savedPhoto.path);
+  registry.register('/stale-detach-orphan.jpg');
+  const bridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  const disposeController = registerController(container, bridge);
+
+  act(() => {
+    disposeController();
+    if (!detachHolder) throw new Error('holder detach control is unavailable');
+    detachHolder();
+  });
+  act(() =>
+    container.onSettle({
+      code: 200,
+      data: [savedPhoto],
+      message: 'success',
+    })
+  );
+
+  expect(bridge.forceTeardown).not.toHaveBeenCalled();
+  expect(registry.stateOf(savedPhoto.path)).toBe('deleted');
+  expect(registry.stateOf('/stale-detach-orphan.jpg')).toBe('deleted');
+  await flushMicrotasks();
+
+  await expect(promise).resolves.toEqual(cancelledResult);
+  expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);
+  expect(mockUnlink).toHaveBeenCalledWith(savedPhoto.path);
+  expect(mockUnlink).toHaveBeenCalledWith('/stale-detach-orphan.jpg');
+});
+
+it('queued holder detach tears down the controller captured by that presence', async () => {
+  render(<DetachableHolderHarness />);
+  const promise = open(createConfig());
+  const container = latestContainer();
+  const detachedBridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  const replacementBridge: ControllerBridge = {
+    requestUserCancel: jest.fn(),
+    forceTeardown: jest.fn(),
+  };
+  registerController(container, detachedBridge);
+
+  act(() => {
+    if (!detachHolder) throw new Error('holder detach control is unavailable');
+    detachHolder();
+  });
+  registerController(container, replacementBridge);
+  await flushMicrotasks();
+
+  await expect(promise).resolves.toEqual(cancelledResult);
+  expect(detachedBridge.forceTeardown).toHaveBeenCalledTimes(1);
+  expect(replacementBridge.forceTeardown).not.toHaveBeenCalled();
 });
 
 it('routes hardware back through the current session user-cancel bridge', async () => {

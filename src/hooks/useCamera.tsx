@@ -27,10 +27,16 @@ type RegisteredController = {
 
 type RegisteredContainer = Record<string, never>;
 
+type PendingContainerDetach = {
+  intent: object;
+  controller: RegisteredController | null;
+};
+
 type SessionResources = {
   files: FileRegistry;
   controller: RegisteredController | null;
   container: RegisteredContainer | null;
+  pendingContainerDetach: PendingContainerDetach | null;
 };
 
 type SessionRecord = {
@@ -38,8 +44,16 @@ type SessionRecord = {
   config: OpenConfig;
   status: 'active' | 'settling' | 'settled';
   forceCancelRequested: boolean;
+  pendingCancelIntents: Set<object>;
+  teardownStarted: boolean;
   resolve: (result: CameraResult) => void;
   resources: SessionResources;
+};
+
+type PendingHookUnmount = {
+  session: SessionRecord;
+  intent: object;
+  controller: RegisteredController | null;
 };
 
 type RenderedSession = Pick<SessionRecord, 'id' | 'config'> & {
@@ -66,6 +80,7 @@ export function useCamera(): [CameraApi, React.ReactElement] {
   const nextSessionIdRef = useRef(0);
   const mountedRef = useRef(true);
   const mountGenerationRef = useRef(0);
+  const pendingHookUnmountRef = useRef<PendingHookUnmount | null>(null);
 
   const finish = useCallback(
     (sessionId: number, result: CameraResult): void => {
@@ -76,7 +91,9 @@ export function useCamera(): [CameraApi, React.ReactElement] {
 
       session.status = 'settling';
       const finalResult =
-        mountedRef.current && !session.forceCancelRequested
+        mountedRef.current &&
+        !session.forceCancelRequested &&
+        session.pendingCancelIntents.size === 0
           ? result
           : cancelledResult();
       if (finalResult.code === 200) {
@@ -103,6 +120,29 @@ export function useCamera(): [CameraApi, React.ReactElement] {
     []
   );
 
+  const teardownAndFinish = useCallback(
+    (
+      session: SessionRecord,
+      controller: RegisteredController | null = session.resources.controller
+    ) => {
+      if (!session.teardownStarted) {
+        session.teardownStarted = true;
+        try {
+          controller?.bridge.forceTeardown();
+        } catch (error) {
+          try {
+            console.warn('camera session force teardown failed', error);
+          } catch {
+            // 诊断失败也不能吞掉 terminal settle。
+          }
+        }
+      }
+      // stale settle 可能已清空 currentSessionRef；finish 的身份门禁会让这里安全 no-op。
+      finish(session.id, cancelledResult());
+    },
+    [finish]
+  );
+
   const forceCancel = useCallback(
     (session: SessionRecord): void => {
       if (
@@ -111,43 +151,55 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       ) {
         return;
       }
-      if (session.forceCancelRequested) {
-        finish(session.id, cancelledResult());
-        return;
-      }
-      // 先锁定取消结果；teardown 同步重入的 save/onSettle 也只能得到 cancelled。
+      // 先锁定 terminal intent；teardown 同步重入的 save/onSettle 也只能得到 cancelled。
       session.forceCancelRequested = true;
-      try {
-        session.resources.controller?.bridge.forceTeardown();
-      } catch (error) {
-        console.warn('camera session force teardown failed', error);
-      } finally {
-        // bridge 可能同步回调 onSettle；ID/status 门禁保证这里重复 finish 仍是 no-op。
-        finish(session.id, cancelledResult());
-      }
+      teardownAndFinish(session);
     },
-    [finish]
+    [teardownAndFinish]
   );
 
   const cancelUnmountedGeneration = useCallback(
-    (generation: number) => {
-      if (mountedRef.current || mountGenerationRef.current !== generation) {
+    (generation: number, pending: PendingHookUnmount) => {
+      if (
+        mountedRef.current ||
+        mountGenerationRef.current !== generation ||
+        pendingHookUnmountRef.current !== pending
+      ) {
         return;
       }
-      const session = currentSessionRef.current;
-      if (session) forceCancel(session);
+      pendingHookUnmountRef.current = null;
+      pending.session.pendingCancelIntents.delete(pending.intent);
+      pending.session.forceCancelRequested = true;
+      // 捕获旧 record；即使 stale onSettle 已清空 currentSessionRef，native teardown 仍必须发生。
+      teardownAndFinish(pending.session, pending.controller);
     },
-    [forceCancel]
+    [teardownAndFinish]
   );
 
   useEffect(() => {
+    const replayedUnmount = pendingHookUnmountRef.current;
+    if (replayedUnmount) {
+      replayedUnmount.session.pendingCancelIntents.delete(
+        replayedUnmount.intent
+      );
+      pendingHookUnmountRef.current = null;
+    }
     const generation = ++mountGenerationRef.current;
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      const session = currentSessionRef.current;
+      if (session?.status !== 'active') return;
+      const pending: PendingHookUnmount = {
+        session,
+        intent: {},
+        controller: session.resources.controller,
+      };
+      session.pendingCancelIntents.add(pending.intent);
+      pendingHookUnmountRef.current = pending;
       // React 19 StrictMode 会立即 replay effect；等一个 microtask，只有真实 unmount
       // 没有后继 generation 时才 teardown，避免开发环境误取消仍活跃的 session。
-      queueMicrotask(() => cancelUnmountedGeneration(generation));
+      queueMicrotask(() => cancelUnmountedGeneration(generation, pending));
     };
   }, [cancelUnmountedGeneration]);
 
@@ -173,8 +225,15 @@ export function useCamera(): [CameraApi, React.ReactElement] {
             config: validated.config,
             status: 'active',
             forceCancelRequested: false,
+            pendingCancelIntents: new Set(),
+            teardownStarted: false,
             resolve,
-            resources: { files, controller: null, container: null },
+            resources: {
+              files,
+              controller: null,
+              container: null,
+              pendingContainerDetach: null,
+            },
           };
           const nextRenderedSession = {
             id: session.id,
@@ -267,6 +326,11 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       if (session?.id !== sessionId || session.status !== 'active') {
         return () => {};
       }
+      const replayedDetach = session.resources.pendingContainerDetach;
+      if (replayedDetach) {
+        session.pendingCancelIntents.delete(replayedDetach.intent);
+        session.resources.pendingContainerDetach = null;
+      }
       const registration: RegisteredContainer = {};
       session.resources.container = registration;
 
@@ -280,19 +344,29 @@ export function useCamera(): [CameraApi, React.ReactElement] {
           return;
         }
         currentSession.resources.container = null;
+        const pending: PendingContainerDetach = {
+          intent: {},
+          controller: currentSession.resources.controller,
+        };
+        currentSession.pendingCancelIntents.add(pending.intent);
+        currentSession.resources.pendingContainerDetach = pending;
         queueMicrotask(() => {
-          const detachedSession = currentSessionRef.current;
+          const detachedSession = currentSession;
           if (
-            detachedSession?.id === sessionId &&
-            detachedSession.status === 'active' &&
-            detachedSession.resources.container === null
+            detachedSession.resources.pendingContainerDetach !== pending ||
+            detachedSession.resources.container !== null
           ) {
-            forceCancel(detachedSession);
+            return;
           }
+          detachedSession.resources.pendingContainerDetach = null;
+          detachedSession.pendingCancelIntents.delete(pending.intent);
+          detachedSession.forceCancelRequested = true;
+          // 捕获旧 record；stale settle 不得吞掉已确认 detach 的 native teardown。
+          teardownAndFinish(detachedSession, pending.controller);
         });
       };
     },
-    [forceCancel]
+    [teardownAndFinish]
   );
 
   const holder = (
