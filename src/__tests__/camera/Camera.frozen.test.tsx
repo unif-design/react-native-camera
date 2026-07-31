@@ -1,5 +1,7 @@
-import { createRef } from 'react';
-import { act } from '@testing-library/react-native';
+import { createRef, StrictMode } from 'react';
+import { act, render } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import * as VisionCamera from 'react-native-vision-camera';
 import {
   Camera,
@@ -20,6 +22,11 @@ jest.mock('react-native-vision-camera', () => {
   });
 });
 
+jest.mock('@dr.pogodin/react-native-fs', () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
+const unlinkMock = jest.mocked(RNFS.unlink);
 const useVideoOutputMock = jest.mocked(VisionCamera.useVideoOutput);
 const useMicrophonePermissionMock = jest.mocked(
   VisionCamera.useMicrophonePermission
@@ -127,6 +134,8 @@ function makeVideoCallbacks(): VideoCallbacks & {
 }
 
 beforeEach(() => {
+  unlinkMock.mockClear();
+  unlinkMock.mockResolvedValue(undefined);
   useVideoOutputMock.mockClear();
   useMicrophonePermissionMock.mockReturnValue({
     status: 'authorized',
@@ -148,14 +157,16 @@ describe('录像 native adapter', () => {
       requestPermission,
     });
     const { ref } = renderVideoCamera();
+    const callbacks = makeVideoCallbacks();
 
     await act(async () => {
-      await expect(ref.current?.startVideo(makeVideoCallbacks())).resolves.toBe(
-        'denied'
-      );
+      await expect(ref.current?.startVideo(callbacks)).resolves.toBe('denied');
     });
     expect(requestPermission).toHaveBeenCalledTimes(1);
     expect(createRecorder).not.toHaveBeenCalled();
+    // Task 5 门禁：mic denied 是「不能开始」，不是录像错误 —— 不得进入 error 终态。
+    expect(callbacks.onError).not.toHaveBeenCalled();
+    expect(callbacks.onFinished).not.toHaveBeenCalled();
   });
 
   it('每次 start 按当前 recTime 创建新 Recorder，不预热或复用旧 settings', async () => {
@@ -286,5 +297,89 @@ describe('录像 native adapter', () => {
     expect(callbacks.onError).not.toHaveBeenCalled();
     expect(first.recorder.cancelRecording).toHaveBeenCalledTimes(1);
     expect(first.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('React 19 StrictMode 的 setup→cleanup→setup 后 controller 仍可用，startVideo 正常 started', async () => {
+    const native = makeNativeRecorder();
+    const createRecorder = jest.fn().mockResolvedValue(native.recorder);
+    useVideoOutputMock.mockReturnValue({ createRecorder } as never);
+    const ref = createRef<CameraHandle>();
+    // StrictMode 必须是最外层：套在 ThemeProvider 之内时 React 不会对该子树重放
+    // setup→cleanup→setup（已实测），测试就成了空跑，测不到 controller 被永久 dispose。
+    render(
+      <StrictMode>
+        <ThemeProvider forceScheme="dark">
+          <Camera
+            ref={ref}
+            device={makeDeviceStub() as never}
+            currentMode={videoMode}
+            isActive={false}
+          />
+        </ThemeProvider>
+      </StrictMode>
+    );
+
+    const callbacks = makeVideoCallbacks();
+    await act(async () => {
+      await expect(ref.current?.startVideo(callbacks)).resolves.toBe('started');
+    });
+
+    expect(createRecorder).toHaveBeenCalledTimes(1);
+    expect(native.recorder.startRecording).toHaveBeenCalledTimes(1);
+    expect(callbacks.onCancelled).not.toHaveBeenCalled();
+  });
+
+  it('video output identity 真的被替换时旧 controller 永久失效，不会被重新激活', async () => {
+    const first = makeNativeRecorder();
+    const second = makeNativeRecorder();
+    const firstCreate = jest.fn().mockResolvedValue(first.recorder);
+    const secondCreate = jest.fn().mockResolvedValue(second.recorder);
+    useVideoOutputMock
+      .mockReturnValueOnce({ createRecorder: firstCreate } as never)
+      .mockReturnValue({ createRecorder: secondCreate } as never);
+    const callbacks = makeVideoCallbacks();
+    const { ref, rerender, element } = renderVideoCamera();
+    await act(async () => {
+      await ref.current?.startVideo(callbacks);
+    });
+
+    rerender(element({ mode: 'video', recTime: 9 }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // 替换后重新开录必须落到新 output 的 Recorder；旧 controller 不得被 activate() 复活。
+    const nextCallbacks = makeVideoCallbacks();
+    await act(async () => {
+      await expect(ref.current?.startVideo(nextCallbacks)).resolves.toBe(
+        'started'
+      );
+    });
+
+    expect(callbacks.onCancelled).toHaveBeenCalledTimes(1);
+    expect(first.recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    expect(first.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(firstCreate).toHaveBeenCalledTimes(1);
+    expect(secondCreate).toHaveBeenCalledTimes(1);
+    expect(second.recorder.startRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancel 后 native 晚到 produced path 时 best-effort 删除，不交付 photos', async () => {
+    const native = makeNativeRecorder();
+    useVideoOutputMock.mockReturnValue({
+      createRecorder: jest.fn().mockResolvedValue(native.recorder),
+    } as never);
+    const callbacks = makeVideoCallbacks();
+    const { ref } = renderVideoCamera();
+    await act(async () => {
+      await ref.current?.startVideo(callbacks);
+      await ref.current?.cancelVideo();
+      native.finish('/tmp/late-after-cancel.mp4');
+      await Promise.resolve();
+    });
+
+    expect(callbacks.onFinished).not.toHaveBeenCalled();
+    expect(unlinkMock).toHaveBeenCalledTimes(1);
+    expect(unlinkMock).toHaveBeenCalledWith('/tmp/late-after-cancel.mp4');
   });
 });

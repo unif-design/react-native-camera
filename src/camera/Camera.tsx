@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
   Camera as VisionCamera,
@@ -53,6 +54,8 @@ export type VideoCallbacks = {
   onError: (error: Error) => void;
   /** Camera 的 native output identity 被替换或 owner dispose；不是录像 native error。 */
   onCancelled?: () => void;
+  /** Task 5 可注入原 session registry；未注入时 Camera 直接 best-effort 删除。 */
+  onDiscardedFile?: (path: string) => void;
 };
 
 export type CameraHandle = {
@@ -333,6 +336,23 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               manualStopRequestedRef.current = false;
               callbacks.onCancelled?.();
             },
+            // Task 4→5 交接点：controller 保证同一 path 只上报一次 discard。Task 5 会把产生
+            // 它的原 session FileRegistry 注入成 callbacks.onDiscardedFile（先登记、再检查
+            // operation token、最后删除）；在那之前 Camera 只做 RNFS best-effort 兜底，
+            // 保证 cancel / error 终态之后才落盘的视频不会静默留在临时目录。
+            onDiscardedFile: (path) => {
+              if (callbacks.onDiscardedFile != null) {
+                callbacks.onDiscardedFile(path);
+                return;
+              }
+              try {
+                RNFS.unlink(path).catch((error) => {
+                  console.warn('discarded video cleanup failed', error);
+                });
+              } catch (error) {
+                console.warn('discarded video cleanup failed', error);
+              }
+            },
           },
         });
       },
@@ -364,7 +384,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   // Controller 变更(例如 video output identity 改变)或卸载时强制取消；pending permission/create
   // 也会被 attempt token 失效，晚到 Recorder 只清理、不再 start。
+  //
+  // setup 里必须 activate()：React 19 StrictMode 会 setup→cleanup→setup **复用同一个 useMemo
+  // 实例**，只有 cleanup 而没有重新激活，cleanup 里的 dispose() 会把 controllerDisposed 永久
+  // 置 true，此后 startVideo 永远返回 'denied'(真机 dev 构建下相机可用但完全录不了像)。
+  // 选 activate() 而不是「可替换 controller ref」：videoOutput identity 真变时 useMemo 会产出
+  // **新** controller，旧实例没人再引用、activate 不到，因此「旧 controller 永久失效」仍然成立。
   useEffect(() => {
+    recorderController.activate();
     return () => {
       manualStopRequestedRef.current = false;
       recorderController.dispose().catch((error) => {
