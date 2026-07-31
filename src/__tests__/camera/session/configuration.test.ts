@@ -1,7 +1,10 @@
+import type { CameraDevice } from 'react-native-vision-camera';
+import { makeDeviceStub } from '../../__helpers__/visionCameraMock';
 import {
   nativeConfigurationKey,
   type NativeConfiguration,
 } from '../../../camera/session/configuration';
+import { selectCameraDevice } from '../../../camera/session/deviceSelection';
 import { cameraSessionReducer } from '../../../camera/session/reducer';
 import type { CameraSessionState } from '../../../camera/session/types';
 
@@ -35,6 +38,10 @@ function makeState(
     video: { duration: 0, reason: null },
     ...overrides,
   };
+}
+
+function device(position: 'back' | 'front'): CameraDevice {
+  return makeDeviceStub({ position }) as unknown as CameraDevice;
 }
 
 describe('nativeConfigurationKey', () => {
@@ -96,6 +103,119 @@ describe('configuration generation', () => {
       modeIndex: 1,
       aspectRatio: '4:3',
       configurationGeneration: 0,
+    });
+  });
+
+  it('atomically enters configuring when photo mode changes to video', () => {
+    const nextKey = key({ mode: { mode: 'video' } });
+    const next = cameraSessionReducer(makeState(), {
+      type: 'BEGIN_CONFIGURATION',
+      nativeConfigurationKey: nextKey,
+      changes: { modeIndex: 1 },
+    });
+
+    expect(next).toMatchObject({
+      phase: 'configuring',
+      modeIndex: 1,
+      nativeConfigurationKey: nextKey,
+      configurationGeneration: 1,
+    });
+  });
+
+  it('atomically enters configuring when video aspect changes', () => {
+    const videoKey = key({ mode: { mode: 'video' } });
+    const nextKey = key({
+      mode: { mode: 'video' },
+      aspectRatio: '4:3',
+    });
+    const next = cameraSessionReducer(makeState(videoKey, { modeIndex: 1 }), {
+      type: 'BEGIN_CONFIGURATION',
+      nativeConfigurationKey: nextKey,
+      changes: { aspectRatio: '4:3' },
+    });
+
+    expect(next).toMatchObject({
+      phase: 'configuring',
+      aspectRatio: '4:3',
+      nativeConfigurationKey: nextKey,
+      configurationGeneration: 1,
+    });
+  });
+
+  it('atomically enters configuring when the actual device changes', () => {
+    const nextKey = key({
+      device: { id: 'dev-front', position: 'front' },
+    });
+    const next = cameraSessionReducer(makeState(), {
+      type: 'BEGIN_CONFIGURATION',
+      nativeConfigurationKey: nextKey,
+      changes: { activePosition: 'front', canFlip: true },
+    });
+
+    expect(next).toMatchObject({
+      phase: 'configuring',
+      activePosition: 'front',
+      canFlip: true,
+      nativeConfigurationKey: nextKey,
+      configurationGeneration: 1,
+    });
+  });
+
+  it('restores flip availability through same-key inventory synchronization', () => {
+    const front = device('front');
+    const state = makeState(
+      key({ device: { id: front.id, position: 'front' } }),
+      {
+        activePosition: 'front',
+        canFlip: false,
+      }
+    );
+    const selection = selectCameraDevice('front', device('back'), front);
+    if (selection == null) throw new Error('expected front selection');
+
+    const next = cameraSessionReducer(state, {
+      type: 'BEGIN_CONFIGURATION',
+      nativeConfigurationKey: state.nativeConfigurationKey,
+      changes: {
+        activePosition: selection.activePosition,
+        canFlip: selection.canFlip,
+      },
+    });
+
+    expect(next).toMatchObject({
+      phase: 'ready',
+      activePosition: 'front',
+      canFlip: true,
+      configurationGeneration: 0,
+    });
+  });
+
+  it('synchronizes fallback actual position through configuration changes', () => {
+    const front = device('front');
+    const selection = selectCameraDevice('back', undefined, front);
+    if (selection == null) throw new Error('expected fallback selection');
+    const nextKey = key({
+      device: {
+        id: selection.device.id,
+        position: selection.activePosition,
+      },
+    });
+
+    const next = cameraSessionReducer(makeState(), {
+      type: 'BEGIN_CONFIGURATION',
+      nativeConfigurationKey: nextKey,
+      changes: {
+        activePosition: selection.activePosition,
+        canFlip: selection.canFlip,
+      },
+    });
+
+    expect(next).toMatchObject({
+      phase: 'configuring',
+      activePosition: 'front',
+      canFlip: false,
+      nativeConfigurationKey: nextKey,
+      configurationGeneration: 1,
     });
   });
 

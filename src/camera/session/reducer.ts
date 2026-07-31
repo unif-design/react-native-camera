@@ -137,29 +137,6 @@ export function cameraSessionReducer(
   const capabilities = selectCapabilities(state);
 
   switch (action.type) {
-    case 'SET_MODE':
-      if (!capabilities.mode || action.modeIndex === state.modeIndex) {
-        return state;
-      }
-      return { ...state, modeIndex: action.modeIndex };
-    case 'SET_ASPECT':
-      if (!capabilities.aspect || action.aspectRatio === state.aspectRatio) {
-        return state;
-      }
-      return { ...state, aspectRatio: action.aspectRatio };
-    case 'SET_ACTIVE_DEVICE':
-      if (!capabilities.flip) return state;
-      if (
-        action.activePosition === state.activePosition &&
-        action.canFlip === state.canFlip
-      ) {
-        return state;
-      }
-      return {
-        ...state,
-        activePosition: action.activePosition,
-        canFlip: action.canFlip,
-      };
     case 'SET_FLASH':
       if (state.phase !== 'ready' || action.flash === state.flash) return state;
       return { ...state, flash: action.flash };
@@ -280,5 +257,7 @@ export function cameraSessionReducer(
     case 'CLOSE_PREVIEW':
       if (state.phase !== 'previewing') return state;
       return { ...state, phase: 'ready', preview: null };
+    default:
+      return state;
   }
 }

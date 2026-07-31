@@ -55,13 +55,6 @@ export type CameraSessionAction =
       changes?: ConfigurationChanges;
     }
   | { type: 'CONFIGURED'; generation: number }
-  | { type: 'SET_MODE'; modeIndex: number }
-  | { type: 'SET_ASPECT'; aspectRatio: AspectRatio }
-  | {
-      type: 'SET_ACTIVE_DEVICE';
-      activePosition: CameraType;
-      canFlip: boolean;
-    }
   | { type: 'SET_FLASH'; flash: FlashMode }
   | { type: 'SET_SOUND'; sound: boolean }
   | { type: 'CAPTURE_PHOTO'; operationId: number }

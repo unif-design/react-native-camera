@@ -4,6 +4,7 @@ import {
   selectCapabilities,
 } from '../../../camera/session/reducer';
 import type {
+  CameraSessionAction,
   CameraSessionPhase,
   CameraSessionState,
 } from '../../../camera/session/types';
@@ -219,7 +220,28 @@ describe('cameraSessionReducer', () => {
   it('returns the same state identity for an action invalid in the current phase', () => {
     const state = makeState({ phase: 'capturingPhoto', operationId: 1 });
     expect(
-      cameraSessionReducer(state, { type: 'SET_ASPECT', aspectRatio: '4:3' })
+      cameraSessionReducer(state, {
+        type: 'CAPTURE_PHOTO',
+        operationId: 2,
+      })
+    ).toBe(state);
+  });
+
+  it.each([
+    { type: 'SET_MODE', modeIndex: 1 },
+    { type: 'SET_ASPECT', aspectRatio: '4:3' },
+    {
+      type: 'SET_ACTIVE_DEVICE',
+      activePosition: 'front',
+      canFlip: false,
+    },
+  ])('ignores legacy native context setter $type', (legacyAction) => {
+    const state = makeState();
+    expect(
+      cameraSessionReducer(
+        state,
+        legacyAction as unknown as CameraSessionAction
+      )
     ).toBe(state);
   });
 
@@ -293,26 +315,12 @@ describe('cameraSessionReducer', () => {
     });
   });
 
-  it('stores mode, aspect, actual position, flash and sound in reducer state', () => {
+  it('stores non-native flash and sound controls in reducer state', () => {
     let state = makeState();
-    state = cameraSessionReducer(state, { type: 'SET_MODE', modeIndex: 1 });
-    state = cameraSessionReducer(state, {
-      type: 'SET_ASPECT',
-      aspectRatio: '4:3',
-    });
-    state = cameraSessionReducer(state, {
-      type: 'SET_ACTIVE_DEVICE',
-      activePosition: 'front',
-      canFlip: false,
-    });
     state = cameraSessionReducer(state, { type: 'SET_FLASH', flash: 'auto' });
     state = cameraSessionReducer(state, { type: 'SET_SOUND', sound: true });
 
     expect(state).toMatchObject({
-      modeIndex: 1,
-      aspectRatio: '4:3',
-      activePosition: 'front',
-      canFlip: false,
       flash: 'auto',
       sound: true,
     });
