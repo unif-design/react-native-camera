@@ -89,3 +89,36 @@ it('成功后 Skia 原生对象被 dispose(逆序释放,防 OOM)', async () => {
   expect(imgDispose).toHaveBeenCalled();
   expect(dataDispose).toHaveBeenCalled();
 });
+
+it('首个 snapshot dispose 抛错时仍按逆序尝试其余清理且保留成功结果', async () => {
+  const skia = require('@shopify/react-native-skia');
+  const order: string[] = [];
+  const data = { dispose: jest.fn(() => order.push('data')) };
+  const image = {
+    width: () => 1080,
+    height: () => 1440,
+    dispose: jest.fn(() => order.push('image')),
+  };
+  const paint = { dispose: jest.fn(() => order.push('paint')) };
+  const snapshot = {
+    encodeToBase64: jest.fn(() => 'OUT'),
+    dispose: jest.fn(() => {
+      order.push('snapshot');
+      throw new Error('snapshot dispose failed');
+    }),
+  };
+  const surface = {
+    getCanvas: () => ({ drawImageRect: jest.fn() }),
+    makeImageSnapshot: () => snapshot,
+    dispose: jest.fn(() => order.push('surface')),
+  };
+  skia.Skia.Data.fromBase64.mockReturnValueOnce(data);
+  skia.Skia.Image.MakeImageFromEncoded.mockReturnValueOnce(image);
+  skia.Skia.Paint.mockReturnValueOnce(paint);
+  skia.Skia.Surface.MakeOffscreen.mockReturnValueOnce(surface);
+
+  await expect(cropToRatio(photo(), '16:9')).resolves.toMatchObject({
+    path: '/tmp/crop_1.jpg',
+  });
+  expect(order).toEqual(['snapshot', 'paint', 'surface', 'image', 'data']);
+});

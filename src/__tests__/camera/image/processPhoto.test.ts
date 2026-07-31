@@ -279,6 +279,38 @@ it('成功后按 snapshot → paragraph → builder → paint → surface → im
   ]);
 });
 
+it('unlink 尚未完成时已迁移所有权并释放全部原生对象', async () => {
+  const native = installNativeHarness();
+  const unlinkStarted = deferred<void>();
+  const unlinkPending = deferred<void>();
+  const unlink = jest.fn(() => {
+    unlinkStarted.resolve();
+    return unlinkPending.promise;
+  });
+  const registry = createFileRegistry(unlink);
+  const raw = makeRaw();
+
+  const processing = processPhoto(raw, makeOperation(), registry);
+  await unlinkStarted.promise;
+
+  expect(registry.stateOf('/tmp/camera_42_capture-7.jpg')).toBe('owned');
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(native.order).toEqual([
+    'snapshot',
+    'paragraph',
+    'builder',
+    'paint',
+    'surface',
+    'image',
+    'data',
+  ]);
+
+  unlinkPending.resolve();
+  await expect(processing).resolves.toMatchObject({
+    path: '/tmp/camera_42_capture-7.jpg',
+  });
+});
+
 it.each([{ orientation: 6 }, { orientation: 2, mirrored: true }])(
   'Skia decoded origin $orientation/$mirrored 直接进入 crop，不做二次 rotate/mirror',
   async (metadata) => {

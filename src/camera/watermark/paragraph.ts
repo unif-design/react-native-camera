@@ -21,6 +21,14 @@ export type WatermarkParagraph = {
   dispose: () => void;
 };
 
+function disposeSafely(resource: { dispose: () => void } | null): void {
+  try {
+    resource?.dispose();
+  } catch {
+    // Paragraph 与 Builder 都是独立 JSI 资源；任一释放失败不能阻断另一个或冒泡到 React cleanup。
+  }
+}
+
 export function hasVisibleWatermark(
   watermark: WatermarkType | null | undefined
 ): watermark is WatermarkType {
@@ -90,19 +98,13 @@ export function createWatermarkParagraph(
       dispose: () => {
         if (disposed) return;
         disposed = true;
-        try {
-          paragraph?.dispose();
-        } finally {
-          builder.dispose();
-        }
+        disposeSafely(paragraph);
+        disposeSafely(builder);
       },
     };
   } catch (error) {
-    try {
-      paragraph?.dispose();
-    } finally {
-      builder.dispose();
-    }
+    disposeSafely(paragraph);
+    disposeSafely(builder);
     throw error;
   }
 }

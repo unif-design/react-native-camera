@@ -2,6 +2,13 @@ export type OwnedFileState = 'owned' | 'transferred' | 'deleted';
 
 export type UnlinkFile = (path: string) => Promise<void>;
 
+export type FileCleanupFailure = {
+  path: string;
+  error: unknown;
+};
+
+export type ReportFileCleanupFailure = (failure: FileCleanupFailure) => void;
+
 export type FileRegistry = {
   register: (path: string) => void;
   stateOf: (path: string) => OwnedFileState | undefined;
@@ -11,7 +18,20 @@ export type FileRegistry = {
   drain: () => Promise<void>;
 };
 
-export function createFileRegistry(unlink: UnlinkFile): FileRegistry {
+const reportCleanupFailureByDefault: ReportFileCleanupFailure = ({
+  path,
+  error,
+}) => {
+  console.warn(
+    `[react-native-camera] Failed to delete owned temporary file: ${path}`,
+    error
+  );
+};
+
+export function createFileRegistry(
+  unlink: UnlinkFile,
+  reportCleanupFailure: ReportFileCleanupFailure = reportCleanupFailureByDefault
+): FileRegistry {
   const files = new Map<string, OwnedFileState>();
 
   const register = (path: string) => {
@@ -25,8 +45,12 @@ export function createFileRegistry(unlink: UnlinkFile): FileRegistry {
     files.set(path, 'deleted');
     try {
       await unlink(path);
-    } catch {
-      // 临时文件清理是 best-effort；失败不能阻塞 settle，也不能重新取得文件所有权。
+    } catch (error) {
+      try {
+        reportCleanupFailure({ path, error });
+      } catch {
+        // reporter 只负责诊断；自身失败也不能阻塞 settle 或重新取得文件所有权。
+      }
     }
   };
 

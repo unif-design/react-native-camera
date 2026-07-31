@@ -90,7 +90,7 @@ describe('FileRegistry', () => {
     const unlink = jest.fn(async (path: string) => {
       if (path === '/bad.jpg') throw new Error('disk busy');
     });
-    const registry = createFileRegistry(unlink);
+    const registry = createFileRegistry(unlink, jest.fn());
     registry.register('/bad.jpg');
     registry.register('/good.jpg');
 
@@ -99,6 +99,47 @@ describe('FileRegistry', () => {
     expect(unlink).toHaveBeenCalledTimes(2);
     expect(registry.stateOf('/bad.jpg')).toBe('deleted');
     expect(registry.stateOf('/good.jpg')).toBe('deleted');
+  });
+
+  it('unlink reject 注入可诊断事件，reporter 抛错也不阻断 drain', async () => {
+    const unlinkError = new Error('disk busy');
+    const reporter = jest.fn(() => {
+      throw new Error('reporter failed');
+    });
+    const registry = createFileRegistry(
+      jest.fn(async () => {
+        throw unlinkError;
+      }),
+      reporter
+    );
+    registry.register('/bad.jpg');
+
+    await expect(registry.drain()).resolves.toBeUndefined();
+
+    expect(reporter).toHaveBeenCalledWith({
+      path: '/bad.jpg',
+      error: unlinkError,
+    });
+    expect(registry.stateOf('/bad.jpg')).toBe('deleted');
+  });
+
+  it('未注入 reporter 时通过默认 warning 暴露 unlink 失败', async () => {
+    const unlinkError = new Error('disk busy');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const registry = createFileRegistry(
+      jest.fn(async () => {
+        throw unlinkError;
+      })
+    );
+    registry.register('/bad.jpg');
+
+    await expect(registry.delete('/bad.jpg')).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('/bad.jpg'),
+      unlinkError
+    );
+    warn.mockRestore();
   });
 
   it('一次 drain 后晚到 operation 仍可登记并独立清理', async () => {

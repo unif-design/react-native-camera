@@ -26,3 +26,55 @@ it('falls back to original file on error', async () => {
   const out = await burnWatermark(p, wm);
   expect(out).toBe(p); // 兜底原图
 });
+
+it('首个 snapshot dispose 抛错时仍按逆序尝试其余清理且保留成功结果', async () => {
+  const skia = require('@shopify/react-native-skia');
+  const order: string[] = [];
+  const data = { dispose: jest.fn(() => order.push('data')) };
+  const image = {
+    width: () => 1080,
+    height: () => 1440,
+    dispose: jest.fn(() => order.push('image')),
+  };
+  const paragraph = {
+    layout: jest.fn(),
+    paint: jest.fn(),
+    getHeight: jest.fn(() => 120),
+    dispose: jest.fn(() => order.push('paragraph')),
+  };
+  const builder: Record<string, jest.Mock> = {};
+  builder.pushStyle = jest.fn(() => builder);
+  builder.addText = jest.fn(() => builder);
+  builder.pop = jest.fn(() => builder);
+  builder.reset = jest.fn(() => builder);
+  builder.build = jest.fn(() => paragraph);
+  builder.dispose = jest.fn(() => order.push('builder'));
+  const snapshot = {
+    encodeToBase64: jest.fn(() => 'OUT'),
+    dispose: jest.fn(() => {
+      order.push('snapshot');
+      throw new Error('snapshot dispose failed');
+    }),
+  };
+  const surface = {
+    getCanvas: () => ({ drawImage: jest.fn() }),
+    makeImageSnapshot: () => snapshot,
+    dispose: jest.fn(() => order.push('surface')),
+  };
+  skia.Skia.Data.fromBase64.mockReturnValueOnce(data);
+  skia.Skia.Image.MakeImageFromEncoded.mockReturnValueOnce(image);
+  skia.Skia.ParagraphBuilder.Make.mockReturnValueOnce(builder);
+  skia.Skia.Surface.MakeOffscreen.mockReturnValueOnce(surface);
+
+  await expect(burnWatermark(photo(), wm)).resolves.toMatchObject({
+    path: '/tmp/wm_1.jpg',
+  });
+  expect(order).toEqual([
+    'snapshot',
+    'paragraph',
+    'builder',
+    'surface',
+    'image',
+    'data',
+  ]);
+});

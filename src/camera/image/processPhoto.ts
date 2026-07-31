@@ -121,6 +121,7 @@ export async function processPhoto(
   let stage: PhotoProcessingStage = 'read';
   let failure: PhotoProcessingError | null = null;
   let result: CustomPhotoFile | null = null;
+  let ownershipCleanup: Promise<void> | null = null;
 
   try {
     data = await Skia.Data.fromURI(raw.uri);
@@ -179,8 +180,9 @@ export async function processPhoto(
     stage = 'write';
     outputMayExist = true;
     await RNFS.writeFile(outputPath, encoded, 'base64');
-    registry.register(outputPath);
-    await registry.replace(raw.path, outputPath);
+    // replace 在首个 await 前同步登记 final 并把 raw 标成 deleted；unlink 可继续异步，
+    // 不能让 UHD Skia 对象为磁盘清理多存活一刻。
+    ownershipCleanup = registry.replace(raw.path, outputPath);
 
     result = {
       ...raw,
@@ -224,5 +226,6 @@ export async function processPhoto(
     await registry.delete(raw.path);
     throw new PhotoProcessingError(stage);
   }
+  await ownershipCleanup;
   return result;
 }

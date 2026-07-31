@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Canvas, Paragraph } from '@shopify/react-native-skia';
 import type { WatermarkType } from '../../utils';
@@ -27,20 +27,28 @@ export function WatermarkStamp({ watermark, frame }: Props) {
   const [measured, setMeasured] = useState({ width: 0, height: 0 });
   const width = frame?.width ?? measured.width;
   const height = frame?.height ?? measured.height;
-  const contentKey = JSON.stringify(watermark.content);
-  const paragraphKey = `${width}:${height}:${watermark.position ?? 'top-right'}:${contentKey}`;
+  const watermarkKey = JSON.stringify({
+    content: watermark.content,
+    ...(watermark.position == null ? {} : { position: watermark.position }),
+  });
+  // props 的 object identity 不代表语义变化；先按稳定 key 深拷贝，effect 才不会错误释放/重建 JSI 对象。
+  const watermarkSnapshot = useMemo(
+    () => JSON.parse(watermarkKey) as WatermarkType,
+    [watermarkKey]
+  );
+  const paragraphKey = `${width}:${height}:${watermarkKey}`;
   const [prepared, setPrepared] = useState<PreparedState | null>(null);
 
   useEffect(() => {
-    if (width <= 0 || height <= 0 || !hasVisibleWatermark(watermark)) {
+    if (width <= 0 || height <= 0 || !hasVisibleWatermark(watermarkSnapshot)) {
       setPrepared(null);
       return;
     }
 
-    const value = createWatermarkParagraph(width, height, watermark);
+    const value = createWatermarkParagraph(width, height, watermarkSnapshot);
     setPrepared({ key: paragraphKey, value });
     return () => value.dispose();
-  }, [height, paragraphKey, watermark, width]);
+  }, [height, paragraphKey, watermarkSnapshot, width]);
 
   const onLayout =
     frame == null

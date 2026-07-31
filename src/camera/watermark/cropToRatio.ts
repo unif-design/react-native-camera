@@ -10,6 +10,14 @@ import type { CustomPhotoFile } from '../../utils';
 import { toFileUri } from '../../utils';
 import { computeCropRect } from '../image/cropGeometry';
 
+function disposeSafely(resource: { dispose: () => void } | null): void {
+  try {
+    resource?.dispose();
+  } catch {
+    // 单个 JSI 对象释放失败不能阻断其余对象按依赖逆序释放，也不能破坏兼容入口的原图兜底。
+  }
+}
+
 /**
  * 出图 16:9 居中裁切:photo 流恒 4:3 全幅出图(session 零重配,见 Camera.tsx),16:9 视野
  * 由这里**拍后**用 Skia 居中裁掉左右实现 —— vision-camera 拍照本身无 crop 参数(已确认)。
@@ -70,10 +78,10 @@ export async function cropToRatio(
     return file;
   } finally {
     // 释放 Skia native 对象(按依赖逆序,后创建的先释放),避免全分辨率大图反复裁后内存增长/OOM
-    paint?.dispose();
-    snapshot?.dispose();
-    surface?.dispose();
-    image?.dispose();
-    data?.dispose();
+    disposeSafely(snapshot);
+    disposeSafely(paint);
+    disposeSafely(surface);
+    disposeSafely(image);
+    disposeSafely(data);
   }
 }

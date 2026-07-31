@@ -9,6 +9,14 @@ import {
   type WatermarkParagraph,
 } from './paragraph';
 
+function disposeSafely(resource: { dispose: () => void } | null): void {
+  try {
+    resource?.dispose();
+  } catch {
+    // 单个 JSI 对象释放失败不能阻断其余对象按依赖逆序释放，也不能破坏兼容入口的原图兜底。
+  }
+}
+
 /**
  * 把水印烧进照片:读字节 → Skia 解码 → 离屏全分辨率 surface 画原图 + Paragraph 画水印
  * → 编码 JPEG → fs 写临时文件 → 返回换了 path/uri 的新 file。
@@ -60,10 +68,10 @@ export async function burnWatermark(
     return file;
   } finally {
     // 释放 Skia native 对象(按依赖逆序,后创建的先释放),避免全分辨率大图反复烧后内存增长/OOM。
-    snapshot?.dispose();
-    prepared?.dispose();
-    surface?.dispose();
-    image?.dispose();
-    data?.dispose();
+    disposeSafely(snapshot);
+    disposeSafely(prepared);
+    disposeSafely(surface);
+    disposeSafely(image);
+    disposeSafely(data);
   }
 }
