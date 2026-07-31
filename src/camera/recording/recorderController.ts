@@ -58,12 +58,12 @@ type RecorderControllerDependencies = {
   scheduleTimeout?: (callback: () => void, ms: number) => () => void;
 };
 
-/** native cancel 最多尝试次数：一次抢占 + 两次 start settle 后的补救。 */
+/** native cancel 最多尝试次数：一次抢占 + start resolve 后至多两次补救。 */
 export const CANCEL_MAX_ATTEMPTS = 3;
-/** 两次 cancel 之间的退避上限；start settle 信号先到时会提前结束等待。 */
-export const CANCEL_RETRY_DELAY_MS = 120;
 /** 单次 native cancel 的等待上限；native 挂死时不能让 teardown 永远悬着。 */
 export const CANCEL_ATTEMPT_TIMEOUT_MS = 2000;
+/** 首次 cancel 因尚未开录而失败后，等待 native start continuation 的有界窗口。 */
+export const CANCEL_START_SETTLE_TIMEOUT_MS = 2000;
 
 type RecorderOperation = {
   recorder: RecorderLike;
@@ -73,13 +73,22 @@ type RecorderOperation = {
   startedAt: number;
   /** 只累计正的 native 读数（含 stop 前 snapshot）；与 monotonic fallback 严格分离。 */
   observedNativeDuration: number;
+  /**
+   * 仅供 `getRecordedDuration()` 轮询展示的 high-water mark，绝不参与 `computeDuration()`。
+   * Android `HybridVideoRecorder.kt` 的 `recordedDuration` 从 0 起、只靠周期性
+   * `VideoRecordEvent.Status` 刷新，首个正采样到达前 UI 一直读 monotonic fallback；若采样
+   * 到达瞬间直接切到「native 正值优先」，展示计时器会从 fallback 已经走到的秒数倒退回更小
+   * 的 native 秒数。故轮询读数只能非递减，交付真值（`computeDuration()`/`lastDuration`）
+   * 是另一个独立契约，不能用这个 mark 覆盖。
+   */
+  displayDuration: number;
   disposed: boolean;
   stopPromise: Promise<void> | null;
   deliveredPath: string | null;
   reportedProducedPaths: Set<string>;
-  /** native `startRecording()` continuation resolve 或 reject 后 settle，用于取消重试。 */
-  startSettled: Promise<void>;
-  markStartSettled: () => void;
+  /** native `startRecording()` continuation resolve 或 reject 后 settle，用于取消补救。 */
+  startSettled: Promise<'resolved' | 'rejected'>;
+  markStartSettled: (outcome: 'resolved' | 'rejected') => void;
 };
 
 type RecorderAttempt = {
@@ -169,6 +178,52 @@ export function createRecorderController({
         () => settle(timeoutValue)
       );
     });
+
+  type NativeCancelOutcome = 'cancelled' | 'rejected' | 'timeout';
+
+  /**
+   * native binding 既可能 reject、同步 throw，也可能永不 settle。这里把三种情况收敛成
+   * 有界 outcome，调用方的原始 start/stop Error 不会被 cancel 的次生错误覆盖。
+   */
+  const cancelRecorderWithinTimeout = (
+    recorder: RecorderLike
+  ): Promise<NativeCancelOutcome> => {
+    const rejected = (error: unknown) => {
+      console.warn('recorder cancel attempt failed', error);
+      return 'rejected' as const;
+    };
+    let request: Promise<'cancelled' | 'rejected'>;
+    try {
+      request = Promise.resolve(recorder.cancelRecording()).then(
+        () => 'cancelled' as const,
+        rejected
+      );
+    } catch (error) {
+      request = Promise.resolve(rejected(error));
+    }
+    return raceWithTimer<NativeCancelOutcome>(
+      request,
+      CANCEL_ATTEMPT_TIMEOUT_MS,
+      'timeout'
+    );
+  };
+
+  /**
+   * 所有 best-effort cancel 路径共用这一有界收尾原语。即使 timer 注入、native binding
+   * 或 dispose 自身异常，也只 warn 并保证 dispose 回调仍执行；调用方因此能保留原始终态。
+   */
+  const boundedCancelAndDispose = async (
+    recorder: RecorderLike,
+    dispose: () => void
+  ) => {
+    try {
+      await cancelRecorderWithinTimeout(recorder);
+    } catch (error) {
+      console.warn('recorder bounded teardown failed', error);
+    } finally {
+      dispose();
+    }
+  };
 
   const disposeRecorder = (operation: RecorderOperation) => {
     if (operation.disposed) return;
@@ -306,13 +361,11 @@ export function createRecorderController({
     operation.state = 'finalized';
     clearActive(operation);
     notifyError(operation.callbacks, error);
-    try {
-      await operation.recorder.cancelRecording();
-    } catch {
-      // 原始 start/stop 错误是诊断真值；cancel 仅 best-effort 防 orphan recording。
-    } finally {
-      disposeRecorder(operation);
-    }
+    // 原始 start/stop 错误是诊断真值；cancel 仅 best-effort 防 orphan recording，
+    // 即使 native cancel 永不 settle，也必须在有界等待后 dispose 并让调用方收到原错误。
+    await boundedCancelAndDispose(operation.recorder, () =>
+      disposeRecorder(operation)
+    );
     return true;
   };
 
@@ -323,41 +376,26 @@ export function createRecorderController({
    * `guard self.videoOutput.isRecording else { throw ... "Not currently recording!" }`。
    * 若 `startRecording()` 的 Promise 还 pending（native 尚未走到 `onRecordingStarted`），
    * 此刻 cancel 必然 reject，而录像随后仍会真正开始 —— 只 cancel 一次就 dispose 会留下
-   * 一段脱离控制的 native 录像。所以 reject 后要等 start settle（或退避超时）再补一刀。
+   * 一段脱离控制的 native 录像。所以 reject 后必须在一个明确的有界窗口内等待 start
+   * continuation；只有它确实 resolve（native 已开录）才补 cancel，不能靠短退避盲目耗尽次数。
    *
    * 为什么每次 attempt 还要超时：native cancel 挂死时不能让 teardown 永远悬着（会拖住
    * effect cleanup / session 收尾）；超时即停手，正确性由「晚到 path 走 discard + dispose」兜底。
    */
   const teardownCancelledOperation = async (operation: RecorderOperation) => {
-    // native binding 既可能 reject 也可能同步 throw；两者一律归一成 'rejected' 继续重试。
-    const requestNativeCancel = (): Promise<'cancelled' | 'rejected'> => {
-      const rejected = (error: unknown) => {
-        console.warn('recorder cancel attempt failed', error);
-        return 'rejected' as const;
-      };
-      try {
-        return Promise.resolve(operation.recorder.cancelRecording()).then(
-          () => 'cancelled' as const,
-          rejected
-        );
-      } catch (error) {
-        return Promise.resolve(rejected(error));
-      }
-    };
-
     try {
-      for (let attempt = 1; attempt <= CANCEL_MAX_ATTEMPTS; attempt += 1) {
-        const outcome = await raceWithTimer<
-          'cancelled' | 'rejected' | 'timeout'
-        >(requestNativeCancel(), CANCEL_ATTEMPT_TIMEOUT_MS, 'timeout');
+      const initial = await cancelRecorderWithinTimeout(operation.recorder);
+      if (initial !== 'rejected') return;
+
+      const startOutcome = await raceWithTimer<
+        'resolved' | 'rejected' | 'timeout'
+      >(operation.startSettled, CANCEL_START_SETTLE_TIMEOUT_MS, 'timeout');
+      if (startOutcome !== 'resolved') return;
+
+      // start 已明确 resolve 后再补救；持续 reject 时仍有固定次数上限，绝不无限循环。
+      for (let attempt = 2; attempt <= CANCEL_MAX_ATTEMPTS; attempt += 1) {
+        const outcome = await cancelRecorderWithinTimeout(operation.recorder);
         if (outcome !== 'rejected') return;
-        if (attempt === CANCEL_MAX_ATTEMPTS) return;
-        // start settle 才是「native 现在真的在录」的可靠信号；退避定时器只是它不来时的上限。
-        await raceWithTimer<'start-settled' | 'timeout'>(
-          operation.startSettled.then(() => 'start-settled' as const),
-          CANCEL_RETRY_DELAY_MS,
-          'timeout'
-        );
       }
     } catch (error) {
       console.warn('recorder teardown failed', error);
@@ -366,19 +404,14 @@ export function createRecorderController({
     }
   };
 
-  const cleanupUnstartedRecorder = async (recorder: RecorderLike) => {
-    try {
-      await recorder.cancelRecording();
-    } catch {
-      // create 已产出但尚未 start；部分平台不允许此时 cancel，dispose 仍必须执行。
-    } finally {
+  const cleanupUnstartedRecorder = (recorder: RecorderLike) =>
+    boundedCancelAndDispose(recorder, () => {
       try {
         recorder.dispose();
       } catch (error) {
         console.warn('recorder dispose failed', error);
       }
-    }
-  };
+    });
 
   const start = async ({
     hasMicrophonePermission,
@@ -428,10 +461,16 @@ export function createRecorderController({
       return 'denied';
     }
 
-    let markStartSettled!: () => void;
-    const startSettled = new Promise<void>((resolve) => {
-      markStartSettled = resolve;
+    let resolveStartSettled!: (outcome: 'resolved' | 'rejected') => void;
+    let startSettlement: 'resolved' | 'rejected' | null = null;
+    const startSettled = new Promise<'resolved' | 'rejected'>((resolve) => {
+      resolveStartSettled = resolve;
     });
+    const markStartSettled = (outcome: 'resolved' | 'rejected') => {
+      if (startSettlement != null) return;
+      startSettlement = outcome;
+      resolveStartSettled(outcome);
+    };
     const operation: RecorderOperation = {
       recorder,
       callbacks,
@@ -439,6 +478,7 @@ export function createRecorderController({
       state: 'pending',
       startedAt: monotonicNow(),
       observedNativeDuration: 0,
+      displayDuration: 0,
       disposed: false,
       stopPromise: null,
       deliveredPath: null,
@@ -457,6 +497,7 @@ export function createRecorderController({
         () => {},
         () => {}
       );
+      markStartSettled('resolved');
       // 官方语义：startRecording 的 Promise 在 onRecordingStarted 才 resolve = 录像真正开始。
       // 把 monotonic 锚点重置到此刻，否则权限请求 / createRecorder / native 启动的开销都会被
       // 算进 fallback duration（真机上常见数百毫秒到数秒的系统性高估）。
@@ -467,6 +508,7 @@ export function createRecorderController({
       return operation.state === 'cancelled' ? 'denied' : 'started';
     } catch (error) {
       const normalized = asError(error);
+      markStartSettled('rejected');
       // callback 可能已先完成；此时 callback 是唯一终态，晚到 continuation 只能 no-op。
       const ownedFailure = await abortWithError(operation, normalized);
       if (!ownedFailure) {
@@ -474,8 +516,8 @@ export function createRecorderController({
       }
       throw normalized;
     } finally {
-      // resolve 或 reject 都算 settle：teardown 靠它判断「native 是否已经真的开录」。
-      operation.markStartSettled();
+      // 防御同步异常绕过分支；幂等 marker 不会把已 resolve 的 start 改写成 reject。
+      operation.markStartSettled('rejected');
     }
   };
 
@@ -524,15 +566,22 @@ export function createRecorderController({
 
   const cancel = () => cancelActive(false);
 
-  // 与 computeDuration 同一规则：native 正读数优先，取不到才用（已重锚的）monotonic fallback。
+  /**
+   * 展示轮询与交付真值是两个独立契约，不能共用同一个数：本次读数仍按 computeDuration 同一
+   * 规则算（native 正读数优先，取不到才用已重锚的 monotonic fallback），但只在 pending 期间
+   * 存回 `displayDuration` 这个 high-water mark 再返回 —— 保证轮询值非递减，绝不因为 native
+   * 首个采样滞后到达而回跳。`lastDuration`（交付给 onFinished 的真值）只由 computeDuration()
+   * 写入，这里不碰它；终态之后本函数直接返回 lastDuration，high-water mark 不参与交付。
+   */
   const getRecordedDuration = () => {
     const operation = active;
     if (operation == null || operation.state !== 'pending') {
       return lastDuration;
     }
     const native = readNativeDuration(operation);
-    lastDuration = native > 0 ? native : elapsedFallback(operation);
-    return lastDuration;
+    const reading = native > 0 ? native : elapsedFallback(operation);
+    operation.displayDuration = Math.max(operation.displayDuration, reading);
+    return operation.displayDuration;
   };
 
   return {
