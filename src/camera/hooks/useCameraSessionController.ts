@@ -140,6 +140,7 @@ export function useCameraSessionController({
   const activeOperationRef = useRef<CameraOperationToken | null>(null);
   const nextCancelRequestIdRef = useRef(1);
   const pendingCancelRef = useRef<PendingCancelRequest | null>(null);
+  const terminalOwnershipEpochRef = useRef(0);
   const settleNotifiedRef = useRef(false);
   const confirmRef = useRef(confirm);
   const cancelRecordingRef = useRef(cancelRecording);
@@ -406,7 +407,15 @@ export function useCameraSessionController({
       // 先失效 operation token，再碰 native；cancel 同步回调的 finished/error
       // 因而只能成为 stale event，不能在取消已确认后把视频重新提交进 files。
       if (!apply({ type: 'SETTLING' })) return;
+      const ownerEpoch = ++terminalOwnershipEpochRef.current;
       await cancelRecordingBestEffort();
+      if (
+        !mountedRef.current ||
+        terminalOwnershipEpochRef.current !== ownerEpoch
+      ) {
+        return;
+      }
+      terminalOwnershipEpochRef.current += 1;
       notifySettle(cancelledResult());
     },
     [
@@ -481,11 +490,14 @@ export function useCameraSessionController({
   }, [confirmUserCancel, settle]);
 
   const forceTeardown = useCallback((): void => {
+    // reducer 可能已由 user-cancel 置为 settling；epoch 必须先失效，确保其 await
+    // continuation 不会在 coordinator 接管结果后再发一次 stale onSettle。
+    terminalOwnershipEpochRef.current += 1;
+    pendingCancelRef.current = null;
+    activeOperationRef.current = null;
     const current = stateRef.current;
     const cancelActiveRecording = ACTIVE_VIDEO_PHASES.has(current.phase);
     if (!apply({ type: 'SETTLING' })) return;
-    pendingCancelRef.current = null;
-    activeOperationRef.current = null;
     if (cancelActiveRecording) {
       cancelRecordingBestEffort().catch((error) => {
         console.warn('camera force teardown failed', error);
@@ -510,6 +522,7 @@ export function useCameraSessionController({
     const unregister = registerController(sessionId, bridge);
     return () => {
       mountedRef.current = false;
+      terminalOwnershipEpochRef.current += 1;
       // effect cleanup 只注销并使 async continuation 过期；真正的 native teardown
       // 仍由 coordinator 在 real unmount/supersede 时通过保留的 bridge 发起。
       activeOperationRef.current = null;

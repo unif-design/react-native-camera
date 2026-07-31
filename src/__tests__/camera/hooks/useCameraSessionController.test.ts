@@ -658,6 +658,89 @@ describe('useCameraSessionController', () => {
     });
   });
 
+  it('does not notify user-cancel settle when force teardown takes ownership while native cancel is pending', async () => {
+    const cancelled = deferred<void>();
+    const cancelRecording = jest.fn(() => cancelled.promise);
+    const harness = setup({ cancelRecording });
+    configureReady(harness.result);
+    beginRecording(harness.result);
+    const retainedBridge = harness.bridge()!;
+
+    await act(async () => {
+      harness.result.current.requestUserCancel();
+      await Promise.resolve();
+    });
+    expect(harness.result.current.state.phase).toBe('settling');
+    expect(cancelRecording).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      retainedBridge.forceTeardown();
+    });
+    await act(async () => {
+      cancelled.resolve();
+      await cancelled.promise;
+    });
+
+    expect(cancelRecording).toHaveBeenCalledTimes(1);
+    expect(harness.onSettle).not.toHaveBeenCalled();
+  });
+
+  it('does not notify user-cancel settle after real unmount while native cancel is pending', async () => {
+    const cancelled = deferred<void>();
+    const cancelRecording = jest.fn(() => cancelled.promise);
+    const harness = setup({ cancelRecording });
+    configureReady(harness.result);
+    beginRecording(harness.result);
+
+    await act(async () => {
+      harness.result.current.requestUserCancel();
+      await Promise.resolve();
+    });
+    expect(harness.result.current.state.phase).toBe('settling');
+    expect(cancelRecording).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      harness.unmount();
+    });
+    await act(async () => {
+      cancelled.resolve();
+      await cancelled.promise;
+    });
+
+    expect(harness.unregister).toHaveBeenCalledTimes(1);
+    expect(cancelRecording).toHaveBeenCalledTimes(1);
+    expect(harness.onSettle).not.toHaveBeenCalled();
+  });
+
+  it('does not notify stale user-cancel settle when native cancel rejects after force teardown', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const cancelled = deferred<void>();
+    const cancelRecording = jest.fn(() => cancelled.promise);
+    const harness = setup({ cancelRecording });
+    configureReady(harness.result);
+    beginRecording(harness.result);
+
+    await act(async () => {
+      harness.result.current.requestUserCancel();
+      await Promise.resolve();
+    });
+    act(() => {
+      harness.result.current.forceTeardown();
+    });
+    await act(async () => {
+      cancelled.reject(new Error('cancel failed'));
+      try {
+        await cancelled.promise;
+      } catch {
+        // cancel adapter 自己吞掉 rejection；这里仅等待同一个 deferred 释放 continuation。
+      }
+    });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(cancelRecording).toHaveBeenCalledTimes(1);
+    expect(harness.onSettle).not.toHaveBeenCalled();
+  });
+
   it('ignores recording approval after native finish changed the operation', async () => {
     const decision = deferred<boolean>();
     const harness = setup({
