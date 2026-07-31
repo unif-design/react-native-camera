@@ -47,11 +47,15 @@ export class PhotoProcessingError extends Error {
 
 export type PhotoProcessingSnapshot = {
   sessionId: number;
-  captureId: string;
+  captureId: string | number;
   aspectRatio: AspectRatio;
   mode: Pick<CameraMode, 'quality'>;
   watermark?: WatermarkType;
   cameraPosition: CameraType;
+};
+
+export type PhotoProcessingContext = {
+  isCurrent?: () => boolean;
 };
 
 function snapshotOperation(
@@ -94,20 +98,42 @@ function disposeSafely(resource: { dispose: () => void } | null): void {
   }
 }
 
+function assertCurrent(
+  context: PhotoProcessingContext | undefined,
+  stage: PhotoProcessingStage
+): void {
+  if (context?.isCurrent == null) return;
+  try {
+    if (context.isCurrent()) return;
+  } catch (error) {
+    throw new PhotoProcessingError(stage, error);
+  }
+  throw new PhotoProcessingError(stage);
+}
+
+function cleanupOwned(registry: FileRegistry, paths: readonly string[]): void {
+  for (const path of new Set(paths)) {
+    // registry 会在首个 await 前同步把 owned 标成 deleted；processor 不等待磁盘 unlink，
+    // 否则慢 I/O 会延长 UHD Skia/native 事务并阻塞 stale operation 退出。
+    registry.delete(path).catch(() => {
+      // 正常 registry 已吞掉 unlink/reporter 错误；自定义实现 reject 也不能形成未处理 rejection。
+    });
+  }
+}
+
 export async function processPhoto(
   raw: CustomPhotoFile,
   operation: PhotoProcessingSnapshot,
-  registry: FileRegistry
+  registry: FileRegistry,
+  context?: PhotoProcessingContext
 ): Promise<CustomPhotoFile> {
-  if (raw.mime !== 'image/jpeg') return raw;
-
   const captured = snapshotOperation(operation);
-  registry.register(raw.path);
   const watermark = hasVisibleWatermark(captured.watermark)
     ? captured.watermark
     : undefined;
-  if (captured.aspectRatio !== '16:9' && watermark == null) return raw;
-
+  const needsProcessing =
+    raw.mime === 'image/jpeg' &&
+    (captured.aspectRatio === '16:9' || watermark != null);
   const outputPath =
     `${RNFS.TemporaryDirectoryPath}/camera_` +
     `${safePathSegment(captured.sessionId)}_${safePathSegment(captured.captureId)}.jpg`;
@@ -121,10 +147,16 @@ export async function processPhoto(
   let stage: PhotoProcessingStage = 'read';
   let failure: PhotoProcessingError | null = null;
   let result: CustomPhotoFile | null = null;
-  let ownershipCleanup: Promise<void> | null = null;
 
   try {
+    assertCurrent(context, stage);
+    if (!needsProcessing) return raw;
+    if (outputPath === raw.path) {
+      throw new PhotoProcessingError('write');
+    }
+
     data = await Skia.Data.fromURI(raw.uri);
+    assertCurrent(context, stage);
 
     stage = 'decode';
     image = Skia.Image.MakeImageFromEncoded(data);
@@ -180,9 +212,10 @@ export async function processPhoto(
     stage = 'write';
     outputMayExist = true;
     await RNFS.writeFile(outputPath, encoded, 'base64');
-    // replace 在首个 await 前同步登记 final 并把 raw 标成 deleted；unlink 可继续异步，
-    // 不能让 UHD Skia 对象为磁盘清理多存活一刻。
-    ownershipCleanup = registry.replace(raw.path, outputPath);
+    // write 完成后的第一步先登记 final；随后的 token gate 若判 stale，registry 才有权
+    // 同步摘除 raw/final 所有权并异步清理，且不会遗失已成功落盘的输出。
+    registry.register(outputPath);
+    assertCurrent(context, stage);
 
     result = {
       ...raw,
@@ -213,19 +246,19 @@ export async function processPhoto(
   }
 
   if (failure != null) {
-    if (outputMayExist) {
-      // write 可能已留下部分文件；先登记所有权，registry 才被允许执行 best-effort unlink。
-      registry.register(outputPath);
-      await registry.delete(outputPath);
-    }
-    await registry.delete(raw.path);
+    // write reject 仍可能留下部分文件；先登记所有权，再同步标 deleted 并 fire-and-forget
+    // unlink。registry 的状态门禁保证 raw/final 即使同 path 或重复进入也只删一次。
+    if (outputMayExist) registry.register(outputPath);
+    cleanupOwned(
+      registry,
+      outputMayExist ? [raw.path, outputPath] : [raw.path]
+    );
     throw failure;
   }
 
   if (result == null) {
-    await registry.delete(raw.path);
+    cleanupOwned(registry, [raw.path]);
     throw new PhotoProcessingError(stage);
   }
-  await ownershipCleanup;
   return result;
 }

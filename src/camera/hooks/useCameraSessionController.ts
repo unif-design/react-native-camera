@@ -77,6 +77,9 @@ export type CameraSessionController = {
   fail: (token: CameraOperationToken) => boolean;
   openPreview: (preview: CameraPreviewState) => boolean;
   closePreview: () => boolean;
+  deleteFile: (path: string) => CustomPhotoFile | null;
+  clearFiles: () => CustomPhotoFile[] | null;
+  save: () => boolean;
   settle: (result: CameraResult) => boolean;
   requestUserCancel: () => void;
   forceTeardown: () => void;
@@ -341,6 +344,33 @@ export function useCameraSessionController({
     [apply]
   );
 
+  const deleteFile = useCallback(
+    (path: string): CustomPhotoFile | null => {
+      if (!mountedRef.current || stateRef.current.phase !== 'previewing') {
+        return null;
+      }
+      const file = stateRef.current.files.find(
+        (candidate) => candidate.path === path
+      );
+      if (file == null || !apply({ type: 'DELETE_FILE', path })) return null;
+      return file;
+    },
+    [apply]
+  );
+
+  const clearFiles = useCallback((): CustomPhotoFile[] | null => {
+    if (
+      !mountedRef.current ||
+      (stateRef.current.phase !== 'ready' &&
+        stateRef.current.phase !== 'previewing')
+    ) {
+      return null;
+    }
+    const files = [...stateRef.current.files];
+    apply({ type: 'CLEAR_FILES' });
+    return files;
+  }, [apply]);
+
   const notifySettle = useCallback((result: CameraResult): boolean => {
     if (settleNotifiedRef.current) return false;
     settleNotifiedRef.current = true;
@@ -356,6 +386,16 @@ export function useCameraSessionController({
     },
     [apply, notifySettle]
   );
+
+  const save = useCallback((): boolean => {
+    const current = stateRef.current;
+    if (!mountedRef.current || !selectCapabilities(current).save) return false;
+    return settle({
+      code: 200,
+      data: [...current.files],
+      message: 'ok',
+    });
+  }, [settle]);
 
   const cancelRecordingBestEffort = useCallback(async (): Promise<void> => {
     try {
@@ -550,6 +590,9 @@ export function useCameraSessionController({
     fail,
     openPreview,
     closePreview,
+    deleteFile,
+    clearFiles,
+    save,
     settle,
     requestUserCancel,
     forceTeardown,

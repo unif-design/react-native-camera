@@ -32,6 +32,15 @@ const video: CustomPhotoFile = {
   duration: 12,
 };
 
+function photoWithId(id: string): CustomPhotoFile {
+  return {
+    ...photo,
+    id,
+    path: `/tmp/${id}.jpg`,
+    uri: `file:///tmp/${id}.jpg`,
+  };
+}
+
 const savedResult: CameraResult = {
   code: 200,
   data: [photo],
@@ -377,6 +386,74 @@ describe('useCameraSessionController', () => {
       sound: true,
       preview: null,
     });
+  });
+
+  it('returns the exact deleted file and a clear snapshot only in allowed phases', () => {
+    const first = photoWithId('first');
+    const second = photoWithId('second');
+    const harness = setup({ files: [first, second] });
+
+    expect(harness.result.current.deleteFile(first.path)).toBeNull();
+    expect(harness.result.current.clearFiles()).toBeNull();
+    configureReady(harness.result);
+
+    act(() => {
+      expect(
+        harness.result.current.openPreview({
+          variant: 'gallery',
+          index: 1,
+        })
+      ).toBe(true);
+      expect(harness.result.current.deleteFile(first.path)).toBe(first);
+    });
+    expect(harness.result.current.state).toMatchObject({
+      phase: 'previewing',
+      files: [second],
+      preview: { variant: 'gallery', index: 0 },
+    });
+
+    let removed: CustomPhotoFile[] | null = null;
+    act(() => {
+      removed = harness.result.current.clearFiles();
+    });
+    expect(removed).toEqual([second]);
+    expect(removed).not.toBe(harness.result.current.state.files);
+    expect(harness.result.current.state).toMatchObject({
+      phase: 'ready',
+      files: [],
+      preview: null,
+    });
+  });
+
+  it('saves a copied snapshot of the latest shadow files and only when capable', () => {
+    const first = photoWithId('first');
+    const second = photoWithId('second');
+    const harness = setup({ files: [first, second] });
+
+    expect(harness.result.current.save()).toBe(false);
+    configureReady(harness.result);
+
+    act(() => {
+      expect(
+        harness.result.current.openPreview({
+          variant: 'gallery',
+          index: 0,
+        })
+      ).toBe(true);
+      expect(harness.result.current.deleteFile(first.path)).toBe(first);
+      expect(harness.result.current.save()).toBe(true);
+    });
+
+    expect(harness.onSettle).toHaveBeenCalledTimes(1);
+    const result = harness.onSettle.mock.calls[0]![0];
+    expect(result).toEqual({
+      code: 200,
+      data: [second],
+      message: 'ok',
+    });
+    expect(result.data).not.toBe(harness.result.current.state.files);
+    expect(harness.result.current.state.phase).toBe('settling');
+    expect(harness.result.current.save()).toBe(false);
   });
 
   it('force teardown invalidates video before a synchronous native terminal callback', () => {

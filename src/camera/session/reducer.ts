@@ -257,6 +257,44 @@ export function cameraSessionReducer(
     case 'CLOSE_PREVIEW':
       if (state.phase !== 'previewing') return state;
       return { ...state, phase: 'ready', preview: null };
+    case 'DELETE_FILE': {
+      if (state.phase !== 'previewing' || state.preview == null) return state;
+      const deletedIndex = state.files.findIndex(
+        (file) => file.path === action.path
+      );
+      if (deletedIndex < 0) return state;
+
+      const files = state.files.filter((_, index) => index !== deletedIndex);
+      if (files.length === 0) {
+        return {
+          ...state,
+          phase: 'ready',
+          files,
+          preview: null,
+        };
+      }
+
+      const currentIndex = state.preview.index;
+      const preservedIndex =
+        deletedIndex < currentIndex
+          ? currentIndex - 1
+          : Math.min(currentIndex, files.length - 1);
+      const index = Math.max(0, Math.min(preservedIndex, files.length - 1));
+      return {
+        ...state,
+        files,
+        preview: { ...state.preview, index },
+      };
+    }
+    case 'CLEAR_FILES':
+      if (state.phase !== 'ready' && state.phase !== 'previewing') return state;
+      if (state.files.length === 0 && state.preview == null) return state;
+      return {
+        ...state,
+        phase: 'ready',
+        files: [],
+        preview: null,
+      };
     default:
       return state;
   }

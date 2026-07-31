@@ -22,6 +22,15 @@ const photo: CustomPhotoFile = {
   isRemake: false,
 };
 
+function photoWithId(id: string): CustomPhotoFile {
+  return {
+    ...photo,
+    id,
+    path: `/tmp/${id}.jpg`,
+    uri: `file:///tmp/${id}.jpg`,
+  };
+}
+
 function makeState(
   overrides: Partial<CameraSessionState> = {}
 ): CameraSessionState {
@@ -313,6 +322,147 @@ describe('cameraSessionReducer', () => {
       preview: { variant: 'confirm', index: 0 },
       operationId: null,
     });
+  });
+
+  it('deletes by path while preserving the current preview file identity', () => {
+    const first = photoWithId('first');
+    const current = photoWithId('current');
+    const last = photoWithId('last');
+    const state = makeState({
+      phase: 'previewing',
+      files: [first, current, last],
+      preview: { variant: 'gallery', index: 1 },
+    });
+
+    const afterBefore = cameraSessionReducer(state, {
+      type: 'DELETE_FILE',
+      path: first.path,
+    });
+    expect(afterBefore.files).toEqual([current, last]);
+    expect(afterBefore.files[afterBefore.preview!.index]).toBe(current);
+
+    const afterCurrent = cameraSessionReducer(afterBefore, {
+      type: 'DELETE_FILE',
+      path: current.path,
+    });
+    expect(afterCurrent.files).toEqual([last]);
+    expect(afterCurrent.files[afterCurrent.preview!.index]).toBe(last);
+
+    const afterLast = cameraSessionReducer(afterCurrent, {
+      type: 'DELETE_FILE',
+      path: last.path,
+    });
+    expect(afterLast).toMatchObject({
+      phase: 'ready',
+      files: [],
+      preview: null,
+    });
+  });
+
+  it('clamps preview to the previous file when deleting the current last file', () => {
+    const first = photoWithId('first');
+    const last = photoWithId('last');
+    const state = makeState({
+      phase: 'previewing',
+      files: [first, last],
+      preview: { variant: 'gallery', index: 1 },
+    });
+
+    const next = cameraSessionReducer(state, {
+      type: 'DELETE_FILE',
+      path: last.path,
+    });
+
+    expect(next.files).toEqual([first]);
+    expect(next.preview).toEqual({ variant: 'gallery', index: 0 });
+    expect(next.files[next.preview!.index]).toBe(first);
+  });
+
+  it('defensively clamps an out-of-range preview index after deletion', () => {
+    const first = photoWithId('first');
+    const second = photoWithId('second');
+    const last = photoWithId('last');
+    const state = makeState({
+      phase: 'previewing',
+      files: [first, second, last],
+      preview: { variant: 'gallery', index: 99 },
+    });
+
+    const next = cameraSessionReducer(state, {
+      type: 'DELETE_FILE',
+      path: first.path,
+    });
+
+    expect(next.files).toEqual([second, last]);
+    expect(next.preview).toEqual({ variant: 'gallery', index: 1 });
+  });
+
+  it('clears files from ready or previewing and exits preview', () => {
+    const files = [photoWithId('first'), photoWithId('last')];
+    const ready = makeState({ files });
+    const previewing = makeState({
+      phase: 'previewing',
+      files,
+      preview: { variant: 'gallery', index: 1 },
+    });
+
+    expect(cameraSessionReducer(ready, { type: 'CLEAR_FILES' })).toMatchObject({
+      phase: 'ready',
+      files: [],
+      preview: null,
+    });
+    expect(
+      cameraSessionReducer(previewing, { type: 'CLEAR_FILES' })
+    ).toMatchObject({
+      phase: 'ready',
+      files: [],
+      preview: null,
+    });
+  });
+
+  it.each<CameraSessionPhase>([
+    'configuring',
+    'capturingPhoto',
+    'processingPhoto',
+    'startingVideo',
+    'recording',
+    'stoppingVideo',
+    'settling',
+    'closed',
+  ])('keeps identity for file mutations while %s', (phase) => {
+    const state = makeState({
+      phase,
+      files: [photo],
+      preview: phase === 'previewing' ? { variant: 'gallery', index: 0 } : null,
+    });
+
+    expect(
+      cameraSessionReducer(state, {
+        type: 'DELETE_FILE',
+        path: photo.path,
+      })
+    ).toBe(state);
+    expect(cameraSessionReducer(state, { type: 'CLEAR_FILES' })).toBe(state);
+  });
+
+  it('keeps identity for a missing delete path and unknown action', () => {
+    const state = makeState({
+      phase: 'previewing',
+      files: [photo],
+      preview: { variant: 'gallery', index: 0 },
+    });
+
+    expect(
+      cameraSessionReducer(state, {
+        type: 'DELETE_FILE',
+        path: '/tmp/missing.jpg',
+      })
+    ).toBe(state);
+    expect(
+      cameraSessionReducer(state, {
+        type: 'NOT_A_FILE_ACTION',
+      } as unknown as CameraSessionAction)
+    ).toBe(state);
   });
 
   it('stores non-native flash and sound controls in reducer state', () => {

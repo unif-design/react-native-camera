@@ -79,6 +79,8 @@ export type CameraSessionAction =
   | { type: 'OPERATION_FAILED'; operationId: number }
   | { type: 'OPEN_PREVIEW'; preview: CameraPreviewState }
   | { type: 'CLOSE_PREVIEW' }
+  | { type: 'DELETE_FILE'; path: string }
+  | { type: 'CLEAR_FILES' }
   | { type: 'SETTLING' }
   | { type: 'CLOSED' };
 

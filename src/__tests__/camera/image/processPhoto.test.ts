@@ -143,6 +143,7 @@ beforeEach(() => {
 it('无裁切且无有效 watermark 时返回 raw，0 decode / encode', async () => {
   const raw = makeRaw();
   const registry = createFileRegistry(jest.fn(async () => {}));
+  registry.register(raw.path);
 
   const result = await processPhoto(
     raw,
@@ -166,6 +167,7 @@ it('crop + watermark 恰好一次 decode / surface / snapshot / JPEG encode / wr
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
+  registry.register(raw.path);
 
   const result = await processPhoto(raw, makeOperation(), registry);
 
@@ -191,9 +193,8 @@ it('crop + watermark 恰好一次 decode / surface / snapshot / JPEG encode / wr
     cameraType: 'front',
   });
   expect(registry.stateOf(result.path)).toBe('owned');
-  expect(registry.stateOf(raw.path)).toBe('deleted');
-  expect(unlink).toHaveBeenCalledTimes(1);
-  expect(unlink).toHaveBeenCalledWith(raw.path);
+  expect(registry.stateOf(raw.path)).toBe('owned');
+  expect(unlink).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -227,6 +228,7 @@ it.each<HarnessFailure>(['decode', 'surface', 'encode', 'write'])(
     const unlink = jest.fn(async () => {});
     const registry = createFileRegistry(unlink);
     const raw = makeRaw();
+    registry.register(raw.path);
 
     const promise = processPhoto(raw, makeOperation(), registry);
 
@@ -279,22 +281,31 @@ it('成功后按 snapshot → paragraph → builder → paint → surface → im
   ]);
 });
 
-it('unlink 尚未完成时已迁移所有权并释放全部原生对象', async () => {
+it('成功只登记 final 并立即返回，不删除 raw 或等待慢 unlink', async () => {
   const native = installNativeHarness();
-  const unlinkStarted = deferred<void>();
   const unlinkPending = deferred<void>();
-  const unlink = jest.fn(() => {
-    unlinkStarted.resolve();
-    return unlinkPending.promise;
-  });
+  const unlink = jest.fn(() => unlinkPending.promise);
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
+  registry.register(raw.path);
 
   const processing = processPhoto(raw, makeOperation(), registry);
-  await unlinkStarted.promise;
+  const outcome = await Promise.race([
+    processing.then(() => 'resolved'),
+    new Promise<'timeout'>((resolve) =>
+      setTimeout(() => resolve('timeout'), 20)
+    ),
+  ]);
+  unlinkPending.resolve();
+
+  expect(outcome).toBe('resolved');
+  await expect(processing).resolves.toMatchObject({
+    path: '/tmp/camera_42_capture-7.jpg',
+  });
 
   expect(registry.stateOf('/tmp/camera_42_capture-7.jpg')).toBe('owned');
-  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(registry.stateOf(raw.path)).toBe('owned');
+  expect(unlink).not.toHaveBeenCalled();
   expect(native.order).toEqual([
     'snapshot',
     'paragraph',
@@ -304,11 +315,6 @@ it('unlink 尚未完成时已迁移所有权并释放全部原生对象', async 
     'image',
     'data',
   ]);
-
-  unlinkPending.resolve();
-  await expect(processing).resolves.toMatchObject({
-    path: '/tmp/camera_42_capture-7.jpg',
-  });
 });
 
 it.each([{ orientation: 6 }, { orientation: 2, mirrored: true }])(
@@ -361,4 +367,127 @@ it('await 期间外部 mode / aspect / watermark / position 改变不影响快�
   );
   expect(native.builder.addText).toHaveBeenCalledWith('原始水印');
   expect(result.cameraType).toBe('front');
+});
+
+it('入口已过期时同步摘除 raw 所有权，不读取或等待慢 unlink', async () => {
+  const unlinkPending = deferred<void>();
+  const unlink = jest.fn(() => unlinkPending.promise);
+  const registry = createFileRegistry(unlink);
+  const raw = makeRaw();
+  registry.register(raw.path);
+
+  const processing = processPhoto(raw, makeOperation(), registry, {
+    isCurrent: () => false,
+  });
+  const outcome = await Promise.race([
+    processing.then(
+      () => 'resolved',
+      () => 'rejected'
+    ),
+    new Promise<'timeout'>((resolve) =>
+      setTimeout(() => resolve('timeout'), 20)
+    ),
+  ]);
+  unlinkPending.resolve();
+
+  expect(outcome).toBe('rejected');
+  await expect(processing).rejects.toBeInstanceOf(PhotoProcessingError);
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(unlink).toHaveBeenCalledTimes(1);
+  expect(skia.Skia.Data.fromURI).not.toHaveBeenCalled();
+});
+
+it('Data.fromURI 后过期会释放 data、清理 raw，且不继续 decode', async () => {
+  const native = installNativeHarness();
+  const unlink = jest.fn(async () => {});
+  const registry = createFileRegistry(unlink);
+  const raw = makeRaw();
+  registry.register(raw.path);
+  const isCurrent = jest
+    .fn<boolean, []>()
+    .mockReturnValueOnce(true)
+    .mockReturnValueOnce(false);
+
+  await expect(
+    processPhoto(raw, makeOperation(), registry, { isCurrent })
+  ).rejects.toBeInstanceOf(PhotoProcessingError);
+
+  expect(isCurrent).toHaveBeenCalledTimes(2);
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(skia.Skia.Image.MakeImageFromEncoded).not.toHaveBeenCalled();
+  expect(native.order).toEqual(['data']);
+});
+
+it('write 后先登记 final 再检查过期，并且每个 path 最多 unlink 一次', async () => {
+  installNativeHarness();
+  const unlink = jest.fn(async () => {});
+  const registry = createFileRegistry(unlink);
+  const raw = makeRaw();
+  const outputPath = '/tmp/camera_42_capture-7.jpg';
+  registry.register(raw.path);
+  const isCurrent = jest
+    .fn<boolean, []>()
+    .mockReturnValueOnce(true)
+    .mockReturnValueOnce(true)
+    .mockImplementationOnce(() => {
+      expect(registry.stateOf(outputPath)).toBe('owned');
+      return false;
+    });
+
+  await expect(
+    processPhoto(raw, makeOperation(), registry, { isCurrent })
+  ).rejects.toBeInstanceOf(PhotoProcessingError);
+
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(registry.stateOf(outputPath)).toBe('deleted');
+  expect(unlink).toHaveBeenCalledTimes(2);
+  expect(unlink).toHaveBeenCalledWith(raw.path);
+  expect(unlink).toHaveBeenCalledWith(outputPath);
+});
+
+it('write 失败会立即 reject 并同步摘除所有权，不等待慢 unlink', async () => {
+  installNativeHarness({ failure: 'write' });
+  const unlinkPending = deferred<void>();
+  const unlink = jest.fn(() => unlinkPending.promise);
+  const registry = createFileRegistry(unlink);
+  const raw = makeRaw();
+  registry.register(raw.path);
+
+  const processing = processPhoto(raw, makeOperation(), registry, {
+    isCurrent: () => true,
+  });
+  const outcome = await Promise.race([
+    processing.then(
+      () => 'resolved',
+      () => 'rejected'
+    ),
+    new Promise<'timeout'>((resolve) =>
+      setTimeout(() => resolve('timeout'), 20)
+    ),
+  ]);
+  unlinkPending.resolve();
+
+  expect(outcome).toBe('rejected');
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(registry.stateOf('/tmp/camera_42_capture-7.jpg')).toBe('deleted');
+  expect(unlink).toHaveBeenCalledTimes(2);
+  expect(unlink).toHaveBeenCalledWith(raw.path);
+  expect(unlink).toHaveBeenCalledWith('/tmp/camera_42_capture-7.jpg');
+});
+
+it('显式处理不得覆盖 raw；same-path 直接失败且只清理一次', async () => {
+  const raw = makeRaw();
+  raw.path = '/tmp/camera_42_capture-7.jpg';
+  raw.uri = 'file:///tmp/camera_42_capture-7.jpg';
+  const unlink = jest.fn(async () => {});
+  const registry = createFileRegistry(unlink);
+  registry.register(raw.path);
+
+  await expect(
+    processPhoto(raw, makeOperation(), registry, { isCurrent: () => true })
+  ).rejects.toBeInstanceOf(PhotoProcessingError);
+
+  expect(RNFS.writeFile).not.toHaveBeenCalled();
+  expect(unlink).toHaveBeenCalledTimes(1);
+  expect(unlink).toHaveBeenCalledWith(raw.path);
 });
