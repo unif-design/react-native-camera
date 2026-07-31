@@ -1,46 +1,180 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { cancelledResult } from '../utils';
 import type { CameraApi, CameraResult, OpenConfig } from '../utils';
+import { validateOpenConfig } from '../utils/validateOpenConfig';
 import { Container, ModalView } from '../camera';
+
+export type SessionControllerBridge = {
+  requestUserCancel(): void;
+  forceTeardown(): void;
+};
+
+type SessionResources = {
+  controller: SessionControllerBridge | null;
+};
+
+type SessionRecord = {
+  id: number;
+  config: OpenConfig;
+  status: 'active' | 'settling' | 'settled';
+  resolve: (result: CameraResult) => void;
+  resources: SessionResources;
+};
+
+type RenderedSession = Pick<SessionRecord, 'id' | 'config'>;
+
+type SessionContainerProps = React.ComponentProps<typeof Container> & {
+  sessionId: number;
+  onControllerChange(controller: SessionControllerBridge | null): void;
+};
+
+// Task 1 先把 session identity 与 controller 注册入口送到 Container 边界；
+// 后续状态机接入时 Container 会显式消费这两个 prop。
+const SessionContainer =
+  Container as React.ComponentType<SessionContainerProps>;
 
 export function useCamera(): [CameraApi, React.ReactElement] {
   const [visible, setVisible] = useState(false);
-  const [config, setConfig] = useState<OpenConfig | null>(null);
-  // 会话序号:每次 open 自增,作 Container 的 key → 二次 open 时 Container remount,
-  // 旧会话的 photos / mode / zoom 等状态不串进新会话。
-  const [sessionId, setSessionId] = useState(0);
-  const resolverRef = useRef<((r: CameraResult) => void) | null>(null);
+  const [renderedSession, setRenderedSession] =
+    useState<RenderedSession | null>(null);
+  const currentSessionRef = useRef<SessionRecord | null>(null);
+  const renderedSessionRef = useRef<RenderedSession | null>(null);
+  const nextSessionIdRef = useRef(0);
+  const mountedRef = useRef(true);
 
-  const settle = useCallback((r: CameraResult) => {
-    if (resolverRef.current) {
-      resolverRef.current(r);
-      resolverRef.current = null;
-    }
-    setVisible(false);
-    setConfig(null);
-  }, []);
+  const finish = useCallback(
+    (sessionId: number, result: CameraResult): void => {
+      const session = currentSessionRef.current;
+      if (session?.id !== sessionId || session.status !== 'active') {
+        return;
+      }
+
+      session.status = 'settling';
+      currentSessionRef.current = null;
+      session.status = 'settled';
+      session.resolve(result);
+
+      if (!mountedRef.current || renderedSessionRef.current?.id !== sessionId) {
+        return;
+      }
+
+      renderedSessionRef.current = null;
+      setVisible(false);
+      setRenderedSession(null);
+    },
+    []
+  );
+
+  const forceCancel = useCallback(
+    (session: SessionRecord): void => {
+      session.resources.controller?.forceTeardown();
+      finish(session.id, cancelledResult());
+    },
+    [finish]
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const session = currentSessionRef.current;
+      if (session) forceCancel(session);
+    };
+  }, [forceCancel]);
 
   const api = useMemo<CameraApi>(
     () => ({
-      open: (cfg: OpenConfig) =>
-        new Promise<CameraResult>((resolve) => {
-          // 已打开时再 open:先把旧会话 settle 取消 —— 否则旧 resolver 被覆盖、第一个 Promise
-          // 永不兑现,消费者 await 挂死。随后 sessionId++ 让 Container remount(状态不串场)。
-          if (resolverRef.current) resolverRef.current(cancelledResult());
-          resolverRef.current = resolve;
-          setSessionId((n) => n + 1);
-          setConfig(cfg);
+      open: (config: OpenConfig) => {
+        const validated = validateOpenConfig(config);
+        if (!validated.ok) {
+          return Promise.resolve(validated.result);
+        }
+        if (!mountedRef.current) {
+          return Promise.resolve(cancelledResult());
+        }
+
+        const sessionId = ++nextSessionIdRef.current;
+        const previousSession = currentSessionRef.current;
+        if (previousSession) forceCancel(previousSession);
+
+        return new Promise<CameraResult>((resolve) => {
+          const session: SessionRecord = {
+            id: sessionId,
+            config: validated.config,
+            status: 'active',
+            resolve,
+            resources: { controller: null },
+          };
+          const nextRenderedSession = {
+            id: session.id,
+            config: session.config,
+          };
+
+          currentSessionRef.current = session;
+          renderedSessionRef.current = nextRenderedSession;
+          setRenderedSession(nextRenderedSession);
           setVisible(true);
-        }),
-      close: () => settle(cancelledResult()),
+        });
+      },
+      close: () => {
+        const session = currentSessionRef.current;
+        if (session) forceCancel(session);
+      },
     }),
-    [settle]
+    [forceCancel]
+  );
+
+  const requestUserCancel = useCallback(
+    (sessionId: number): void => {
+      const session = currentSessionRef.current;
+      if (session?.id !== sessionId || session.status !== 'active') {
+        return;
+      }
+
+      if (session.resources.controller) {
+        session.resources.controller.requestUserCancel();
+        return;
+      }
+
+      finish(sessionId, cancelledResult());
+    },
+    [finish]
+  );
+
+  const setController = useCallback(
+    (sessionId: number, controller: SessionControllerBridge | null): void => {
+      const session = currentSessionRef.current;
+      if (session?.id !== sessionId || session.status !== 'active') {
+        return;
+      }
+      session.resources.controller = controller;
+    },
+    []
   );
 
   const holder = (
-    <ModalView visible={visible} onClose={() => settle(cancelledResult())}>
-      {config && (
-        <Container key={sessionId} config={config} onSettle={settle} />
+    <ModalView
+      visible={visible}
+      onClose={() => {
+        if (renderedSession) requestUserCancel(renderedSession.id);
+      }}
+    >
+      {renderedSession && (
+        <SessionContainer
+          key={renderedSession.id}
+          sessionId={renderedSession.id}
+          config={renderedSession.config}
+          onSettle={(result) => finish(renderedSession.id, result)}
+          onControllerChange={(controller) =>
+            setController(renderedSession.id, controller)
+          }
+        />
       )}
     </ModalView>
   );
