@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useLayoutEffect, type RefObject } from 'react';
 import { act, renderHook } from '@testing-library/react-native';
 import type { CameraHandle } from '../../../camera/Camera';
 import {
@@ -61,6 +61,7 @@ type SetupOptions = {
   activePosition?: 'back' | 'front';
   registry?: FileRegistry;
   unlink?: jest.Mock<Promise<void>, [string]>;
+  onFreezeCommit?: (uri: string | null) => void;
 };
 
 function setup(options: SetupOptions = {}) {
@@ -115,6 +116,9 @@ function setup(options: SetupOptions = {}) {
       config,
       onError,
     });
+    useLayoutEffect(() => {
+      options.onFreezeCommit?.(transaction.freezeUri);
+    }, [transaction.freezeUri]);
     return { controller, ...transaction };
   });
 
@@ -297,8 +301,8 @@ it('processor 晚到时登记 final 后回收 raw/final，不提交文件或晚�
   expect(harness.fileRegistry.stateOf(raw.path)).toBe('deleted');
   expect(harness.fileRegistry.stateOf(final.path)).toBe('deleted');
   expect(harness.result.current.controller.state.files).toEqual([]);
-  expect(harness.result.current.burning).toBe(true);
-  expect(harness.result.current.freezeUri).toBe(raw.uri);
+  expect(harness.result.current.burning).toBe(false);
+  expect(harness.result.current.freezeUri).toBeNull();
   expect(harness.onError).not.toHaveBeenCalled();
 });
 
@@ -336,7 +340,7 @@ it('watermark freeze timer 晚到后重复 gate，stale 时只清理产物', asy
   expect(harness.fileRegistry.stateOf(raw.path)).toBe('deleted');
   expect(harness.fileRegistry.stateOf(final.path)).toBe('deleted');
   expect(harness.result.current.controller.state.files).toEqual([]);
-  expect(harness.result.current.freezeUri).toBe(raw.uri);
+  expect(harness.result.current.freezeUri).toBeNull();
   expect(harness.onError).not.toHaveBeenCalled();
 });
 
@@ -433,6 +437,124 @@ it('处理失败保留旧文件、回收 raw，并只提示一次照片处理错
   expect(harness.onError).toHaveBeenCalledWith('照片处理失败,请重试');
   expect(harness.result.current.burning).toBe(false);
   expect(harness.result.current.freezeUri).toBeNull();
+});
+
+it('mock processor reject 先提交撤 freeze render，再 fallback 清理 raw', async () => {
+  const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
+  const processing = deferred<CustomPhotoFile>();
+  const base = createFileRegistry(jest.fn(async () => {}));
+  const freezeAtDelete: Array<string | null> = [];
+  let committedFreeze: string | null = null;
+  const registry: FileRegistry = {
+    ...base,
+    delete: jest.fn((path: string) => {
+      freezeAtDelete.push(committedFreeze);
+      return base.delete(path);
+    }),
+  };
+  processPhotoMock.mockImplementation(() => processing.promise);
+  const harness = setup({
+    aspectRatio: '16:9',
+    capture: jest.fn().mockResolvedValue(raw),
+    registry,
+    onFreezeCommit: (uri) => {
+      committedFreeze = uri;
+    },
+  });
+  let shutter!: Promise<void>;
+
+  await act(async () => {
+    shutter = harness.result.current.capturePhoto();
+    await flushMicrotasks();
+  });
+  expect(harness.result.current.freezeUri).toBe(raw.uri);
+
+  await act(async () => {
+    processing.reject(new PhotoProcessingError('encode'));
+    await shutter;
+  });
+
+  expect(freezeAtDelete).toEqual([null]);
+  expect(harness.fileRegistry.stateOf(raw.path)).toBe('deleted');
+  expect(harness.result.current.freezeUri).toBeNull();
+});
+
+it('processor delegate 的 raw/partial final 在撤 freeze 后各清理一次', async () => {
+  const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
+  const partialPath = '/partial.jpg';
+  const unlink = jest
+    .fn<Promise<void>, [string]>()
+    .mockResolvedValue(undefined);
+  const registry = createFileRegistry(unlink);
+  processPhotoMock.mockImplementation(
+    async (receivedRaw, _operation, receivedRegistry, context) => {
+      receivedRegistry.register(partialPath);
+      const cleanupContext = context as typeof context & {
+        onCleanupRequired?: (paths: readonly string[]) => void;
+      };
+      cleanupContext?.onCleanupRequired?.([receivedRaw.path, partialPath]);
+      throw new PhotoProcessingError('write');
+    }
+  );
+  const harness = setup({
+    aspectRatio: '16:9',
+    capture: jest.fn().mockResolvedValue(raw),
+    registry,
+  });
+
+  await act(async () => {
+    await harness.result.current.capturePhoto();
+  });
+
+  expect(harness.result.current.freezeUri).toBeNull();
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(registry.stateOf(partialPath)).toBe('deleted');
+  expect(unlink).toHaveBeenCalledTimes(2);
+  expect(unlink).toHaveBeenCalledWith(raw.path);
+  expect(unlink).toHaveBeenCalledWith(partialPath);
+});
+
+it('unmount 后 processor delegate 的 raw/partial final 无视觉引用，可立即清理', async () => {
+  const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
+  const partialPath = '/partial.jpg';
+  const processing = deferred<CustomPhotoFile>();
+  const unlink = jest
+    .fn<Promise<void>, [string]>()
+    .mockResolvedValue(undefined);
+  const registry = createFileRegistry(unlink);
+  processPhotoMock.mockImplementation(
+    (_receivedRaw, _operation, receivedRegistry, context) =>
+      processing.promise.catch((error) => {
+        receivedRegistry.register(partialPath);
+        const cleanupContext = context as typeof context & {
+          onCleanupRequired?: (paths: readonly string[]) => void;
+        };
+        cleanupContext?.onCleanupRequired?.([raw.path, partialPath]);
+        throw error;
+      })
+  );
+  const harness = setup({
+    aspectRatio: '16:9',
+    capture: jest.fn().mockResolvedValue(raw),
+    registry,
+  });
+  let shutter!: Promise<void>;
+
+  await act(async () => {
+    shutter = harness.result.current.capturePhoto();
+    await flushMicrotasks();
+  });
+  act(() => {
+    harness.unmount();
+  });
+  await act(async () => {
+    processing.reject(new PhotoProcessingError('write'));
+    await shutter;
+  });
+
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(registry.stateOf(partialPath)).toBe('deleted');
+  expect(unlink).toHaveBeenCalledTimes(2);
 });
 
 it('raw 在 processor 前已登记，final 返回后再次登记再通过 token gate', async () => {

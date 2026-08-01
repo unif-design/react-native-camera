@@ -56,6 +56,7 @@ export type PhotoProcessingSnapshot = {
 
 export type PhotoProcessingContext = {
   isCurrent?: () => boolean;
+  onCleanupRequired?: (paths: readonly string[]) => void;
 };
 
 function snapshotOperation(
@@ -119,6 +120,23 @@ function cleanupOwned(registry: FileRegistry, paths: readonly string[]): void {
       // 正常 registry 已吞掉 unlink/reporter 错误；自定义实现 reject 也不能形成未处理 rejection。
     });
   }
+}
+
+function requestCleanup(
+  registry: FileRegistry,
+  context: PhotoProcessingContext | undefined,
+  paths: readonly string[]
+): void {
+  const ownedPaths = [...new Set(paths)];
+  if (context?.onCleanupRequired != null) {
+    try {
+      context.onCleanupRequired(ownedPaths);
+      return;
+    } catch {
+      // delegate 失效时退回 processor 默认清理，不能因协调层异常泄漏 raw/partial output。
+    }
+  }
+  cleanupOwned(registry, ownedPaths);
 }
 
 export async function processPhoto(
@@ -249,15 +267,16 @@ export async function processPhoto(
     // write reject 仍可能留下部分文件；先登记所有权，再同步标 deleted 并 fire-and-forget
     // unlink。registry 的状态门禁保证 raw/final 即使同 path 或重复进入也只删一次。
     if (outputMayExist) registry.register(outputPath);
-    cleanupOwned(
+    requestCleanup(
       registry,
+      context,
       outputMayExist ? [raw.path, outputPath] : [raw.path]
     );
     throw failure;
   }
 
   if (result == null) {
-    cleanupOwned(registry, [raw.path]);
+    requestCleanup(registry, context, [raw.path]);
     throw new PhotoProcessingError(stage);
   }
   return result;

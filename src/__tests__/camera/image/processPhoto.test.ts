@@ -475,6 +475,32 @@ it('write 失败会立即 reject 并同步摘除所有权，不等待慢 unlink'
   expect(unlink).toHaveBeenCalledWith('/tmp/camera_42_capture-7.jpg');
 });
 
+it('有 cleanup delegate 时交还 raw/partial final，由调用方决定删除时机', async () => {
+  installNativeHarness({ failure: 'write' });
+  const unlink = jest.fn(async () => {});
+  const registry = createFileRegistry(unlink);
+  const raw = makeRaw();
+  const outputPath = '/tmp/camera_42_capture-7.jpg';
+  registry.register(raw.path);
+  const onCleanupRequired = jest.fn<void, [readonly string[]]>();
+  const context = {
+    isCurrent: () => true,
+    onCleanupRequired,
+  } as Parameters<typeof processPhoto>[3] & {
+    onCleanupRequired: (paths: readonly string[]) => void;
+  };
+
+  await expect(
+    processPhoto(raw, makeOperation(), registry, context)
+  ).rejects.toBeInstanceOf(PhotoProcessingError);
+
+  expect(onCleanupRequired).toHaveBeenCalledTimes(1);
+  expect(onCleanupRequired).toHaveBeenCalledWith([raw.path, outputPath]);
+  expect(registry.stateOf(raw.path)).toBe('owned');
+  expect(registry.stateOf(outputPath)).toBe('owned');
+  expect(unlink).not.toHaveBeenCalled();
+});
+
 it('显式处理不得覆盖 raw；same-path 直接失败且只清理一次', async () => {
   const raw = makeRaw();
   raw.path = '/tmp/camera_42_capture-7.jpg';
