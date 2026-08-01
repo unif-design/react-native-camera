@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type RefObject,
@@ -54,7 +55,7 @@ type CaptureSnapshot = {
   previewIndex: number;
 };
 
-type PendingFileCleanup =
+type FileCleanupRequest =
   | {
       type: 'replace';
       rawPath: string;
@@ -64,6 +65,10 @@ type PendingFileCleanup =
       type: 'delete';
       paths: string[];
     };
+
+type PendingFileCleanup = FileCleanupRequest & {
+  commitVersion: number;
+};
 
 function snapshotCapture(
   config: OpenConfig,
@@ -114,54 +119,78 @@ export function usePhotoCaptureTransaction({
   const [flashNonce, setFlashNonce] = useState(0);
   const [burning, setBurning] = useState(false);
   const [freezeUri, setFreezeUri] = useState<string | null>(null);
-  const [cleanupQueue, setCleanupQueue] = useState<PendingFileCleanup[]>([]);
-  const mountedRef = useRef(true);
+  const [cleanupCommitVersion, setCleanupCommitVersion] = useState(0);
+  const presentRef = useRef(false);
+  const nextCleanupVersionRef = useRef(0);
+  const pendingCleanupRef = useRef<PendingFileCleanup[]>([]);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+  const consumePendingCleanup = useCallback(
+    (throughVersion = Number.POSITIVE_INFINITY): void => {
+      const ready: PendingFileCleanup[] = [];
+      const deferred: PendingFileCleanup[] = [];
+      pendingCleanupRef.current.forEach((cleanup) => {
+        (cleanup.commitVersion <= throughVersion ? ready : deferred).push(
+          cleanup
+        );
+      });
+      pendingCleanupRef.current = deferred;
+
+      ready.forEach((cleanup) => {
+        if (cleanup.type === 'delete') {
+          cleanupOwned(fileRegistry, cleanup.paths);
+          return;
+        }
+        fileRegistry.replace(cleanup.rawPath, cleanup.finalPath).catch(() => {
+          // registry 已负责 best-effort 诊断；替换清理永远不能回滚已提交的照片。
+        });
+      });
+    },
+    [fileRegistry]
+  );
+
+  const enqueueCleanup = useCallback((cleanup: FileCleanupRequest): void => {
+    const commitVersion = nextCleanupVersionRef.current + 1;
+    nextCleanupVersionRef.current = commitVersion;
+    pendingCleanupRef.current.push({ ...cleanup, commitVersion });
+    setCleanupCommitVersion(commitVersion);
   }, []);
 
-  // raw 仍被 frozen Image 引用时不能 unlink。queue 只在 freezeUri=null 的 commit
-  // 之后由 effect 消费，避免 setState 与磁盘删除同一 call stack 造成偶发空白帧。
+  useLayoutEffect(() => {
+    presentRef.current = true;
+    return () => {
+      presentRef.current = false;
+      // host 的 layout unmount 后已无 frozen Image 引用；同步摘走 ref，避免 late
+      // processor 在 passive cleanup 前排队、而 queue render 永远无法 commit。
+      consumePendingCleanup();
+    };
+  }, [consumePendingCleanup]);
+
+  // raw 仍被 frozen Image 引用时不能 unlink。普通路径只消费当前 render 已提交版本，
+  // 防止较早的 passive effect 从共享 ref 提前拿走尚未撤 freeze 的新任务。
   useEffect(() => {
-    if (freezeUri != null || cleanupQueue.length === 0) return;
-    setCleanupQueue([]);
-    cleanupQueue.forEach((cleanup) => {
-      if (cleanup.type === 'delete') {
-        cleanupOwned(fileRegistry, cleanup.paths);
-        return;
-      }
-      fileRegistry.replace(cleanup.rawPath, cleanup.finalPath).catch(() => {
-        // registry 已负责 best-effort 诊断；替换清理永远不能回滚已提交的照片。
-      });
-    });
-  }, [cleanupQueue, fileRegistry, freezeUri]);
+    if (freezeUri != null) return;
+    consumePendingCleanup(cleanupCommitVersion);
+  }, [cleanupCommitVersion, consumePendingCleanup, freezeUri]);
 
   const cleanupAfterFreeze = useCallback(
     (paths: readonly string[]): void => {
       const ownedPaths = [...new Set(paths)];
       if (ownedPaths.length === 0) return;
-      if (!mountedRef.current) {
+      if (!presentRef.current) {
         cleanupOwned(fileRegistry, ownedPaths);
         return;
       }
 
+      enqueueCleanup({ type: 'delete', paths: ownedPaths });
       setBurning(false);
       setFreezeUri(null);
-      setCleanupQueue((pending) => [
-        ...pending,
-        { type: 'delete', paths: ownedPaths },
-      ]);
     },
-    [fileRegistry]
+    [enqueueCleanup, fileRegistry]
   );
 
   const tokenIsCurrent = useCallback(
     (token: CameraOperationToken): boolean =>
-      mountedRef.current && controller.isCurrent(token),
+      presentRef.current && controller.isCurrent(token),
     [controller]
   );
 
@@ -215,7 +244,7 @@ export function usePhotoCaptureTransaction({
       return;
     }
 
-    if (mountedRef.current) setFlashNonce((value) => value + 1);
+    if (presentRef.current) setFlashNonce((value) => value + 1);
 
     const visibleWatermark = hasVisibleWatermark(captured.watermark);
     const needsProcessing =
@@ -238,7 +267,7 @@ export function usePhotoCaptureTransaction({
     }
 
     const processingStartedAt = Date.now();
-    if (mountedRef.current) {
+    if (presentRef.current) {
       setFreezeUri(normalized.uri);
       setBurning(true);
     }
@@ -262,6 +291,7 @@ export function usePhotoCaptureTransaction({
           isCurrent: () => tokenIsCurrent(token),
           onCleanupRequired: (paths) => {
             paths.forEach((path) => delegatedCleanupPaths.add(path));
+            cleanupAfterFreeze(paths);
           },
         }
       );
@@ -277,7 +307,7 @@ export function usePhotoCaptureTransaction({
         throw new PhotoProcessingError('write');
       }
 
-      if (mountedRef.current) setBurning(false);
+      if (presentRef.current) setBurning(false);
       if (visibleWatermark) {
         const remaining = MIN_FREEZE_MS - (Date.now() - processingStartedAt);
         if (remaining > 0) {
@@ -297,31 +327,27 @@ export function usePhotoCaptureTransaction({
         cleanupAfterFreeze([raw.path, final.path, ...delegatedCleanupPaths]);
         return;
       }
-      if (mountedRef.current) setFreezeUri(null);
+      if (presentRef.current) setFreezeUri(null);
       if (!controller.photoSucceeded(token, final, preview)) {
         cleanupAfterFreeze([raw.path, final.path, ...delegatedCleanupPaths]);
         return;
       }
 
-      if (mountedRef.current) {
+      if (presentRef.current) {
         const finalPath = final.path;
-        setCleanupQueue((pending) => [
-          ...pending,
-          {
-            type: 'replace',
-            rawPath: raw.path,
-            finalPath,
-          },
-        ]);
+        enqueueCleanup({
+          type: 'replace',
+          rawPath: raw.path,
+          finalPath,
+        });
       }
     } catch {
-      const cleanupPaths = [
+      const fallbackCleanupPaths = [
         raw.path,
         ...(final == null ? [] : [final.path]),
-        ...delegatedCleanupPaths,
-      ];
+      ].filter((path) => !delegatedCleanupPaths.has(path));
       const current = tokenIsCurrent(token);
-      cleanupAfterFreeze(cleanupPaths);
+      cleanupAfterFreeze(fallbackCleanupPaths);
       if (!current || !controller.fail(token)) return;
       onError('照片处理失败,请重试');
     }
@@ -330,6 +356,7 @@ export function usePhotoCaptureTransaction({
     cleanupAfterFreeze,
     config,
     controller,
+    enqueueCleanup,
     fileRegistry,
     onError,
     reportCaptureFailure,

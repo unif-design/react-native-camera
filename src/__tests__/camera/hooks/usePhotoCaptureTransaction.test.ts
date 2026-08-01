@@ -62,6 +62,7 @@ type SetupOptions = {
   registry?: FileRegistry;
   unlink?: jest.Mock<Promise<void>, [string]>;
   onFreezeCommit?: (uri: string | null) => void;
+  onLayoutUnmount?: () => void;
 };
 
 function setup(options: SetupOptions = {}) {
@@ -116,6 +117,14 @@ function setup(options: SetupOptions = {}) {
       config,
       onError,
     });
+    // React 逆序执行同组件的 layout cleanup；故意声明在 transaction hook 之后，
+    // 先制造 late processor cleanup，再让 transaction 接管 pending paths。
+    useLayoutEffect(
+      () => () => {
+        options.onLayoutUnmount?.();
+      },
+      []
+    );
     useLayoutEffect(() => {
       options.onFreezeCommit?.(transaction.freezeUri);
     }, [transaction.freezeUri]);
@@ -555,6 +564,63 @@ it('unmount 后 processor delegate 的 raw/partial final 无视觉引用，可�
   expect(registry.stateOf(raw.path)).toBe('deleted');
   expect(registry.stateOf(partialPath)).toBe('deleted');
   expect(unlink).toHaveBeenCalledTimes(2);
+});
+
+it('layout unmount 窗口在 session drain 后登记的 partial 会被同步接管且逐 path 幂等', async () => {
+  const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
+  const partialPath = '/partial.jpg';
+  const processing = deferred<CustomPhotoFile>();
+  const unlink = jest
+    .fn<Promise<void>, [string]>()
+    .mockResolvedValue(undefined);
+  const registry = createFileRegistry(unlink);
+  let onCleanupRequired: ((paths: readonly string[]) => void) | undefined;
+  processPhotoMock.mockImplementation(
+    (_receivedRaw, _operation, _receivedRegistry, context) => {
+      onCleanupRequired = context?.onCleanupRequired;
+      return processing.promise;
+    }
+  );
+  const harness = setup({
+    aspectRatio: '16:9',
+    capture: jest.fn().mockResolvedValue(raw),
+    registry,
+    onLayoutUnmount: () => {
+      // 复刻 host removal 已触发 session drain，但 processor 随后才登记 partial。
+      registry.drain().catch(() => {
+        // 测试 unlink 固定成功；保留兜底以免自定义 registry 形成未处理 rejection。
+      });
+      registry.register(partialPath);
+      if (onCleanupRequired == null) {
+        throw new Error('processor cleanup delegate was not installed');
+      }
+      onCleanupRequired([raw.path, partialPath]);
+    },
+  });
+  let shutter!: Promise<void>;
+
+  await act(async () => {
+    shutter = harness.result.current.capturePhoto();
+    await flushMicrotasks();
+  });
+  expect(harness.result.current.freezeUri).toBe(raw.uri);
+
+  act(() => {
+    harness.unmount();
+  });
+  const partialStateAfterLayoutUnmount = registry.stateOf(partialPath);
+
+  await act(async () => {
+    processing.reject(new PhotoProcessingError('write'));
+    await shutter;
+  });
+
+  expect(partialStateAfterLayoutUnmount).toBe('deleted');
+  expect(registry.stateOf(raw.path)).toBe('deleted');
+  expect(registry.stateOf(partialPath)).toBe('deleted');
+  expect(unlink).toHaveBeenCalledTimes(2);
+  expect(unlink).toHaveBeenCalledWith(raw.path);
+  expect(unlink).toHaveBeenCalledWith(partialPath);
 });
 
 it('raw 在 processor 前已登记，final 返回后再次登记再通过 token gate', async () => {
