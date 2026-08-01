@@ -66,3 +66,26 @@ it('闪光弹出层已移除(无 flash-opt / flash-tail)', () => {
   expect(queryByTestId('flash-tail')).toBeNull();
   expect(queryByTestId('flash-opt-on')).toBeNull();
 });
+
+it('disabled 时 aspect / flash / sound 都不会触发 handler', () => {
+  const onChangeAspectRatio = jest.fn();
+  const onChangeFlash = jest.fn();
+  const onToggleSound = jest.fn();
+  const { getByTestId } = renderDark(
+    <SideRail
+      {...base}
+      disabled
+      onChangeAspectRatio={onChangeAspectRatio}
+      onChangeFlash={onChangeFlash}
+      onToggleSound={onToggleSound}
+    />
+  );
+
+  fireEvent.press(getByTestId('aspect-btn'));
+  fireEvent.press(getByTestId('flash-btn'));
+  fireEvent.press(getByTestId('sound-btn'));
+
+  expect(onChangeAspectRatio).not.toHaveBeenCalled();
+  expect(onChangeFlash).not.toHaveBeenCalled();
+  expect(onToggleSound).not.toHaveBeenCalled();
+});

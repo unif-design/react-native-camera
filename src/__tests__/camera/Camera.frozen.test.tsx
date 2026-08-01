@@ -103,10 +103,7 @@ function makeNativeRecorder(): NativeRecorderHarness {
   };
 }
 
-function renderVideoCamera(
-  currentMode: CameraMode = videoMode,
-  onSpontaneousVideoFinish = jest.fn()
-) {
+function renderVideoCamera(currentMode: CameraMode = videoMode) {
   const ref = createRef<CameraHandle>();
   const element = (mode: CameraMode) => (
     <Camera
@@ -114,11 +111,10 @@ function renderVideoCamera(
       device={makeDeviceStub() as never}
       currentMode={mode}
       isActive={false}
-      onSpontaneousVideoFinish={onSpontaneousVideoFinish}
     />
   );
   const rendered = renderDark(element(currentMode));
-  return { ...rendered, ref, element, onSpontaneousVideoFinish };
+  return { ...rendered, ref, element };
 }
 
 function makeVideoCallbacks(): VideoCallbacks & {
@@ -233,24 +229,27 @@ describe('录像 native adapter', () => {
     expect(native.recorder.dispose).toHaveBeenCalledTimes(1);
   });
 
-  it('自动结束同时复位 start callbacks，并只调用一次兼容 prop 入 photos', async () => {
+  it('自动结束只经 start callbacks 交付一次', async () => {
     const native = makeNativeRecorder();
     useVideoOutputMock.mockReturnValue({
       createRecorder: jest.fn().mockResolvedValue(native.recorder),
     } as never);
     const callbacks = makeVideoCallbacks();
-    const onSpontaneousVideoFinish = jest.fn();
-    const { ref } = renderVideoCamera(videoMode, onSpontaneousVideoFinish);
+    const { ref } = renderVideoCamera(videoMode);
     await act(async () => {
       await ref.current?.startVideo(callbacks);
       native.finish('/tmp/auto.mp4', 'max-duration-reached');
     });
 
     expect(callbacks.onFinished).toHaveBeenCalledTimes(1);
-    expect(onSpontaneousVideoFinish).toHaveBeenCalledTimes(1);
-    expect(onSpontaneousVideoFinish).toHaveBeenCalledWith(
-      expect.objectContaining({ path: '/tmp/auto.mp4', mode: 'video' })
+    expect(callbacks.onFinished).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/tmp/auto.mp4', mode: 'video' }),
+      'max-duration-reached',
+      expect.any(Number)
     );
+    const [file, , duration] = callbacks.onFinished.mock.calls[0]!;
+    expect(duration).toBeGreaterThanOrEqual(0);
+    expect(file.duration).toBe(duration);
   });
 
   it('unmount 强制 cancel active Recorder，并且 dispose 恰好一次', async () => {

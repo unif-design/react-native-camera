@@ -39,6 +39,7 @@ type Props = {
   displayMul: number;
   // 是否渲染 0.5 档:设备最广 ≤ 0.5x(超广角)才显示;无超广角(前置/单广角)只剩 1 档。
   showHalf: boolean;
+  disabled?: boolean;
   // 点击跳档:传该档**用户倍数**(0.5 / 1),Container 反算 vzf = displayZ / displayMul。
   onSelect: (displayZ: number) => void;
 };
@@ -47,6 +48,7 @@ export function ZoomChips({
   zoomShared,
   displayMul,
   showHalf,
+  disabled = false,
   onSelect,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
@@ -60,6 +62,7 @@ export function ZoomChips({
             stop={stop}
             zoomShared={zoomShared}
             displayMul={displayMul}
+            disabled={disabled}
             onPress={() => onSelect(stop)}
           />
         ))}
@@ -72,11 +75,13 @@ function ZoomChip({
   stop,
   zoomShared,
   displayMul,
+  disabled,
   onPress,
 }: {
   stop: number;
   zoomShared: SharedValue<number>;
   displayMul: number;
+  disabled: boolean;
   onPress: () => void;
 }) {
   const c = useColors();
@@ -112,6 +117,7 @@ function ZoomChip({
     <TouchableOpacity
       testID={`zoom-chip-${stop}`}
       onPress={onPress}
+      disabled={disabled}
       activeOpacity={0.8}
     >
       <Animated.View style={[styles.chip, chipStyle]}>

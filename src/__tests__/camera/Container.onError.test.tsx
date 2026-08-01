@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import { createContainerSessionProps } from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // 已授权 + 有后置设备 → Container 走到 device-ready,渲染 <Camera>。
@@ -41,7 +42,11 @@ const baseConfig = {
 function renderContainer(onSettle: (r: unknown) => void) {
   const ui: ReactElement = (
     <CameraDialogProvider>
-      <Container config={baseConfig} onSettle={onSettle} />
+      <Container
+        {...createContainerSessionProps()}
+        config={baseConfig}
+        onSettle={onSettle}
+      />
     </CameraDialogProvider>
   );
   return renderDark(ui);

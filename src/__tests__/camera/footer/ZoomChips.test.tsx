@@ -111,3 +111,12 @@ test('删除上方大号 readout 浮层(zoom-readout 不再渲染)', () => {
   );
   expect(queryByTestId('zoom-readout')).toBeNull();
 });
+
+test('disabled 时档位不会触发 onSelect', () => {
+  const onSelect = jest.fn();
+  const { getByTestId } = renderDark(
+    <ZoomChips {...base} showHalf disabled onSelect={onSelect} />
+  );
+  fireEvent.press(getByTestId('zoom-chip-1'));
+  expect(onSelect).not.toHaveBeenCalled();
+});

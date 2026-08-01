@@ -3,6 +3,7 @@ import { fireEvent, waitFor } from '@testing-library/react-native';
 import type { CameraResult } from '../../utils';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import { createContainerSessionProps } from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // 结果码行为路径(与 Container.test.tsx 的 device-ready/zoom 守护互补,独立文件不相扰):
@@ -55,7 +56,11 @@ const baseConfig = {
 function renderContainer(onSettle: (r: CameraResult) => void) {
   const ui: ReactElement = (
     <CameraDialogProvider>
-      <Container config={baseConfig} onSettle={onSettle} />
+      <Container
+        {...createContainerSessionProps()}
+        config={baseConfig}
+        onSettle={onSettle}
+      />
     </CameraDialogProvider>
   );
   return renderDark(ui);

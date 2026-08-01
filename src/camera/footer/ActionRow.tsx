@@ -9,6 +9,8 @@ type Props = {
   recording: boolean;
   /** 一次快门处理中(capture/烧水印):禁用快门防连点(连点并发堆积大图会 OOM 闪退)。 */
   shutterDisabled?: boolean;
+  flipDisabled?: boolean;
+  galleryDisabled?: boolean;
   latestUri?: string;
   count: number;
   onShutter: () => void;
@@ -20,6 +22,8 @@ export function ActionRow({
   mode,
   recording,
   shutterDisabled,
+  flipDisabled,
+  galleryDisabled,
   latestUri,
   count,
   onShutter,
@@ -32,6 +36,7 @@ export function ActionRow({
         <ThumbnailStack
           latestUri={latestUri}
           count={count}
+          disabled={galleryDisabled}
           onPress={onOpenPreview}
         />
       ) : (
@@ -44,7 +49,7 @@ export function ActionRow({
         onPress={onShutter}
       />
       {!recording ? (
-        <FlipButton onFlip={onFlip} />
+        <FlipButton disabled={flipDisabled} onFlip={onFlip} />
       ) : (
         <View style={styles.slot} />
       )}

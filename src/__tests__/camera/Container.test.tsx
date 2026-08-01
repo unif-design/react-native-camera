@@ -4,6 +4,7 @@ import { fireEvent, render, within } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import { createContainerSessionProps } from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // Container 走到 device-ready 需:已授权 + 有设备。全局 jest.setup mock 把权限设 false、
@@ -29,6 +30,7 @@ const r = (position: 'back' | 'front') => {
   const ui: ReactElement = (
     <CameraDialogProvider>
       <Container
+        {...createContainerSessionProps()}
         config={{
           ...baseConfig,
           cameraMode: [{ mode: 'single', type: position }],
@@ -87,6 +89,7 @@ it('React 19 StrictMode effect replay 不把活跃 Container 当成真实卸载'
       <ThemeProvider forceScheme="dark">
         <CameraDialogProvider>
           <Container
+            {...createContainerSessionProps()}
             config={{
               ...baseConfig,
               cameraMode: [{ mode: 'single', type: 'back' }],
@@ -108,6 +111,7 @@ it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 po
   const ui: ReactElement = (
     <CameraDialogProvider>
       <Container
+        {...createContainerSessionProps()}
         config={{
           ...baseConfig,
           cameraMode: [{ mode: 'single', type: 'back' }],

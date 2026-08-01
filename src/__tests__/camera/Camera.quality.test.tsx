@@ -147,3 +147,18 @@ describe('videoBitRate 接线', () => {
     expect(lastOpts(useVideoOutputMock).fileType).toBe('mp4');
   });
 });
+
+it('forwards the native onConfigured callback without changing Camera identity', () => {
+  const onConfigured = jest.fn();
+  const { UNSAFE_root } = renderDark(
+    <Camera
+      device={makeDeviceStub() as never}
+      currentMode={singleMode}
+      isActive={false}
+      onConfigured={onConfigured}
+    />
+  );
+  const vc = UNSAFE_root.findByProps({ nativeID: 'vision-camera' });
+
+  expect(vc.props.onConfigured).toBe(onConfigured);
+});

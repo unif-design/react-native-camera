@@ -9,14 +9,25 @@ import {
 
 // 只在「已拍照」(有 latestUri)时渲染:拍照前的空位由 ActionRow 用惰性 slot 占位,
 // 不在此显空框 / 死按钮。
-type Props = { latestUri: string; count: number; onPress: () => void };
+type Props = {
+  latestUri: string;
+  count: number;
+  disabled?: boolean;
+  onPress: () => void;
+};
 
-export function ThumbnailStack({ latestUri, count, onPress }: Props) {
+export function ThumbnailStack({
+  latestUri,
+  count,
+  disabled = false,
+  onPress,
+}: Props) {
   const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       testID="thumbnail-stack"
       onPress={onPress}
+      disabled={disabled}
       style={styles.wrap}
       accessibilityRole="button"
       accessibilityLabel="查看已拍照片"

@@ -19,6 +19,7 @@ type Props = {
   flash: FlashMode;
   aspectRatio: AspectRatio;
   sound: boolean;
+  disabled?: boolean;
   onChangeFlash: (m: FlashMode) => void;
   onChangeAspectRatio: (r: AspectRatio) => void;
   onToggleSound: () => void;
@@ -42,6 +43,7 @@ export function SideRail({
   flash,
   aspectRatio,
   sound,
+  disabled = false,
   onChangeFlash,
   onChangeAspectRatio,
   onToggleSound,
@@ -56,6 +58,7 @@ export function SideRail({
         onPress={() =>
           onChangeAspectRatio(aspectRatio === '4:3' ? '16:9' : '4:3')
         }
+        disabled={disabled}
       >
         <Text style={styles.aspectTxt}>{aspectRatio}</Text>
       </TouchableOpacity>
@@ -64,6 +67,7 @@ export function SideRail({
         testID="flash-btn"
         style={[styles.btn, flash !== 'off' && styles.btnActive]}
         onPress={() => onChangeFlash(FLASH_NEXT[flash])}
+        disabled={disabled}
       >
         <Icon name={flashIcon[flash]} size={r(20)} color={c.foreground} />
       </TouchableOpacity>
@@ -72,6 +76,7 @@ export function SideRail({
         testID="sound-btn"
         style={[styles.btn, sound && styles.btnActive]}
         onPress={onToggleSound}
+        disabled={disabled}
       >
         <Icon
           name={sound ? 'sound' : 'sound-off'}

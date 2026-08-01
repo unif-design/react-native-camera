@@ -24,3 +24,10 @@ it('icon-only 按钮有可访问标签', () => {
     '切换前后摄像头'
   );
 });
+
+it('disabled 时不会触发 onFlip', () => {
+  const onFlip = jest.fn();
+  const { getByTestId } = renderDark(<FlipButton disabled onFlip={onFlip} />);
+  fireEvent.press(getByTestId('flip-btn'));
+  expect(onFlip).not.toHaveBeenCalled();
+});

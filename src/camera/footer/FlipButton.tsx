@@ -2,12 +2,19 @@ import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Icon, r, useColors } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
 
-export function FlipButton({ onFlip }: { onFlip: () => void }) {
+export function FlipButton({
+  disabled = false,
+  onFlip,
+}: {
+  disabled?: boolean;
+  onFlip: () => void;
+}) {
   const c = useColors();
   return (
     <TouchableOpacity
       testID="flip-btn"
       onPress={onFlip}
+      disabled={disabled}
       style={styles.btn}
       accessibilityRole="button"
       accessibilityLabel="切换前后摄像头"

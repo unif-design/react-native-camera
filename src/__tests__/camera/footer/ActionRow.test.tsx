@@ -49,3 +49,30 @@ test('录制中隐藏缩略图与翻转,仅留快门', () => {
   expect(queryByTestId('thumbnail-stack')).toBeNull();
   expect(queryByTestId('flip-btn')).toBeNull();
 });
+
+test('disabled gates stop shutter, preview, and flip handlers at the native pressables', () => {
+  const onShutter = jest.fn();
+  const onFlip = jest.fn();
+  const onOpenPreview = jest.fn();
+  const { getByTestId } = renderDark(
+    <ActionRow
+      {...base}
+      latestUri="file:///a.jpg"
+      count={1}
+      shutterDisabled
+      flipDisabled
+      galleryDisabled
+      onShutter={onShutter}
+      onFlip={onFlip}
+      onOpenPreview={onOpenPreview}
+    />
+  );
+
+  fireEvent.press(getByTestId('shutter-btn'));
+  fireEvent.press(getByTestId('thumbnail-stack'));
+  fireEvent.press(getByTestId('flip-btn'));
+
+  expect(onShutter).not.toHaveBeenCalled();
+  expect(onOpenPreview).not.toHaveBeenCalled();
+  expect(onFlip).not.toHaveBeenCalled();
+});

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Linking,
   StyleSheet,
@@ -15,13 +21,20 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { CameraResult, OpenConfig } from '../utils';
-import type { RegisterSessionContainer } from './session/controllerBridge';
+import type { CameraMode, CameraResult, OpenConfig } from '../utils';
+import type {
+  RegisterSessionContainer,
+  RegisterSessionController,
+} from './session/controllerBridge';
+import type { FileRegistry } from './session/fileRegistry';
+import { nativeConfigurationKey } from './session/configuration';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { useAppActive } from './hooks/useAppActive';
+import { useCameraSessionController } from './hooks/useCameraSessionController';
 import { usePermissionFlow } from './hooks/usePermissionFlow';
+import { usePhotoCaptureTransaction } from './hooks/usePhotoCaptureTransaction';
+import { useVideoTransaction } from './hooks/useVideoTransaction';
 import { useZoomController } from './hooks/useZoomController';
-import { useCaptureFlow } from './hooks/useCaptureFlow';
 import { clamp } from './hooks/zoomMath';
 import { NoCamera } from './NoCamera';
 import { NoPermission } from './NoPermission';
@@ -29,12 +42,7 @@ import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
 import { PreviewOverlay, MODE_LABEL } from './preview';
 import { CaptureFlash } from './CaptureFlash';
-import {
-  SideRail,
-  SideActions,
-  type AspectRatio,
-  type FlashMode,
-} from './setup';
+import { SideRail, SideActions } from './setup';
 import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
 import { ActionRow } from './footer/ActionRow';
@@ -55,40 +63,32 @@ const SIDE_RAIL_LIFT = r(1);
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
 
 type Props = {
+  sessionId: number;
+  fileRegistry: FileRegistry;
+  registerContainer: RegisterSessionContainer;
+  registerController: RegisterSessionController;
   config: OpenConfig;
   onSettle: (r: CameraResult) => void;
-  /** useCamera coordinator 的内部 presence lease；Container 不是公共入口。 */
-  sessionId?: number;
-  registerContainer?: RegisterSessionContainer;
 };
 
+const UNCONFIGURED_NATIVE_KEY = 'unconfigured';
+
 export function Container({
+  sessionId,
+  fileRegistry,
+  registerContainer,
+  registerController,
   config,
   onSettle,
-  sessionId,
-  registerContainer,
 }: Props) {
   // 本地弹窗:切模式/放弃拍摄的二次确认走相机 Modal 内部 host(见 ui/CameraDialogHost),
   // 不走 design 全局 confirm —— 后者会被相机 Modal 盖住。showError 同源(顶部非阻塞错误条)。
   const { confirm, showError } = useCameraDialog();
   const styles = useThemedStyles(makeStyles);
-  const settledRef = useRef(false);
   // App 前后台:切后台时停取景(对齐官方 isActive=isAppActive&&isScreenFocused)。
   const appActive = useAppActive();
 
-  const settle = useCallback(
-    (result: CameraResult) => {
-      if (settledRef.current) return;
-      settledRef.current = true;
-      onSettle(result);
-    },
-    [onSettle]
-  );
-
   useEffect(() => {
-    if (sessionId === undefined || registerContainer === undefined) {
-      return undefined;
-    }
     return registerContainer(sessionId);
   }, [registerContainer, sessionId]);
 
@@ -104,11 +104,16 @@ export function Container({
   // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null;真正的
   // device==null 仅「该方向无相机」时出现,已由下方 NoCamera(code 404)兜底,不崩。
   // 历史上单 'wide-angle' 为规避 iOS #3773,启用超广角后需真机验证不复现。
-  const initialPosition = config.cameraMode[0]?.type ?? 'back';
-  const [position, setPosition] = useState<'back' | 'front'>(initialPosition);
-  const device = useCameraDevice(position, {
+  const firstMode = config.cameraMode[0];
+  const initialPosition = firstMode?.type ?? 'back';
+  const [requestedPosition, setRequestedPosition] = useState<'back' | 'front'>(
+    initialPosition
+  );
+  const device = useCameraDevice(requestedPosition, {
     physicalDevices: ['ultra-wide-angle', 'wide-angle'],
   });
+  const actualPosition =
+    device?.position === 'front' ? ('front' as const) : ('back' as const);
 
   // 变焦控制器:vzf↔display 推导、zoom state/shared、设备切换 clamp 全在 hook 内。
   // zoom 显示全程走 UI 线程 zoomShared(pinch 不刷 state);setZoom 仅点击档/手势结束/设备切换回写。
@@ -116,48 +121,153 @@ export function Container({
     useZoomController(device);
 
   const cameraRef = useRef<CameraHandle>(null);
-  const [modeIndex, setModeIndex] = useState(0);
-  const currentMode = config.cameraMode[modeIndex];
-  // 画幅:默认 16:9。声明在 useCaptureFlow 之上 —— 16:9 时照片拍后 Skia 居中裁切,hook 需读它。
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
-
-  // 拍摄编排:photos / 预览态 / 快门(照片+视频)/ 保存取消 / 切模式 / 录像状态全在 hook 内。
-  const {
-    photos,
-    previewing,
-    previewVariant,
-    openGallery,
-    retake,
-    deletePhoto,
-    closePreview,
-    flashNonce,
-    burning,
-    freezeUri,
-    capturing,
-    recording,
-    recSeconds,
-    onShutter,
-    onVideoAutoFinished,
-    handleSave,
-    handleCancel,
-    onSelectMode,
-  } = useCaptureFlow({
+  const video = useVideoTransaction({
     cameraRef,
-    config,
-    currentMode,
-    aspectRatio,
-    modeIndex,
-    setModeIndex,
-    settle,
-    confirm,
+    fileRegistry,
     onError: showError,
   });
+  const initialNativeConfigurationKey =
+    device == null || firstMode == null
+      ? UNCONFIGURED_NATIVE_KEY
+      : nativeConfigurationKey({
+          device: { id: device.id, position: actualPosition },
+          mode: firstMode,
+          aspectRatio: '16:9',
+          photoQualityPrioritization: config.photoQualityPrioritization,
+          photoHDR: config.photoHDR,
+          videoBitRate: config.videoBitRate,
+        });
+  const controller = useCameraSessionController({
+    sessionId,
+    initialState: {
+      files: [],
+      modeIndex: 0,
+      aspectRatio: '16:9',
+      activePosition: initialPosition,
+      canFlip: true,
+      flash: firstMode?.flashMode ?? 'off',
+      sound: false,
+      nativeConfigurationKey: initialNativeConfigurationKey,
+    },
+    registerController,
+    confirm,
+    cancelRecording: video.cancel,
+    onSettle,
+  });
+  const photo = usePhotoCaptureTransaction({
+    sessionId,
+    cameraRef,
+    controller,
+    fileRegistry,
+    config,
+    onError: showError,
+  });
+  const {
+    state: session,
+    capabilities,
+    beginConfiguration,
+    configured,
+  } = controller;
+  const currentMode = config.cameraMode[session.modeIndex];
+  const { files: photos, aspectRatio, flash, sound, preview } = session;
+  const recording =
+    session.phase === 'recording' || session.phase === 'stoppingVideo';
+  const recSeconds = Math.floor(session.video.duration);
 
-  // 初始闪光从 config 首个 mode 接线(API 兼容),缺省 off。
-  const [flash, setFlash] = useState<FlashMode>(
-    config.cameraMode[0]?.flashMode ?? 'off'
+  const configurationKeyFor = useCallback(
+    (mode: CameraMode, nextAspectRatio = aspectRatio) =>
+      device == null
+        ? UNCONFIGURED_NATIVE_KEY
+        : nativeConfigurationKey({
+            device: { id: device.id, position: actualPosition },
+            mode,
+            aspectRatio: nextAspectRatio,
+            photoQualityPrioritization: config.photoQualityPrioritization,
+            photoHDR: config.photoHDR,
+            videoBitRate: config.videoBitRate,
+          }),
+    [
+      actualPosition,
+      aspectRatio,
+      config.photoHDR,
+      config.photoQualityPrioritization,
+      config.videoBitRate,
+      device,
+    ]
   );
-  const [sound, setSound] = useState(false);
+
+  // useCameraDevice 会先按 requestedPosition 返回实际设备；在 layout phase 把真实
+  // device.position 与 native identity 原子提交进 reducer，首帧交互仍保持 configuring。
+  useLayoutEffect(() => {
+    if (device == null || currentMode == null) return;
+    beginConfiguration(configurationKeyFor(currentMode), {
+      activePosition: actualPosition,
+      canFlip: true,
+    });
+  }, [
+    actualPosition,
+    beginConfiguration,
+    configurationKeyFor,
+    currentMode,
+    device,
+  ]);
+
+  const applyMode = (nextIndex: number): void => {
+    const nextMode = config.cameraMode[nextIndex];
+    if (nextMode == null || device == null) return;
+    beginConfiguration(configurationKeyFor(nextMode), {
+      modeIndex: nextIndex,
+    });
+  };
+
+  const onSelectMode = async (nextIndex: number): Promise<void> => {
+    if (
+      !capabilities.mode ||
+      nextIndex === session.modeIndex ||
+      config.cameraMode[nextIndex] == null
+    ) {
+      return;
+    }
+    if (config.dataRetainedMode === 'clear' && photos.length > 0) {
+      const accepted = await confirm({
+        title: '切换拍摄模式',
+        message: '切换后将清空已拍内容,是否继续?',
+      });
+      if (!accepted || !photo.clearForModeSwitch()) return;
+    }
+    applyMode(nextIndex);
+  };
+
+  const onChangeAspectRatio = (nextAspectRatio: '4:3' | '16:9'): void => {
+    if (!capabilities.aspect || currentMode == null || device == null) return;
+    beginConfiguration(configurationKeyFor(currentMode, nextAspectRatio), {
+      aspectRatio: nextAspectRatio,
+    });
+  };
+
+  const onFlip = (): void => {
+    if (!capabilities.flip) return;
+    setRequestedPosition((position) =>
+      position === 'back' ? 'front' : 'back'
+    );
+  };
+
+  const onShutter = (): void => {
+    if (currentMode?.mode !== 'video') {
+      photo.capturePhoto().catch(() => {});
+      return;
+    }
+    if (session.phase === 'recording') {
+      video.stop();
+      return;
+    }
+    if (session.phase === 'stoppingVideo') return;
+    const token = controller.beginVideo();
+    if (token != null) {
+      video.start(token, controller).catch(() => {});
+    }
+  };
+
   // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
   const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
 
@@ -166,16 +276,15 @@ export function Container({
   const { width: winW } = useWindowDimensions();
   const frameAspect = aspectRatio === '4:3' ? 3 / 4 : 9 / 16;
 
-  // 翻转前/后摄:直接切 position(device 随之更新,zoom 在 useZoomController 内 clamp);无视觉动画。
-  const onFlip = () => {
-    setPosition((p) => (p === 'back' ? 'front' : 'back'));
-  };
-
   if (state === 'denied') {
     return (
       <NoPermission
         onCancel={() =>
-          settle({ code: 403, data: [], message: 'permission_denied' })
+          controller.settle({
+            code: 403,
+            data: [],
+            message: 'permission_denied',
+          })
         }
         onOpenSettings={() => Linking.openSettings()}
       />
@@ -190,15 +299,15 @@ export function Container({
     );
   }
 
-  if (previewing) {
+  if (preview != null) {
     return (
       <PreviewOverlay
         files={photos}
-        variant={previewVariant}
-        onRetake={retake}
-        onSave={handleSave}
-        onBack={closePreview}
-        onDelete={deletePhoto}
+        variant={preview.variant}
+        onRetake={photo.retake}
+        onSave={photo.save}
+        onBack={photo.closePreview}
+        onDelete={photo.deletePhoto}
       />
     );
   }
@@ -206,7 +315,9 @@ export function Container({
   if (device == null) {
     return (
       <NoCamera
-        onCancel={() => settle({ code: 404, data: [], message: 'no_device' })}
+        onCancel={() =>
+          controller.settle({ code: 404, data: [], message: 'no_device' })
+        }
       />
     );
   }
@@ -215,7 +326,11 @@ export function Container({
     return (
       <NoCamera
         onCancel={() =>
-          settle({ code: 500, data: [], message: 'invalid_config' })
+          controller.settle({
+            code: 500,
+            data: [],
+            message: 'invalid_config',
+          })
         }
       />
     );
@@ -237,14 +352,15 @@ export function Container({
         // 取景仅在 App 前台且非烧录态时活:烧水印时停取景(省电 + 释放摄像头),回前台恢复。
         // 预览态由上方 previewing 分支整体卸载 Camera(不靠此 gate);Modal 不可见时
         // Container 根本不挂载,故无需额外可见性 prop。
-        isActive={appActive && !burning}
+        isActive={appActive && !photo.burning}
         // 烧水印期间盖刚拍原图防黑屏(isActive=false 取景已停,被它盖住);见顺滑回看 spec。
-        frozenUri={freezeUri}
+        frozenUri={photo.freezeUri}
         flash={flash}
         aspectRatio={aspectRatio}
         zoomShared={zoomShared}
         // 前摄定焦 → 关 pinch(只留点击对焦),与下方「前置不渲染变焦档」一致。
-        enableZoom={position === 'back'}
+        enableZoom={capabilities.zoom && session.activePosition === 'back'}
+        enableFocus={capabilities.focus}
         // pinch 放大软上限(vzf):maxDisplay 已并入 SOFT_MAX_DISPLAY,÷displayMul 回 vzf。
         softMaxZoom={maxDisplay / displayMul}
         // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
@@ -257,7 +373,7 @@ export function Container({
         // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
         // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
         onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
-        onSpontaneousVideoFinish={onVideoAutoFinished}
+        onConfigured={() => configured(session.configurationGeneration)}
       />
 
       {!recording && config.watermark && (
@@ -288,14 +404,16 @@ export function Container({
             flash={flash}
             aspectRatio={aspectRatio}
             sound={sound}
-            onChangeFlash={setFlash}
-            onChangeAspectRatio={setAspectRatio}
-            onToggleSound={() => setSound((v) => !v)}
+            disabled={!capabilities.aspect}
+            onChangeFlash={(nextFlash) => controller.setFlash(nextFlash)}
+            onChangeAspectRatio={onChangeAspectRatio}
+            onToggleSound={() => controller.setSound(!sound)}
           />
           <SideActions
-            canSave={photos.length > 0 && !capturing}
-            onBack={handleCancel}
-            onSave={handleSave}
+            canSave={capabilities.save}
+            backDisabled={!capabilities.userCancel}
+            onBack={controller.requestUserCancel}
+            onSave={photo.save}
           />
         </View>
       )}
@@ -303,7 +421,7 @@ export function Container({
       {/* 前置(front)不渲染变焦档:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
           ZoomChips = 0.5/1 档位药丸(点击跳档,高亮当前档;高亮档文字实时显示倍数)。
           变焦本身由 Camera 的双指 pinch 写 zoomShared 驱动(见 Camera.tsx)。 */}
-      {!recording && position === 'back' && (
+      {!recording && session.activePosition === 'back' && (
         <View
           style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
         >
@@ -312,7 +430,9 @@ export function Container({
             displayMul={displayMul}
             // 0.5 档仅超广角机型有:设备最广(minDisplay)≤ 0.5x 才渲染(±1e-3 容浮点漂移)。
             showHalf={minDisplay <= 0.5 + 1e-3}
+            disabled={!capabilities.zoom}
             onSelect={(displayZ) => {
+              if (!capabilities.zoom) return;
               // 点击档:边界用 display 空间,内部 zoom/zoomShared 仍是 vzf。
               // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
               const vzf = clamp(
@@ -330,7 +450,7 @@ export function Container({
       {/* 「生成中」遮罩仅在**有水印**时显示:无水印纯裁切(16:9)只靠定格帧画面定一下、不弹文字遮罩,
           更接近系统相机「拍照回看」、不突兀(用户反馈)。定格帧本身(Camera frozenUri)防黑屏不变。
           footer 不再整段替换(模式药丸恒定,不卸载 → 不跳档)。 */}
-      {burning && config.watermark != null && (
+      {photo.burning && config.watermark != null && (
         <View
           style={styles.burningOverlay}
           pointerEvents="none"
@@ -344,7 +464,7 @@ export function Container({
         </View>
       )}
 
-      <CaptureFlash trigger={flashNonce} />
+      <CaptureFlash trigger={photo.flashNonce} />
 
       <View
         style={[styles.bottom, { paddingBottom: insets.bottom + r(1) }]}
@@ -358,7 +478,8 @@ export function Container({
           <View style={styles.center}>
             <ModeSwitcherPill
               items={modeItems}
-              currentIndex={modeIndex}
+              currentIndex={session.modeIndex}
+              disabled={!capabilities.mode}
               onSelect={onSelectMode}
             />
           </View>
@@ -366,12 +487,14 @@ export function Container({
         <ActionRow
           mode={currentMode.mode}
           recording={recording}
-          shutterDisabled={capturing}
+          shutterDisabled={!capabilities.capture}
+          flipDisabled={!capabilities.flip}
+          galleryDisabled={!capabilities.gallery}
           latestUri={photos.at(-1)?.uri}
           count={photos.length}
           onShutter={onShutter}
           onFlip={onFlip}
-          onOpenPreview={openGallery}
+          onOpenPreview={photo.openGallery}
         />
       </View>
     </View>

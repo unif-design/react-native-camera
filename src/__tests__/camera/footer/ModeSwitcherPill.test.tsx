@@ -81,3 +81,17 @@ it('single item shows a plain static label (no switcher), 不可切换', () => {
   expect(queryByTestId('mode-pill-0')).toBeNull();
   expect(getByText('单拍')).toBeTruthy();
 });
+
+it('disabled 时所有 mode pill 都不会触发 onSelect', () => {
+  const onSelect = jest.fn();
+  const { getByTestId } = renderDark(
+    <ModeSwitcherPill
+      items={items}
+      currentIndex={0}
+      disabled
+      onSelect={onSelect}
+    />
+  );
+  fireEvent.press(getByTestId('mode-pill-1'));
+  expect(onSelect).not.toHaveBeenCalled();
+});

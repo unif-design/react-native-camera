@@ -60,17 +60,6 @@ type RenderedSession = Pick<SessionRecord, 'id' | 'config'> & {
   fileRegistry: FileRegistry;
 };
 
-type SessionContainerProps = React.ComponentProps<typeof Container> & {
-  sessionId: number;
-  fileRegistry: FileRegistry;
-  registerContainer: RegisterSessionContainer;
-  registerController: RegisterSessionController;
-};
-
-// Container 在状态机接线前尚未声明 session resources；这里先把真实边界送入渲染树。
-const SessionContainer =
-  Container as React.ComponentType<SessionContainerProps>;
-
 export function useCamera(): [CameraApi, React.ReactElement] {
   const [visible, setVisible] = useState(false);
   const [renderedSession, setRenderedSession] =
@@ -377,7 +366,7 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       }}
     >
       {renderedSession && (
-        <SessionContainer
+        <Container
           key={renderedSession.id}
           sessionId={renderedSession.id}
           fileRegistry={renderedSession.fileRegistry}

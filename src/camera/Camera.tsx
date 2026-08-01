@@ -78,6 +78,7 @@ type Props = {
   zoomShared?: SharedValue<number>;
   // 是否启用双指 pinch 变焦:前摄定焦(position==='front')传 false → 只剩点击对焦。
   enableZoom?: boolean;
+  enableFocus?: boolean;
   // pinch 放大软上限(vzf)= maxDisplay / displayMul(见 useZoomController);clamp 落点用。
   softMaxZoom?: number;
   // pinch 结束回写一次 JS 侧 zoom(vzf):仅手势结束,不 pinch 全程回写(性能根治)。
@@ -89,8 +90,7 @@ type Props = {
   photoHDR?: boolean;
   videoBitRate?: number;
   onCameraError?: (error: Error) => void;
-  /** 录像被原生侧自发结束(maxDuration 到点/磁盘满/中断)时回调,把文件交还上层入 photos + 复位录制态。 */
-  onSpontaneousVideoFinish?: (file: CustomPhotoFile) => void;
+  onConfigured?: () => void;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
@@ -103,6 +103,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     frozenUri,
     zoomShared,
     enableZoom = true,
+    enableFocus = true,
     softMaxZoom,
     onZoomEnd,
     sound,
@@ -110,7 +111,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     photoHDR,
     videoBitRate,
     onCameraError,
-    onSpontaneousVideoFinish,
+    onConfigured,
   },
   ref
 ) {
@@ -203,9 +204,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       }),
     [videoOutput]
   );
-  // 兼容 Task 4 期间的自动结束 prop：手动 stop 与自动上限同时竞争时，只能由一条路径入 photos。
-  const manualStopRequestedRef = useRef(false);
-
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
   // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
@@ -218,7 +216,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const handleFocus = useCallback(
     async (x: number, y: number) => {
-      if (!device.supportsFocusMetering) return;
+      if (!enableFocus || !device.supportsFocusMetering) return;
       setFocusPoint({ x, y });
       try {
         await cameraRef.current?.focusTo({ x, y }, {
@@ -230,11 +228,12 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         console.warn('focusTo failed', e);
       }
     },
-    [device.supportsFocusMetering]
+    [device.supportsFocusMetering, enableFocus]
   );
 
   // 点击对焦。
   const tap = useTapGesture({
+    enabled: enableFocus,
     onDeactivate: ({ x, y }) => {
       'worklet';
       runOnJS(handleFocus)(x, y);
@@ -303,7 +302,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
           currentMode.recTime != null
             ? { maxDuration: currentMode.recTime }
             : {};
-        manualStopRequestedRef.current = false;
         return recorderController.start({
           hasMicrophonePermission: hasMic,
           requestMicrophonePermission: requestMic,
@@ -316,30 +314,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
                 cameraType,
                 true
               );
-              const stoppedByCaller = manualStopRequestedRef.current;
-              manualStopRequestedRef.current = false;
-              try {
-                // Task 5 会在此 callback 的 operation-token 判断前注入 session registry 登记。
-                callbacks.onFinished(file, reason, duration);
-              } finally {
-                // 尚无手动 stop waiter 的自动结束继续走既有 prop 入 photos；两条路径互斥。
-                if (reason !== 'stopped' && !stoppedByCaller) {
-                  onSpontaneousVideoFinish?.(file);
-                }
-              }
+              callbacks.onFinished(file, reason, duration);
             },
-            onError: (error) => {
-              manualStopRequestedRef.current = false;
-              callbacks.onError(error);
-            },
-            onCancelled: () => {
-              manualStopRequestedRef.current = false;
-              callbacks.onCancelled?.();
-            },
-            // Task 4→5 交接点：controller 保证同一 path 只上报一次 discard。Task 5 会把产生
-            // 它的原 session FileRegistry 注入成 callbacks.onDiscardedFile（先登记、再检查
-            // operation token、最后删除）；在那之前 Camera 只做 RNFS best-effort 兜底，
-            // 保证 cancel / error 终态之后才落盘的视频不会静默留在临时目录。
+            onError: callbacks.onError,
+            onCancelled: callbacks.onCancelled,
+            // 事务路径会注入原 session FileRegistry：先登记、再按 operation token 决定
+            // 交付或删除。Camera 单独使用时仍保留 RNFS best-effort 兜底，避免 cancel /
+            // error 终态之后才落盘的视频静默留在临时目录。
             onDiscardedFile: (path) => {
               if (callbacks.onDiscardedFile != null) {
                 callbacks.onDiscardedFile(path);
@@ -357,14 +338,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         });
       },
 
-      stopVideo: async () => {
-        manualStopRequestedRef.current = true;
-        await recorderController.stop();
-      },
-      cancelVideo: async () => {
-        manualStopRequestedRef.current = false;
-        await recorderController.cancel();
-      },
+      stopVideo: () => recorderController.stop(),
+      cancelVideo: () => recorderController.cancel(),
       getRecordedDuration: () => recorderController.getRecordedDuration(),
     }),
     [
@@ -378,7 +353,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       device.hasFlash,
       cameraType,
       sound,
-      onSpontaneousVideoFinish,
     ]
   );
 
@@ -393,7 +367,6 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   useEffect(() => {
     recorderController.activate();
     return () => {
-      manualStopRequestedRef.current = false;
       recorderController.dispose().catch((error) => {
         console.warn('recorder cancel failed', error);
       });
@@ -438,6 +411,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onCameraError?.(error);
             }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+            onConfigured={onConfigured}
             nativeID="vision-camera"
           />
           {focusPoint && (
