@@ -54,7 +54,7 @@ export type VideoCallbacks = {
   onError: (error: Error) => void;
   /** Camera 的 native output identity 被替换或 owner dispose；不是录像 native error。 */
   onCancelled?: () => void;
-  /** Task 5 可注入原 session registry；未注入时 Camera 直接 best-effort 删除。 */
+  /** 生产事务注入原 session registry；单独使用 Camera 时直接 best-effort 删除。 */
   onDiscardedFile?: (path: string) => void;
 };
 
@@ -142,7 +142,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   // photo 流**恒固定全幅 UHD_4_3**(不随 aspectRatio 变):4:3 是传感器原生全幅,16:9 视野 =
   // 4:3 竖屏裁左右。固定它 → usePhotoOutput 入参不随画幅变 → photo outputs 身份稳定 →
   // **photo 模式切画幅 session 完全不重配、取景流不闪断**(原生顺滑的关键)。出图 16:9 改由
-  // 拍后 Skia 居中裁切实现(见 cropToRatio + useCaptureFlow),vision-camera 拍照本身无 crop 参数。
+  // `usePhotoCaptureTransaction` 调用 `processPhoto` 拍后 Skia 居中裁切，
+  // vision-camera 拍照本身无 crop 参数。
   // targetResolution 是「目标」,相机 negotiate 时**比例优先于像素数**(见 CameraPhotoOutput d.ts);
   // UHD_4_3 → 3024×4032(≈12MP),对齐官方 example。
   const targetResolution = CommonResolutions.UHD_4_3;
