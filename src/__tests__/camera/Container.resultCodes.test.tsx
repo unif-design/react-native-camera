@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import type { CameraResult } from '../../utils';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
@@ -17,6 +17,7 @@ import { renderDark } from '../__helpers__/renderDark';
 type VcState = {
   hasPermission: boolean;
   requestResult: boolean;
+  requestPermission?: () => Promise<boolean>;
   device: unknown;
 };
 declare global {
@@ -40,7 +41,8 @@ jest.mock('react-native-vision-camera', () => {
       const s = read();
       return {
         hasPermission: s.hasPermission,
-        requestPermission: () => Promise.resolve(s.requestResult),
+        requestPermission:
+          s.requestPermission ?? (() => Promise.resolve(s.requestResult)),
       };
     },
     // 按本次用例状态返回设备(404 用例要 undefined → Container 走 NoCamera)。
@@ -66,21 +68,48 @@ function renderContainer(onSettle: (r: CameraResult) => void) {
   return renderDark(ui);
 }
 
+let consoleErrorSpy: jest.SpyInstance;
+
+beforeEach(() => {
+  const originalConsoleError = console.error;
+  consoleErrorSpy = jest
+    .spyOn(console, 'error')
+    .mockImplementation((...args: Parameters<typeof console.error>) => {
+      originalConsoleError(...args);
+      if (
+        typeof args[0] === 'string' &&
+        args[0].includes('not wrapped in act')
+      ) {
+        throw new Error(`Unexpected React act warning: ${args[0]}`);
+      }
+    });
+});
+
 afterEach(() => {
+  consoleErrorSpy.mockRestore();
   delete (globalThis as { __vcResultCodeState?: VcState }).__vcResultCodeState;
 });
 
 it('403:权限被拒 → NoPermission → 点取消 → onSettle(code 403)', async () => {
-  // hasPermission=false + requestPermission 解析 false → usePermissionFlow 异步落 'denied'。
+  let resolvePermission: ((granted: boolean) => void) | undefined;
+  // 保持权限请求挂起，直到 act 内结算；否则 Promise 自行结算的 state 更新会逃出测试边界。
   (globalThis as { __vcResultCodeState?: VcState }).__vcResultCodeState = {
     hasPermission: false,
     requestResult: false,
+    requestPermission: () =>
+      new Promise((resolve) => {
+        resolvePermission = resolve;
+      }),
     device: undefined,
   };
   const onSettle = jest.fn();
   const { findByTestId, getByTestId } = renderContainer(onSettle);
 
-  // requestPermission 是异步 → NoPermission 在 promise 解析后才出现,用 findBy 等它。
+  await act(async () => {
+    resolvePermission?.(false);
+    await Promise.resolve();
+  });
+  // requestPermission 是异步 → NoPermission 在 promise 解析后出现。
   await findByTestId('no-permission');
   fireEvent.press(getByTestId('cancel-btn'));
 
