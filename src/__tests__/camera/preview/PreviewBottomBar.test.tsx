@@ -27,6 +27,39 @@ it('confirm 变体: 重拍/保存', () => {
   expect(onSave).toHaveBeenCalled();
 });
 
+it('confirm 操作暴露中文 label、button role 与 enabled state', () => {
+  const { getByRole } = renderDark(
+    <PreviewBottomBar
+      variant="confirm"
+      index={0}
+      total={1}
+      onRetake={() => {}}
+      onSave={() => {}}
+      onBack={() => {}}
+      onDelete={() => {}}
+    />
+  );
+  expect(getByRole('button', { name: '重拍', disabled: false })).toBeTruthy();
+  expect(getByRole('button', { name: '保存', disabled: false })).toBeTruthy();
+});
+
+it('gallery 操作暴露中文 label，删除 capability 同时驱动 disabled state', () => {
+  const { getByRole } = renderDark(
+    <PreviewBottomBar
+      variant="gallery"
+      index={0}
+      total={1}
+      onRetake={() => {}}
+      onSave={() => {}}
+      onBack={() => {}}
+      onDelete={() => {}}
+      deleteDisabled
+    />
+  );
+  expect(getByRole('button', { name: '返回', disabled: false })).toBeTruthy();
+  expect(getByRole('button', { name: '删除', disabled: true })).toBeTruthy();
+});
+
 it('gallery 变体: 第X/Y张 + 返回/删除', () => {
   const onBack = jest.fn();
   const onDelete = jest.fn();

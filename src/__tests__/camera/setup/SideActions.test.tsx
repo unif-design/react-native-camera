@@ -49,3 +49,16 @@ it('backDisabled=true 时返回按钮不会触发 onBack', () => {
   fireEvent.press(getByTestId('side-back-btn'));
   expect(onBack).not.toHaveBeenCalled();
 });
+
+it('返回和保存暴露中文 label、button role 与各自 capability', () => {
+  const { getByRole } = renderDark(
+    <SideActions
+      canSave={false}
+      backDisabled
+      onBack={() => {}}
+      onSave={() => {}}
+    />
+  );
+  expect(getByRole('button', { name: '返回', disabled: true })).toBeTruthy();
+  expect(getByRole('button', { name: '保存', disabled: true })).toBeTruthy();
+});

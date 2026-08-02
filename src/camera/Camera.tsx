@@ -46,6 +46,11 @@ import type { AspectRatio, FlashMode } from './setup';
 
 const NEUTRAL_ZOOM = 1;
 
+type FocusRequest = {
+  point: Point;
+  requestId: number;
+};
+
 export type VideoCallbacks = {
   onFinished: (
     file: CustomPhotoFile,
@@ -207,12 +212,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   // pinch 软上限(vzf):缺省回退到设备 maxZoom(无软钳),正常由 Container 传 maxDisplay/displayMul。
   const softMaxVzf = softMaxZoom ?? device.maxZoom;
 
-  const [focusPoint, setFocusPoint] = useState<Point | null>(null);
+  const focusRequestIdRef = useRef(0);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
 
   const handleFocus = useCallback(
     async (x: number, y: number) => {
       if (!enableFocus || !device.supportsFocusMetering) return;
-      setFocusPoint({ x, y });
+      const requestId = ++focusRequestIdRef.current;
+      setFocusRequest({ point: { x, y }, requestId });
       try {
         await cameraRef.current?.focusTo({ x, y }, {
           responsiveness: 'snappy',
@@ -225,6 +232,11 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     },
     [device.supportsFocusMetering, enableFocus]
   );
+  const handleFocusAnimationEnd = useCallback((requestId: number) => {
+    setFocusRequest((current) =>
+      current?.requestId === requestId ? null : current
+    );
+  }, []);
 
   // 点击对焦。
   const tap = useTapGesture({
@@ -413,11 +425,12 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             onConfigured={onConfigured}
             nativeID="vision-camera"
           />
-          {focusPoint && (
+          {focusRequest && (
             <FocusIndicator
-              key={`${focusPoint.x}-${focusPoint.y}`}
-              point={focusPoint}
-              onAnimationEnd={() => setFocusPoint(null)}
+              key={focusRequest.requestId}
+              point={focusRequest.point}
+              requestId={focusRequest.requestId}
+              onAnimationEnd={handleFocusAnimationEnd}
             />
           )}
           {frozenUri != null && (

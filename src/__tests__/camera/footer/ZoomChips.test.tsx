@@ -12,6 +12,7 @@ const sharedStub = (value: number) =>
 const base = {
   zoomShared: sharedStub(2), // vzf=2 → 后置 display=1.0x
   displayMul: 0.5,
+  displayZoom: 1,
 };
 
 test('超广角(showHalf)渲染 0.5/1 两档,无 2 档', () => {
@@ -119,4 +120,48 @@ test('disabled 时档位不会触发 onSelect', () => {
   );
   fireEvent.press(getByTestId('zoom-chip-1'));
   expect(onSelect).not.toHaveBeenCalled();
+});
+
+test('JS displayZoom 驱动档位 accessibility selected，不在 render 读取 SharedValue', () => {
+  const { getByRole, rerender } = renderDark(
+    <ZoomChips {...base} showHalf onSelect={() => {}} />
+  );
+  expect(
+    getByRole('button', {
+      name: '0.5 倍变焦',
+      selected: false,
+      disabled: false,
+    })
+  ).toBeTruthy();
+  expect(
+    getByRole('button', {
+      name: '1 倍变焦',
+      selected: true,
+      disabled: false,
+    })
+  ).toBeTruthy();
+
+  rerender(
+    <ZoomChips {...base} displayZoom={0.5} showHalf onSelect={() => {}} />
+  );
+  expect(
+    getByRole('button', {
+      name: '0.5 倍变焦',
+      selected: true,
+      disabled: false,
+    })
+  ).toBeTruthy();
+});
+
+test('变焦 capability 同时驱动 native disabled 与 accessibility disabled', () => {
+  const { getByRole } = renderDark(
+    <ZoomChips {...base} showHalf disabled onSelect={() => {}} />
+  );
+  expect(
+    getByRole('button', {
+      name: '1 倍变焦',
+      selected: true,
+      disabled: true,
+    })
+  ).toBeTruthy();
 });

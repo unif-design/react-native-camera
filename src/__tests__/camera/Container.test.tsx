@@ -18,10 +18,13 @@ import { renderDark } from '../__helpers__/renderDark';
 // 注:jest.mock 被 babel 提升到 import 之上;helper 在工厂内 require(不能闭包捕获顶层 import)。
 jest.mock('react-native-vision-camera', () => {
   const vc = require('../__helpers__/visionCameraMock');
+  const devices = {
+    back: vc.makeDeviceStub({ position: 'back' }),
+    front: vc.makeDeviceStub({ position: 'front' }),
+  };
   return vc.makeVisionCameraMock({
     ...vc.grantedPermissionOverrides(),
-    useCameraDevice: (position: 'back' | 'front') =>
-      vc.makeDeviceStub({ position }),
+    useCameraDevice: (position: 'back' | 'front') => devices[position],
   });
 });
 
@@ -73,6 +76,29 @@ it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 高亮跳到 1 档�
   fireEvent.press(getByTestId('zoom-chip-1'));
   expect(
     within(getByTestId('zoom-chip-1')).getByDisplayValue('1.0')
+  ).toBeTruthy();
+});
+
+it('后置 dual:JS zoom 经 Container 传给档位 accessibility selected', () => {
+  const { getByRole } = r('back');
+  const half = getByRole('button', {
+    name: '0.5 倍变焦',
+    selected: false,
+  });
+  expect(
+    getByRole('button', {
+      name: '1 倍变焦',
+      selected: true,
+    })
+  ).toBeTruthy();
+
+  fireEvent.press(half);
+
+  expect(
+    getByRole('button', {
+      name: '0.5 倍变焦',
+      selected: true,
+    })
   ).toBeTruthy();
 });
 

@@ -81,6 +81,9 @@ export function ModeSwitcherPill({
             style={styles.item}
             onPress={() => onSelect(i)}
             disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={`${it.label}模式`}
+            accessibilityState={{ selected: sel, disabled }}
           >
             <Text style={[styles.txt, sel && styles.txtSel]}>{it.label}</Text>
           </TouchableOpacity>

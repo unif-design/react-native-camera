@@ -95,3 +95,41 @@ it('disabled 时所有 mode pill 都不会触发 onSelect', () => {
   fireEvent.press(getByTestId('mode-pill-1'));
   expect(onSelect).not.toHaveBeenCalled();
 });
+
+it('每个可切换模式暴露 button role、中文 label 与 selected state', () => {
+  const { getByRole } = renderDark(
+    <ModeSwitcherPill items={items} currentIndex={1} onSelect={() => {}} />
+  );
+  expect(
+    getByRole('button', {
+      name: '连拍模式',
+      selected: false,
+      disabled: false,
+    })
+  ).toBeTruthy();
+  expect(
+    getByRole('button', {
+      name: '单拍模式',
+      selected: true,
+      disabled: false,
+    })
+  ).toBeTruthy();
+});
+
+it('模式 capability 同时驱动 native disabled 与 accessibility disabled', () => {
+  const { getByRole } = renderDark(
+    <ModeSwitcherPill
+      items={items}
+      currentIndex={0}
+      disabled
+      onSelect={() => {}}
+    />
+  );
+  expect(
+    getByRole('button', {
+      name: '视频模式',
+      selected: false,
+      disabled: true,
+    })
+  ).toBeTruthy();
+});

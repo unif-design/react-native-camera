@@ -24,6 +24,12 @@ export function Shutter({ mode, recording, disabled, onPress }: Props) {
       useNativeDriver: true,
     }).start();
   const isVideo = mode === 'video';
+  const unavailable = disabled ?? false;
+  const accessibilityLabel = recording
+    ? '停止录像'
+    : isVideo
+      ? '开始录像'
+      : '拍照';
   const inner = recording
     ? styles.innerRecording
     : isVideo
@@ -32,7 +38,10 @@ export function Shutter({ mode, recording, disabled, onPress }: Props) {
   return (
     <Pressable
       testID="shutter-btn"
-      disabled={disabled}
+      disabled={unavailable}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: unavailable, busy: unavailable }}
       onPress={onPress}
       onPressIn={() => to(0.94)}
       onPressOut={() => to(1)}

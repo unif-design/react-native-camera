@@ -29,3 +29,20 @@ it('shows badge when count > 1', () => {
   );
   expect(getByTestId('thumb-badge')).toBeTruthy();
 });
+
+it('预览 capability 同时驱动 native 与 accessibility disabled', () => {
+  const { getByRole } = renderDark(
+    <ThumbnailStack
+      latestUri="file:///a.jpg"
+      count={1}
+      disabled
+      onPress={() => {}}
+    />
+  );
+  expect(
+    getByRole('button', {
+      name: '查看已拍照片',
+      disabled: true,
+    })
+  ).toBeTruthy();
+});

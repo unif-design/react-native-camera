@@ -27,6 +27,7 @@ export function SideActions({
 }: Props) {
   const c = useColors();
   const styles = useThemedStyles(makeStyles);
+  const saveDisabled = !canSave;
   return (
     <View style={styles.rail}>
       <TouchableOpacity
@@ -34,6 +35,9 @@ export function SideActions({
         style={styles.btn}
         onPress={onBack}
         disabled={backDisabled}
+        accessibilityRole="button"
+        accessibilityLabel="返回"
+        accessibilityState={{ disabled: backDisabled }}
       >
         <Icon name="undo" size={r(20)} color={c.foreground} />
       </TouchableOpacity>
@@ -41,7 +45,10 @@ export function SideActions({
         testID="side-save-btn"
         style={[styles.btn, canSave ? styles.save : styles.saveDisabled]}
         onPress={onSave}
-        disabled={!canSave}
+        disabled={saveDisabled}
+        accessibilityRole="button"
+        accessibilityLabel="保存"
+        accessibilityState={{ disabled: saveDisabled }}
       >
         <Icon
           name="check"

@@ -55,14 +55,25 @@ jest.mock('react-native-gesture-handler', () => {
   // hook API(v3):useTapGesture/usePinchGesture/useSimultaneousGestures 返回稳定 gesture
   // 占位;GestureDetector 桩直接渲 children、不消费 gesture,故占位空对象即可。
   const gesture = {};
+  let latestTapConfig: any;
   return {
-    useTapGesture: () => gesture,
+    useTapGesture: jest.fn((config: any) => {
+      latestTapConfig = config;
+      return gesture;
+    }),
     usePinchGesture: () => gesture,
     useSimultaneousGestures: () => gesture,
     GestureDetector: ({ children }: any) => children,
     GestureHandlerRootView: View,
     PinchGestureHandler: View,
     TapGestureHandler: View,
+    __gestureMock: {
+      deactivateTap: (event: { x: number; y: number }) =>
+        latestTapConfig?.onDeactivate?.(event),
+      reset: () => {
+        latestTapConfig = undefined;
+      },
+    },
   };
 });
 
@@ -267,20 +278,86 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-// react-native-video 7.x:native 模块,jest 渲染成占位 View
+// react-native-video 7.x:native 模块,jest 渲染成占位 View。
+// 事件状态仍由测试显式 emit，不在 mock 内复制播放器状态机；这样 VideoPlayer 测试验证的是
+// 组件如何消费 native event，而不是 mock 自己是否会乐观切换。
 jest.mock('react-native-video', () => {
+  const React = require('react');
   const { View } = require('react-native');
-  return {
-    __esModule: true,
-    useVideoPlayer: () => ({
-      play: () => {},
-      pause: () => {},
-      loop: false,
+  const listeners = new Map<object, Map<string, (...args: any[]) => void>>();
+  const setupCallbacks: any[] = [];
+  const listenerAdds: any[] = [];
+  const listenerRemoves: any[] = [];
+  const players: any[] = [];
+  const createPlayer = jest.fn((source: unknown) => {
+    const player = {
+      source,
+      play: jest.fn(),
+      pause: jest.fn(),
+      // 故意与产品要求相反：只有 VideoPlayer setup 显式关闭 loop，测试才会通过。
+      loop: true,
       muted: false,
       rate: 1,
       status: 'idle',
-    }),
+    };
+    players.push(player);
+    return player;
+  });
+  const useVideoPlayer = jest.fn(
+    (source: unknown, setup?: (player: any) => void) => {
+      const sourceKey = JSON.stringify(source);
+      setupCallbacks.push(setup);
+      return React.useMemo(() => {
+        const player = createPlayer(source);
+        setup?.(player);
+        return player;
+        // sourceKey 对齐真实 useVideoPlayer 的 serialized source lifecycle。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [sourceKey]);
+    }
+  );
+  const useEvent = jest.fn(
+    (player: object, event: string, callback: (...args: any[]) => void) => {
+      React.useEffect(() => {
+        listenerAdds.push({ player, event, callback });
+        let playerListeners = listeners.get(player);
+        if (playerListeners == null) {
+          playerListeners = new Map();
+          listeners.set(player, playerListeners);
+        }
+        playerListeners.set(event, callback);
+        return () => {
+          listenerRemoves.push({ player, event, callback });
+          if (playerListeners?.get(event) === callback) {
+            playerListeners.delete(event);
+          }
+        };
+      }, [player, event, callback]);
+    }
+  );
+  return {
+    __esModule: true,
+    useEvent,
+    useVideoPlayer,
     VideoView: (props: any) => require('react').createElement(View, props),
+    __videoMock: {
+      players,
+      setupCallbacks,
+      listenerAdds,
+      listenerRemoves,
+      emit: (player: object, event: string, ...args: any[]) => {
+        const callback = listeners.get(player)?.get(event);
+        callback?.(...args);
+        return callback != null;
+      },
+      reset: () => {
+        listeners.clear();
+        players.splice(0);
+        setupCallbacks.splice(0);
+        listenerAdds.splice(0);
+        listenerRemoves.splice(0);
+      },
+    },
   };
 });
 

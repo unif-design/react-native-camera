@@ -37,6 +37,8 @@ type Props = {
   zoomShared: SharedValue<number>;
   // vzf → 用户倍数乘子(后置 0.5):display = vzf × displayMul,判档与点击跳档都在 display 空间。
   displayMul: number;
+  // JS 线程当前用户倍数，仅用于 React accessibilityState；不在 render 读取 SharedValue。
+  displayZoom: number;
   // 是否渲染 0.5 档:设备最广 ≤ 0.5x(超广角)才显示;无超广角(前置/单广角)只剩 1 档。
   showHalf: boolean;
   disabled?: boolean;
@@ -47,6 +49,7 @@ type Props = {
 export function ZoomChips({
   zoomShared,
   displayMul,
+  displayZoom,
   showHalf,
   disabled = false,
   onSelect,
@@ -62,6 +65,7 @@ export function ZoomChips({
             stop={stop}
             zoomShared={zoomShared}
             displayMul={displayMul}
+            displayZoom={displayZoom}
             disabled={disabled}
             onPress={() => onSelect(stop)}
           />
@@ -75,17 +79,20 @@ function ZoomChip({
   stop,
   zoomShared,
   displayMul,
+  displayZoom,
   disabled,
   onPress,
 }: {
   stop: number;
   zoomShared: SharedValue<number>;
   displayMul: number;
+  displayZoom: number;
   disabled: boolean;
   onPress: () => void;
 }) {
   const c = useColors();
   const styles = useThemedStyles(makeStyles);
+  const selected = activeStop(displayZoom) === stop;
 
   // 当前档高亮:display = zoomShared × displayMul,≥ 阈值算 1 档当前,否则 0.5 档当前。
   // 全在 worklet 读 zoomShared → UI 线程驱动药丸底色/字色,pinch 全程 0 次 setState。
@@ -119,6 +126,9 @@ function ZoomChip({
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`${stop} 倍变焦`}
+      accessibilityState={{ selected, disabled }}
     >
       <Animated.View style={[styles.chip, chipStyle]}>
         {/* text 是原生 TextInput 内部属性(非 RN 公开 TS 类型),reanimated 把 worklet 算出的

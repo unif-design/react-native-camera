@@ -89,3 +89,49 @@ it('disabled 时 aspect / flash / sound 都不会触发 handler', () => {
   expect(onChangeFlash).not.toHaveBeenCalled();
   expect(onToggleSound).not.toHaveBeenCalled();
 });
+
+it('画幅、闪光与声音按钮暴露动态中文 label 和 button role', () => {
+  const { getByRole } = renderDark(
+    <SideRail {...base} flash="auto" aspectRatio="16:9" sound />
+  );
+  expect(
+    getByRole('button', {
+      name: '切换画幅比例，当前 16:9',
+      disabled: false,
+    })
+  ).toBeTruthy();
+  expect(
+    getByRole('button', {
+      name: '切换闪光灯，当前自动',
+      disabled: false,
+    })
+  ).toBeTruthy();
+  expect(
+    getByRole('button', {
+      name: '关闭快门声音',
+      disabled: false,
+    })
+  ).toBeTruthy();
+});
+
+it('SideRail capability 同时驱动 native 与 accessibility disabled', () => {
+  const { getByRole } = renderDark(<SideRail {...base} disabled />);
+  expect(
+    getByRole('button', {
+      name: '切换画幅比例，当前 4:3',
+      disabled: true,
+    })
+  ).toBeTruthy();
+  expect(
+    getByRole('button', {
+      name: '切换闪光灯，当前关闭',
+      disabled: true,
+    })
+  ).toBeTruthy();
+  expect(
+    getByRole('button', {
+      name: '关闭快门声音',
+      disabled: true,
+    })
+  ).toBeTruthy();
+});

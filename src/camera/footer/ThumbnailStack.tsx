@@ -31,6 +31,7 @@ export function ThumbnailStack({
       style={styles.wrap}
       accessibilityRole="button"
       accessibilityLabel="查看已拍照片"
+      accessibilityState={{ disabled }}
     >
       <Image source={{ uri: latestUri }} style={styles.img} />
       {count > 1 && (

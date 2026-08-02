@@ -18,6 +18,7 @@ export function FlipButton({
       style={styles.btn}
       accessibilityRole="button"
       accessibilityLabel="切换前后摄像头"
+      accessibilityState={{ disabled }}
     >
       {/* camera-flip(相机机身 + 机内循环箭头)= 系统相机「前后摄切换」通用形态,
           比抽象的 lens-flip(圆镜头 + 环绕弧箭头)更直白;机内箭头细小,size 给 r(22) 保清晰。 */}

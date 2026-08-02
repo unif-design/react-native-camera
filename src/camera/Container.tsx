@@ -129,7 +129,7 @@ export function Container({
 
   // 变焦控制器:vzf↔display 推导、zoom state/shared、设备切换 clamp 全在 hook 内。
   // zoom 显示全程走 UI 线程 zoomShared(pinch 不刷 state);setZoom 仅点击档/手势结束/设备切换回写。
-  const { setZoom, zoomShared, displayMul, minDisplay, maxDisplay } =
+  const { zoom, setZoom, zoomShared, displayMul, minDisplay, maxDisplay } =
     useZoomController(device);
 
   const cameraRef = useRef<CameraHandle>(null);
@@ -472,6 +472,7 @@ export function Container({
               <ZoomChips
                 zoomShared={zoomShared}
                 displayMul={displayMul}
+                displayZoom={zoom * displayMul}
                 // 0.5 档仅超广角机型有:设备最广(minDisplay)≤ 0.5x 才渲染(±1e-3 容浮点漂移)。
                 showHalf={minDisplay <= 0.5 + 1e-3}
                 disabled={!capabilities.zoom}
