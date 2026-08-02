@@ -34,7 +34,8 @@ jest.mock('@unif/react-native-camera', () =>
 默认是取消(`code: 0`)。要测拍照成功,用 `mockResolvedValueOnce` 覆盖一次返回:
 
 ```ts
-const [api] = useCamera();
+const { result } = renderHook(() => useCamera());
+const [api] = result.current;
 (api.open as jest.Mock).mockResolvedValueOnce({
   code: 200,
   data: [
