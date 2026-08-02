@@ -98,3 +98,35 @@ it('Android 仅保留相机、录像权限并精确移除传递的旧写存储�
   ).toContain('tools:node="remove"');
   expect(manifest).toContain('xmlns:tools="http://schemas.android.com/tools"');
 });
+
+it('安装后的 RN Gradle included build 使用兼容 Gradle 9 的 Foojay 1.0.0', () => {
+  const settings = readFileSync(
+    join(root, 'node_modules/@react-native/gradle-plugin/settings.gradle.kts'),
+    'utf8'
+  );
+
+  expect(settings).toContain(
+    'id("org.gradle.toolchains.foojay-resolver-convention").version("1.0.0")'
+  );
+  expect(settings).not.toContain(
+    'id("org.gradle.toolchains.foojay-resolver-convention").version("0.5.0")'
+  );
+});
+
+it('根 package 只为 RN Gradle plugin 0.85.0 保存 exact Yarn patch resolution', () => {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+    resolutions?: Record<string, string>;
+  };
+  const gradlePluginResolutions = Object.entries(pkg.resolutions ?? {}).filter(
+    ([descriptor]) => descriptor.startsWith('@react-native/gradle-plugin@')
+  );
+
+  expect(gradlePluginResolutions).toEqual([
+    [
+      '@react-native/gradle-plugin@npm:0.85.0',
+      expect.stringMatching(
+        /^patch:@react-native\/gradle-plugin@npm%3A0\.85\.0#~\/\.yarn\/patches\/@react-native-gradle-plugin-npm-0\.85\.0-[a-f0-9]+\.patch$/
+      ),
+    ],
+  ]);
+});

@@ -218,5 +218,8 @@
       "eslint"
     ],
     "version": "0.62.0"
+  },
+  "resolutions": {
+    "@react-native/gradle-plugin@npm:0.85.0": "patch:@react-native/gradle-plugin@npm%3A0.85.0#~/.yarn/patches/@react-native-gradle-plugin-npm-0.85.0-d5db84ae63.patch"
   }
 }
