@@ -1,4 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 import type { CameraDevice } from 'react-native-vision-camera';
 import type { CameraHandle, VideoCallbacks } from '../../camera/Camera';
 import { Container } from '../../camera/Container';
@@ -21,11 +22,13 @@ import type {
 import { makePhotoFile } from '../__helpers__/factories';
 import { renderDark } from '../__helpers__/renderDark';
 import { layoutCameraViewport } from '../__helpers__/containerSession';
+import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
 type MockCameraProps = {
   device: CameraDevice;
   currentMode: CameraMode;
   aspectRatio?: '4:3' | '16:9';
+  isActive?: boolean;
   flash?: 'auto' | 'on' | 'off';
   sound?: boolean;
   enableZoom?: boolean;
@@ -43,6 +46,12 @@ let mockCameraMounts = 0;
 let mockCameraInstanceSequence = 0;
 let mockVideoCallbacks: VideoCallbacks | null = null;
 let mockActualPosition: 'back' | 'front' | null = null;
+let mockBackDevice!: CameraDevice;
+let mockFrontDevice!: CameraDevice;
+const originalAppStateDescriptor = Object.getOwnPropertyDescriptor(
+  AppState,
+  'currentState'
+);
 
 const mockCapture = jest.fn<Promise<CustomPhotoFile | null>, []>();
 const mockStartVideo = jest.fn<
@@ -59,7 +68,9 @@ jest.mock('react-native-vision-camera', () => {
     ...vc.grantedPermissionOverrides(),
     useCameraDevice: (requested: 'back' | 'front') =>
       mockActualPosition == null || mockActualPosition === requested
-        ? vc.makeDeviceStub({ position: requested })
+        ? requested === 'back'
+          ? mockBackDevice
+          : mockFrontDevice
         : undefined,
   });
 });
@@ -205,13 +216,36 @@ function photoModes(
   };
 }
 
+async function captureWithoutProcessing(
+  harness: Harness,
+  file: CustomPhotoFile
+): Promise<void> {
+  mockCapture.mockResolvedValueOnce(file);
+  fireEvent.press(harness.getByTestId('aspect-btn'));
+  await act(async () => {
+    fireEvent.press(harness.getByTestId('shutter-btn'));
+    await Promise.resolve();
+  });
+  await flushMicrotasks();
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  Object.defineProperty(AppState, 'currentState', {
+    configurable: true,
+    get: () => 'active',
+  });
   mockCameraSnapshots.length = 0;
   mockCameraMounts = 0;
   mockCameraInstanceSequence = 0;
   mockVideoCallbacks = null;
   mockActualPosition = null;
+  mockBackDevice = makeDeviceStub({
+    position: 'back',
+  }) as unknown as CameraDevice;
+  mockFrontDevice = makeDeviceStub({
+    position: 'front',
+  }) as unknown as CameraDevice;
   mockCapture.mockResolvedValue(null);
   mockStartVideo.mockResolvedValue('started');
   mockStopVideo.mockResolvedValue(undefined);
@@ -232,6 +266,13 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
+});
+
+afterAll(() => {
+  if (originalAppStateDescriptor != null) {
+    Object.defineProperty(AppState, 'currentState', originalAppStateDescriptor);
+  }
 });
 
 it('keeps native-dependent controls truly disabled until the current configuration callback', () => {
@@ -411,6 +452,101 @@ it('registers and removes raw/final files when photo processing fails or becomes
     expect(stale.registry.stateOf(final.path)).toBe('deleted');
   });
   expect(stale.onSettle).not.toHaveBeenCalled();
+});
+
+it('keeps the configured Camera mounted and ready across confirm-preview retake', async () => {
+  const harness = renderContainer({
+    cameraMode: [{ mode: 'single' }],
+    dataRetainedMode: 'clear',
+  });
+  const instanceId = latestCamera().instanceId;
+  configureLatest();
+  await captureWithoutProcessing(
+    harness,
+    makePhotoFile({
+      id: 'preview-retake',
+      path: '/preview-retake.jpg',
+      uri: 'file:///preview-retake.jpg',
+    })
+  );
+
+  expect(harness.getByTestId('preview-overlay')).toBeTruthy();
+  expect(harness.getByTestId('mock-native-camera')).toBeTruthy();
+  expect(latestCamera().props.isActive).toBe(false);
+  fireEvent.press(harness.getByTestId('retake-btn'));
+
+  expect(harness.queryByTestId('preview-overlay')).toBeNull();
+  expect(harness.getByTestId('mock-native-camera')).toBeTruthy();
+  expect(latestCamera().instanceId).toBe(instanceId);
+  expect(latestCamera().props.isActive).toBe(true);
+  expect(
+    harness.getByTestId('shutter-btn').props.accessibilityState.disabled
+  ).toBe(false);
+});
+
+it('keeps the configured Camera mounted and ready across gallery back', async () => {
+  const harness = renderContainer({
+    cameraMode: [{ mode: 'continuous' }],
+    dataRetainedMode: 'retain',
+  });
+  const instanceId = latestCamera().instanceId;
+  configureLatest();
+  await captureWithoutProcessing(
+    harness,
+    makePhotoFile({
+      id: 'preview-back',
+      path: '/preview-back.jpg',
+      uri: 'file:///preview-back.jpg',
+      mode: 'continuous',
+    })
+  );
+  fireEvent.press(harness.getByTestId('thumbnail-stack'));
+
+  expect(harness.getByTestId('preview-overlay')).toBeTruthy();
+  expect(harness.getByTestId('mock-native-camera')).toBeTruthy();
+  expect(latestCamera().props.isActive).toBe(false);
+  fireEvent.press(harness.getByTestId('back-btn'));
+
+  expect(harness.queryByTestId('preview-overlay')).toBeNull();
+  expect(latestCamera().instanceId).toBe(instanceId);
+  expect(latestCamera().props.isActive).toBe(true);
+  expect(
+    harness.getByTestId('shutter-btn').props.accessibilityState.disabled
+  ).toBe(false);
+});
+
+it('keeps the configured Camera mounted and ready after deleting the last preview file', async () => {
+  const harness = renderContainer({
+    cameraMode: [{ mode: 'continuous' }],
+    dataRetainedMode: 'retain',
+  });
+  const instanceId = latestCamera().instanceId;
+  configureLatest();
+  await captureWithoutProcessing(
+    harness,
+    makePhotoFile({
+      id: 'preview-delete',
+      path: '/preview-delete.jpg',
+      uri: 'file:///preview-delete.jpg',
+      mode: 'continuous',
+    })
+  );
+  fireEvent.press(harness.getByTestId('thumbnail-stack'));
+  fireEvent.press(harness.getByTestId('delete-btn'));
+  await act(async () => {
+    fireEvent.press(harness.getByTestId('camera-confirm-ok'));
+    await Promise.resolve();
+  });
+
+  await waitFor(() =>
+    expect(harness.queryByTestId('preview-overlay')).toBeNull()
+  );
+  expect(harness.getByTestId('mock-native-camera')).toBeTruthy();
+  expect(latestCamera().instanceId).toBe(instanceId);
+  expect(latestCamera().props.isActive).toBe(true);
+  expect(
+    harness.getByTestId('shutter-btn').props.accessibilityState.disabled
+  ).toBe(false);
 });
 
 it.each(['stopped', 'max-duration-reached', 'max-file-size-reached'] as const)(

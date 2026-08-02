@@ -91,8 +91,8 @@ function PhotoScreen() {
 
 ## 原生接入门禁
 
-- Babel 必须启用 `react-native-worklets/plugin`；相机的 pinch / 动画依赖 worklet runtime。
-- App 根需要 `GestureHandlerRootView`，否则 Modal 内手势无法可靠识别。
+- Babel 必须启用 `react-native-worklets/plugin`，并把它放在 `plugins` **最后一项**；相机的 pinch / 动画依赖 worklet runtime。
+- 相机 Modal 内部已自带 `flex: 1` 的 `GestureHandlerRootView`，相机手势不依赖宿主 App 根；只有消费者其它页面也使用 Gesture Handler 时，才按自身需求配置宿主 root。
 - 安装所有 native peer 后，iOS 必须执行 `cd ios && bundle exec pod install`。
 - 权限只按实际能力配置：`CAMERA` / `NSCameraUsageDescription` 必需；只有使用 `video` 时才加 `RECORD_AUDIO` / `NSMicrophoneUsageDescription`。本库不写系统相册，因此不无条件要求 `NSPhotoLibraryAddUsageDescription` 或 `READ_MEDIA_IMAGES`。
 

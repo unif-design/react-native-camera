@@ -98,6 +98,8 @@ type Props = {
   photoHDR?: boolean;
   videoBitRate?: number;
   onCameraError?: (error: Error) => void;
+  /** 将 native completion 绑定到实际发起该配置的 VisionCamera 实例。 */
+  configurationGeneration?: number;
   onConfigured?: () => void;
 };
 
@@ -121,6 +123,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     photoHDR,
     videoBitRate,
     onCameraError,
+    configurationGeneration = 0,
     onConfigured,
   },
   ref
@@ -392,6 +395,10 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       <GestureDetector gesture={composed}>
         <Animated.View style={[styles.frame, frameStyle]}>
           <VisionCamera
+            // VisionCamera 5.0.11 会用 latest-callback wrapper 包装 onConfigured。
+            // generation 变化时隔离实例，旧 configure Promise 即使在 passive cleanup 前完成，
+            // 也只能调用旧实例/旧 generation 的 callback，不能误把新配置提前标成 ready。
+            key={configurationGeneration}
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             // resizeMode="cover":photo 流恒 4:3 全幅 → 4:3 frame 下 cover 与 contain 视觉完全相同

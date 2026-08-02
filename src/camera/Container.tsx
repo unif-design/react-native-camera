@@ -30,7 +30,10 @@ import type {
 import { AnimatedCameraFrame } from './AnimatedCameraFrame';
 import type { FileRegistry } from './session/fileRegistry';
 import { nativeConfigurationKey } from './session/configuration';
-import { selectCameraDevice } from './session/deviceSelection';
+import {
+  selectCameraDevice,
+  type SelectedCameraDevice,
+} from './session/deviceSelection';
 import { fitCameraFrame, type CameraViewport } from './session/frameRect';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { useAppActive } from './hooks/useAppActive';
@@ -125,7 +128,12 @@ export function Container({
     () => selectCameraDevice(requestedPosition, backDevice, frontDevice),
     [backDevice, frontDevice, requestedPosition]
   );
-  const device = selection?.device;
+  // inventory selection 是 pending 候选；Camera/metadata 只消费 controller 已接受的
+  // committed selection。否则 capture/record/preview 期间设备清单变化会先改 native props，
+  // reducer 却拒绝 BEGIN_CONFIGURATION，形成「native 已换、状态仍是旧设备」的撕裂。
+  const [committedSelection, setCommittedSelection] = useState(selection);
+  const committedSelectionRef = useRef(committedSelection);
+  const device = committedSelection?.device;
 
   // 变焦控制器:vzf↔display 推导、zoom state/shared、设备切换 clamp 全在 hook 内。
   // zoom 显示全程走 UI 线程 zoomShared(pinch 不刷 state);setZoom 仅点击档/手势结束/设备切换回写。
@@ -139,12 +147,12 @@ export function Container({
     onError: showError,
   });
   const initialNativeConfigurationKey =
-    selection == null || firstMode == null
+    committedSelection == null || firstMode == null
       ? UNCONFIGURED_NATIVE_KEY
       : nativeConfigurationKey({
           device: {
-            id: selection.device.id,
-            position: selection.activePosition,
+            id: committedSelection.device.id,
+            position: committedSelection.activePosition,
           },
           mode: firstMode,
           aspectRatio: '16:9',
@@ -158,8 +166,8 @@ export function Container({
       files: [],
       modeIndex: 0,
       aspectRatio: '16:9',
-      activePosition: selection?.activePosition ?? initialPosition,
-      canFlip: selection?.canFlip ?? false,
+      activePosition: committedSelection?.activePosition ?? initialPosition,
+      canFlip: committedSelection?.canFlip ?? false,
       flash: firstMode?.flashMode ?? 'off',
       sound: false,
       nativeConfigurationKey: initialNativeConfigurationKey,
@@ -190,43 +198,75 @@ export function Container({
   const recSeconds = Math.floor(session.video.duration);
 
   const configurationKeyFor = useCallback(
-    (mode: CameraMode, nextAspectRatio = aspectRatio) =>
-      selection == null
-        ? UNCONFIGURED_NATIVE_KEY
-        : nativeConfigurationKey({
-            device: {
-              id: selection.device.id,
-              position: selection.activePosition,
-            },
-            mode,
-            aspectRatio: nextAspectRatio,
-            photoQualityPrioritization: config.photoQualityPrioritization,
-            photoHDR: config.photoHDR,
-            videoBitRate: config.videoBitRate,
-          }),
+    (
+      nextSelection: SelectedCameraDevice,
+      mode: CameraMode,
+      nextAspectRatio = aspectRatio
+    ) =>
+      nativeConfigurationKey({
+        device: {
+          id: nextSelection.device.id,
+          position: nextSelection.activePosition,
+        },
+        mode,
+        aspectRatio: nextAspectRatio,
+        photoQualityPrioritization: config.photoQualityPrioritization,
+        photoHDR: config.photoHDR,
+        videoBitRate: config.videoBitRate,
+      }),
     [
       aspectRatio,
       config.photoHDR,
       config.photoQualityPrioritization,
       config.videoBitRate,
-      selection,
     ]
   );
 
-  // selection 的 actual position / canFlip 与 native identity 一起原子提交；requested
-  // 从不进入 native key 或 metadata。fallback inventory 后续变化也会进入新 generation。
+  // pending selection 的 actual position / canFlip 与 native identity 一起原子提交；
+  // requested 从不进入 native key 或 metadata。phase 不允许配置时保留 pending，等回到
+  // ready/configuring 再重试。即使 id/position 相同，新的 CameraDevice object 也可能触发
+  // VisionCamera native reconfigure，故必须强制新 generation。
   useLayoutEffect(() => {
-    if (selection == null || currentMode == null) return;
-    beginConfiguration(configurationKeyFor(currentMode), {
-      activePosition: selection.activePosition,
-      canFlip: selection.canFlip,
-    });
-  }, [beginConfiguration, configurationKeyFor, currentMode, selection]);
+    const previous = committedSelectionRef.current;
+    if (selection == null) {
+      if (previous == null) return;
+      const generation = beginConfiguration(UNCONFIGURED_NATIVE_KEY, {
+        canFlip: false,
+      });
+      if (generation == null) return;
+
+      // 忙态先保留仍在使用的 handle；一旦 controller 接受 unconfigured generation，
+      // 同步摘掉失效 device。旧 native completion 带旧 generation，无法恢复 ready。
+      committedSelectionRef.current = null;
+      setCommittedSelection(null);
+      return;
+    }
+    if (currentMode == null) return;
+
+    const generation = beginConfiguration(
+      configurationKeyFor(selection, currentMode),
+      {
+        activePosition: selection.activePosition,
+        canFlip: selection.canFlip,
+      },
+      previous != null && previous.device !== selection.device
+    );
+    if (generation == null || previous === selection) return;
+
+    committedSelectionRef.current = selection;
+    setCommittedSelection(selection);
+  }, [
+    beginConfiguration,
+    configurationKeyFor,
+    currentMode,
+    selection,
+    session.phase,
+  ]);
 
   const applyMode = (nextIndex: number): void => {
     const nextMode = config.cameraMode[nextIndex];
-    if (nextMode == null || selection == null) return;
-    beginConfiguration(configurationKeyFor(nextMode), {
+    if (nextMode == null || committedSelection == null) return;
+    beginConfiguration(configurationKeyFor(committedSelection, nextMode), {
       modeIndex: nextIndex,
     });
   };
@@ -250,12 +290,19 @@ export function Container({
   };
 
   const onChangeAspectRatio = (nextAspectRatio: '4:3' | '16:9'): void => {
-    if (!capabilities.aspect || currentMode == null || selection == null) {
+    if (
+      !capabilities.aspect ||
+      currentMode == null ||
+      committedSelection == null
+    ) {
       return;
     }
-    beginConfiguration(configurationKeyFor(currentMode, nextAspectRatio), {
-      aspectRatio: nextAspectRatio,
-    });
+    beginConfiguration(
+      configurationKeyFor(committedSelection, currentMode, nextAspectRatio),
+      {
+        aspectRatio: nextAspectRatio,
+      }
+    );
   };
 
   const onFlip = (): void => {
@@ -321,20 +368,7 @@ export function Container({
     );
   }
 
-  if (preview != null) {
-    return (
-      <PreviewOverlay
-        files={photos}
-        variant={preview.variant}
-        onRetake={photo.retake}
-        onSave={photo.save}
-        onBack={photo.closePreview}
-        onDelete={photo.deletePhoto}
-      />
-    );
-  }
-
-  if (selection == null) {
+  if (committedSelection == null) {
     return (
       <NoCamera
         onCancel={() =>
@@ -382,14 +416,13 @@ export function Container({
                     控件全部 absolute 浮在取景之上,所以这里不再用纵向 flex 分割。 */}
                 <Camera
                   ref={cameraRef}
-                  device={selection.device}
+                  device={committedSelection.device}
                   currentMode={currentMode}
                   frame={frame}
                   animatedFrame={animatedFrame}
-                  // 取景仅在 App 前台且非烧录态时活:烧水印时停取景(省电 + 释放摄像头),回前台恢复。
-                  // 预览态由上方 previewing 分支整体卸载 Camera(不靠此 gate);Modal 不可见时
-                  // Container 根本不挂载,故无需额外可见性 prop。
-                  isActive={appActive && !photo.burning}
+                  // 取景仅在 App 前台且非烧录/预览态时活。Preview 作为覆盖层保留已配置
+                  // Camera，返回/重拍/删末张后无需等待一次新的 native attach/configure。
+                  isActive={appActive && !photo.burning && preview == null}
                   // 烧水印期间盖刚拍原图防黑屏(isActive=false 取景已停,被它盖住);见顺滑回看 spec。
                   frozenUri={photo.freezeUri}
                   flash={flash}
@@ -414,6 +447,7 @@ export function Container({
                   onCameraError={(e) =>
                     showError(e?.message || '相机会话异常,请重试')
                   }
+                  configurationGeneration={session.configurationGeneration}
                   onConfigured={() =>
                     configured(session.configurationGeneration)
                   }
@@ -482,8 +516,8 @@ export function Container({
                   // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
                   const vzf = clamp(
                     displayZ / displayMul,
-                    selection.device.minZoom,
-                    selection.device.maxZoom
+                    committedSelection.device.minZoom,
+                    committedSelection.device.maxZoom
                   );
                   setZoom(vzf);
                   zoomShared.value = vzf;
@@ -543,6 +577,16 @@ export function Container({
             />
           </View>
         </View>
+      )}
+      {preview != null && (
+        <PreviewOverlay
+          files={photos}
+          variant={preview.variant}
+          onRetake={photo.retake}
+          onSave={photo.save}
+          onBack={photo.closePreview}
+          onDelete={photo.deletePhoto}
+        />
       )}
     </View>
   );

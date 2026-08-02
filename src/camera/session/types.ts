@@ -53,6 +53,7 @@ export type CameraSessionAction =
       type: 'BEGIN_CONFIGURATION';
       nativeConfigurationKey: string;
       changes?: ConfigurationChanges;
+      forceNativeReconfiguration?: boolean;
     }
   | { type: 'CONFIGURED'; generation: number }
   | { type: 'SET_FLASH'; flash: FlashMode }

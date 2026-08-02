@@ -109,11 +109,10 @@ it('frame resize 更新完整 rect，且保持同一 Camera/native instance', ()
   withTiming.mockRestore();
 });
 
-it("VisionCamera resizeMode='cover'，且没有 generation key remount", () => {
+it("VisionCamera resizeMode='cover'", () => {
   const { UNSAFE_root } = renderDark(element(initialFrame));
   const vc = UNSAFE_root.findByProps({ nativeID: 'vision-camera' });
   expect(vc.props.resizeMode).toBe('cover');
-  expect((vc as unknown as { key?: string }).key).toBeUndefined();
 });
 
 it('frame 内无纯黑 pointerEvents=none 转场遮罩', () => {

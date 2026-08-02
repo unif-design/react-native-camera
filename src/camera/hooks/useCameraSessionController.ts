@@ -49,7 +49,8 @@ export type CameraSessionController = {
   capabilities: ReturnType<typeof selectCapabilities>;
   beginConfiguration: (
     nativeConfigurationKey: string,
-    changes?: ConfigurationChanges
+    changes?: ConfigurationChanges,
+    forceNativeReconfiguration?: boolean
   ) => number | null;
   configured: (generation: number) => boolean;
   setFlash: (flash: FlashMode) => boolean;
@@ -215,12 +216,18 @@ export function useCameraSessionController({
   const beginConfiguration = useCallback(
     (
       nativeConfigurationKey: string,
-      changes?: ConfigurationChanges
+      changes?: ConfigurationChanges,
+      forceNativeReconfiguration = false
     ): number | null => {
       if (!mountedRef.current) return null;
       const phase = stateRef.current.phase;
       if (phase !== 'ready' && phase !== 'configuring') return null;
-      apply({ type: 'BEGIN_CONFIGURATION', nativeConfigurationKey, changes });
+      apply({
+        type: 'BEGIN_CONFIGURATION',
+        nativeConfigurationKey,
+        changes,
+        forceNativeReconfiguration,
+      });
       return stateRef.current.configurationGeneration;
     },
     [apply]

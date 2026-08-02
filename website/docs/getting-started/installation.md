@@ -117,26 +117,24 @@ yarn add @dr.pogodin/react-native-fs
 
 ---
 
-## 2. 配置 Babel 与手势根节点
+## 2. 配置 Babel 与相机手势根
 
-worklet 动画与 Modal 内 pinch / 点击手势需要以下宿主配置：
+worklet 动画与 Modal 内 pinch / 点击手势需要 Babel plugin。它必须是 `plugins` 的**最后一项**：
 
 ```js title="babel.config.js"
 module.exports = {
   presets: ['module:@react-native/babel-preset'],
-  plugins: ['react-native-worklets/plugin'],
+  plugins: [
+    // 其它 plugin 在前
+    'react-native-worklets/plugin',
+  ],
 };
 ```
 
-`react-native-worklets/plugin` 必须存在于 Babel plugins 中。然后用 `GestureHandlerRootView` 包住 App 根节点（或确认既有根节点已包住），让相机 Modal 内的 Gesture Handler 正常工作：
-
-```tsx
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
-export function App() {
-  return <GestureHandlerRootView style={{ flex: 1 }}><AppContent /></GestureHandlerRootView>;
-}
-```
+不要在 `react-native-worklets/plugin` 后追加其它 plugin，也不要改成
+`react-native-reanimated/plugin`。相机使用独立 native Modal，库已在 **Modal 内部**
+包好 `flex: 1` 的 `GestureHandlerRootView`；pinch 变焦与点击对焦不要求消费者再为相机
+包 App 根。宿主其它页面是否使用 `GestureHandlerRootView`，只按消费者自身手势依赖决定。
 
 ---
 

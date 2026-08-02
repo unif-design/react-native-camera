@@ -39,6 +39,19 @@ describe('validateOpenConfig', () => {
     ).toEqual({ ok: false, result: invalidResult });
   });
 
+  it('rejects a sparse cameraMode array with an internal hole', () => {
+    const cameraMode = new Array<unknown>(3);
+    cameraMode[0] = { mode: 'single' };
+    cameraMode[2] = { mode: 'video' };
+
+    expect(
+      validateOpenConfig({
+        ...validConfig,
+        cameraMode,
+      })
+    ).toEqual({ ok: false, result: invalidResult });
+  });
+
   it('rejects an unknown dataRetainedMode', () => {
     expect(
       validateOpenConfig({ ...validConfig, dataRetainedMode: 'append' })
@@ -91,6 +104,19 @@ describe('validateOpenConfig', () => {
       ok: false,
       result: invalidResult,
     });
+  });
+
+  it('rejects sparse watermark content with an internal hole', () => {
+    const content = new Array<unknown>(3);
+    content[0] = 'title';
+    content[2] = 'body';
+
+    expect(
+      validateOpenConfig({
+        ...validConfig,
+        watermark: { content },
+      })
+    ).toEqual({ ok: false, result: invalidResult });
   });
 
   it.each(['fast', false, 1])(

@@ -37,6 +37,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isDenseArray(value: unknown[]): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (!Object.prototype.hasOwnProperty.call(value, index)) return false;
+  }
+  return true;
+}
+
 function isOneOf<T extends string>(
   value: unknown,
   options: readonly T[]
@@ -96,6 +103,7 @@ function normalizeWatermark(value: unknown): WatermarkType | null {
   if (
     !isRecord(value) ||
     !Array.isArray(value.content) ||
+    !isDenseArray(value.content) ||
     !value.content.every((line) => typeof line === 'string') ||
     !isOptionalOneOf(value.position, WATERMARK_POSITIONS)
   ) {
@@ -120,6 +128,7 @@ export function validateOpenConfig(value: unknown): ValidationResult {
     !isRecord(value) ||
     !Array.isArray(value.cameraMode) ||
     value.cameraMode.length === 0 ||
+    !isDenseArray(value.cameraMode) ||
     !isOneOf(value.dataRetainedMode, DATA_RETAINED_MODES) ||
     !isOptionalOneOf(
       value.photoQualityPrioritization,

@@ -23,8 +23,10 @@ type MockCameraProps = {
   device: CameraDevice;
   currentMode: CameraMode;
   frame: CameraFrameRect;
+  isActive?: boolean;
   enableZoom?: boolean;
   enableFocus?: boolean;
+  configurationGeneration?: number;
   onConfigured?: () => void;
 };
 
@@ -100,6 +102,14 @@ function configureLatest(): void {
   const callback = latestCamera().props.onConfigured;
   if (callback == null) throw new Error('missing onConfigured callback');
   act(() => callback());
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 function renderContainer(
@@ -261,6 +271,117 @@ it('fallback 后 configuration key 使用 actual position，即使 device id 相
   layoutCameraViewport(harness, { width: 391, height: 844 });
 
   expect(latestCamera().props.device.position).toBe('back');
+  expect(latestCamera().props.enableFocus).toBe(false);
+  configureLatest();
+  expect(latestCamera().props.enableFocus).toBe(true);
+});
+
+it('capture 期间只保留 committed device，回到 ready 后才原子提交 pending inventory', async () => {
+  const back = cameraDevice('back', 'capture-device');
+  const front = cameraDevice('front', 'capture-fallback');
+  mockInventory = { back };
+  const capture = deferred<CustomPhotoFile | null>();
+  mockCapture.mockReturnValueOnce(capture.promise);
+  const harness = renderContainer('back');
+  layoutCameraViewport(harness);
+  configureLatest();
+  fireEvent.press(harness.getByTestId('aspect-btn'));
+  const committedInstance = latestCamera().instanceId;
+
+  fireEvent.press(harness.getByTestId('shutter-btn'));
+  mockInventory = { front };
+  layoutCameraViewport(harness, { width: 391, height: 844 });
+
+  expect(latestCamera().props.device).toBe(back);
+  expect(latestCamera().instanceId).toBe(committedInstance);
+
+  const raw = makePhotoFile({
+    id: 'capture-pending-selection',
+    path: '/capture-pending-selection.jpg',
+    uri: 'file:///capture-pending-selection.jpg',
+    cameraType: 'back',
+    mode: 'continuous',
+  });
+  await act(async () => {
+    capture.resolve(raw);
+    await capture.promise;
+  });
+  await waitFor(() => expect(latestCamera().props.device).toBe(front));
+  expect(latestCamera().props.enableFocus).toBe(false);
+  configureLatest();
+  expect(latestCamera().props.enableFocus).toBe(true);
+});
+
+it('inventory 消失时忙态保留 committed device，回到 ready 后进入 no-device', async () => {
+  const back = cameraDevice('back', 'removed-during-capture');
+  mockInventory = { back };
+  const capture = deferred<CustomPhotoFile | null>();
+  mockCapture.mockReturnValueOnce(capture.promise);
+  const harness = renderContainer('back');
+  layoutCameraViewport(harness);
+  configureLatest();
+  fireEvent.press(harness.getByTestId('aspect-btn'));
+  fireEvent.press(harness.getByTestId('shutter-btn'));
+
+  mockInventory = {};
+  layoutCameraViewport(harness, { width: 391, height: 844 });
+  expect(latestCamera().props.device).toBe(back);
+  expect(harness.queryByTestId('no-camera')).toBeNull();
+
+  const raw = makePhotoFile({
+    id: 'removed-inventory-photo',
+    path: '/removed-inventory-photo.jpg',
+    uri: 'file:///removed-inventory-photo.jpg',
+    cameraType: 'back',
+    mode: 'continuous',
+  });
+  await act(async () => {
+    capture.resolve(raw);
+    await capture.promise;
+  });
+
+  await waitFor(() => expect(harness.getByTestId('no-camera')).toBeTruthy());
+  expect(harness.queryByTestId('mock-native-camera')).toBeNull();
+});
+
+it('same-id device object replacement still starts a gated native generation', () => {
+  const original = cameraDevice('back', 'stable-public-id');
+  mockInventory = { back: original };
+  const harness = renderContainer('back');
+  layoutCameraViewport(harness);
+  configureLatest();
+  const replacement = cameraDevice('back', 'stable-public-id');
+
+  mockInventory = { back: replacement };
+  layoutCameraViewport(harness, { width: 391, height: 844 });
+
+  expect(latestCamera().props.device).toBe(replacement);
+  expect(latestCamera().props.enableFocus).toBe(false);
+  expect(latestCamera().props.configurationGeneration).toBe(1);
+});
+
+it('preview 期间冻结 committed selection，退出后再配置最新 inventory', async () => {
+  const back = cameraDevice('back', 'preview-device');
+  const front = cameraDevice('front', 'preview-fallback');
+  mockInventory = { back };
+  const harness = renderContainer('back');
+  layoutCameraViewport(harness);
+  configureLatest();
+  fireEvent.press(harness.getByTestId('aspect-btn'));
+  await act(async () => {
+    fireEvent.press(harness.getByTestId('shutter-btn'));
+    await Promise.resolve();
+  });
+  fireEvent.press(harness.getByTestId('thumbnail-stack'));
+  expect(harness.getByTestId('preview-overlay')).toBeTruthy();
+
+  mockInventory = { front };
+  layoutCameraViewport(harness, { width: 391, height: 844 });
+
+  expect(latestCamera().props.device).toBe(back);
+  expect(latestCamera().props.isActive).toBe(false);
+  fireEvent.press(harness.getByTestId('back-btn'));
+  await waitFor(() => expect(latestCamera().props.device).toBe(front));
   expect(latestCamera().props.enableFocus).toBe(false);
   configureLatest();
   expect(latestCamera().props.enableFocus).toBe(true);

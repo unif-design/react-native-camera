@@ -412,7 +412,7 @@ it('discarded callback always registers then deletes independently of token stat
   expect(harness.unlink).toHaveBeenCalledWith('/discarded.mp4');
 });
 
-it('cancel claims terminal state before a synchronous finish and reclaims the path', async () => {
+it('transaction-local cancel claim blocks a synchronous finish while the controller token remains current', async () => {
   let callbacks!: VideoCallbacks;
   const file = video('/cancel-race.mp4', 2);
   const harness = setup({
@@ -427,15 +427,17 @@ it('cancel claims terminal state before a synchronous finish and reclaims the pa
       }),
     },
   });
+  const token = harness.begin();
   await act(async () => {
-    await harness.start();
+    await harness.start(token);
   });
+  expect(harness.result.current.controller.isCurrent(token)).toBe(true);
 
   await act(async () => {
-    harness.result.current.controller.forceTeardown();
     await harness.result.current.transaction.cancel();
   });
 
+  expect(harness.result.current.controller.isCurrent(token)).toBe(true);
   expect(harness.registry.stateOf(file.path)).toBe('deleted');
   expect(harness.result.current.controller.state.files).toEqual([]);
   expect(harness.camera.cancelVideo).toHaveBeenCalledTimes(1);
@@ -673,6 +675,75 @@ it('layout unmount commit synchronously invalidates callbacks before passive cle
   expect(harness.eventLog).toEqual([]);
   expect(harness.registry.stateOf(file.path)).toBe('deleted');
   expect(harness.unlink).toHaveBeenCalledWith(file.path);
+});
+
+it('deduplicates a rejecting native cancel across repeated cancel and unmount, then reclaims a late file silently', async () => {
+  const nativeCancel = deferred<void>();
+  let callbacks!: VideoCallbacks;
+  const cleanupOrder: string[] = [];
+  const unlink = jest
+    .fn<Promise<void>, [string]>()
+    .mockResolvedValue(undefined);
+  const baseRegistry = createFileRegistry(unlink);
+  const registry: FileRegistry = {
+    ...baseRegistry,
+    register: (path) => {
+      cleanupOrder.push(`register:${path}`);
+      baseRegistry.register(path);
+    },
+    delete: (path) => {
+      cleanupOrder.push(`delete:${path}`);
+      return baseRegistry.delete(path);
+    },
+  };
+  const harness = setup({
+    registry,
+    camera: {
+      startVideo: jest.fn((nextCallbacks) => {
+        callbacks = nextCallbacks;
+        return Promise.resolve('started');
+      }),
+      cancelVideo: jest.fn(() => nativeCancel.promise),
+    },
+  });
+  await act(async () => {
+    await harness.start();
+  });
+  harness.eventLog.length = 0;
+  harness.onError.mockClear();
+
+  let cancelRequests: Promise<void>[] = [];
+  const late = video('/late-after-cancel-reject.mp4', 6);
+  act(() => {
+    cancelRequests = [
+      harness.result.current.transaction.cancel(),
+      harness.result.current.transaction.cancel(),
+      harness.result.current.transaction.cancel(),
+    ];
+  });
+  act(() => {
+    harness.unmount();
+  });
+  act(() => {
+    callbacks.onCancelled?.();
+    callbacks.onError(new Error('late native error'));
+    callbacks.onFinished(late, 'stopped', 6);
+  });
+  await act(async () => {
+    nativeCancel.reject(new Error('native cancel rejected'));
+    await Promise.all(cancelRequests);
+    await flushMicrotasks();
+  });
+
+  expect(harness.camera.cancelVideo).toHaveBeenCalledTimes(1);
+  expect(harness.eventLog).toEqual([]);
+  expect(harness.onError).not.toHaveBeenCalled();
+  expect(cleanupOrder).toEqual([
+    `register:${late.path}`,
+    `delete:${late.path}`,
+  ]);
+  expect(registry.stateOf(late.path)).toBe('deleted');
+  expect(unlink).toHaveBeenCalledWith(late.path);
 });
 
 it('same-call-stack duplicate start and repeated stop/cancel are idempotent', async () => {

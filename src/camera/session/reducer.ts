@@ -111,7 +111,10 @@ export function cameraSessionReducer(
     if (state.phase !== 'ready' && state.phase !== 'configuring') return state;
 
     const changedState = applyConfigurationChanges(state, action.changes);
-    if (action.nativeConfigurationKey === state.nativeConfigurationKey) {
+    if (
+      action.nativeConfigurationKey === state.nativeConfigurationKey &&
+      !action.forceNativeReconfiguration
+    ) {
       return changedState;
     }
 

@@ -208,6 +208,27 @@ describe('useCameraSessionController', () => {
     });
   });
 
+  it('starts a new generation when native device object identity is replaced under the same public key', () => {
+    const { result } = setup();
+    configureReady(result);
+
+    let generation: number | null = null;
+    act(() => {
+      generation = result.current.beginConfiguration(
+        'device=back-1|output=photo',
+        { activePosition: 'back', canFlip: true },
+        true
+      );
+    });
+
+    expect(generation).toBe(1);
+    expect(result.current.state).toMatchObject({
+      phase: 'configuring',
+      configurationGeneration: 1,
+      nativeConfigurationKey: 'device=back-1|output=photo',
+    });
+  });
+
   it('increments native generation and ignores an older configured callback', () => {
     const { result } = setup();
     configureReady(result);

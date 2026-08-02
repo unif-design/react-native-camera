@@ -14,10 +14,14 @@ import { renderDark } from '../__helpers__/renderDark';
 // jest.mock 被 babel 提升到 import 上,故 helper 在工厂内 require(不能闭包捕获顶层 import)。
 jest.mock('react-native-vision-camera', () => {
   const vc = require('../__helpers__/visionCameraMock');
+  const devices = {
+    back: vc.makeDeviceStub({ position: 'back' }),
+    front: vc.makeDeviceStub({ position: 'front' }),
+  };
   return vc.makeVisionCameraMock({
     ...vc.grantedPermissionOverrides(),
-    useCameraDevice: (position: 'back' | 'front') =>
-      vc.makeDeviceStub({ position }),
+    // 官方 hook 在设备清单不变时保持对象身份;测试桩也必须遵守这一契约。
+    useCameraDevice: (position: 'back' | 'front') => devices[position],
   });
 });
 

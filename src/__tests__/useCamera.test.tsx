@@ -281,6 +281,51 @@ it('returns invalid_config without replacing the active valid session', async ()
   expect(mockContainerSnapshots).toHaveLength(1);
 });
 
+it('rejects sparse public config arrays without replacing the active session', async () => {
+  render(<Harness />);
+  const activePromise = open(createConfig());
+  const activeResolved = jest.fn();
+  activePromise.then(activeResolved);
+  const activeContainer = latestContainer();
+
+  const sparseModes = new Array<unknown>(3);
+  sparseModes[0] = { mode: 'single' };
+  sparseModes[2] = { mode: 'video' };
+  const sparseContent = new Array<unknown>(3);
+  sparseContent[0] = 'title';
+  sparseContent[2] = 'body';
+
+  const invalidConfigs = [
+    {
+      cameraMode: sparseModes,
+      dataRetainedMode: 'clear',
+    },
+    {
+      cameraMode: [{ mode: 'single' }],
+      dataRetainedMode: 'clear',
+      watermark: { content: sparseContent },
+    },
+  ] as unknown as OpenConfig[];
+
+  for (const invalidConfig of invalidConfigs) {
+    const invalidResolved = jest.fn();
+    open(invalidConfig).then(invalidResolved);
+    await flushMicrotasks();
+    expect(invalidResolved).toHaveBeenCalledWith({
+      code: 500,
+      data: [],
+      message: 'invalid_config',
+    });
+  }
+  await flushMicrotasks();
+
+  expect(activeResolved).not.toHaveBeenCalled();
+  expect(latestContainer()).toBe(activeContainer);
+  expect(mockContainerSnapshots).toHaveLength(1);
+  act(() => activeContainer.onSettle(cancelledResult));
+  await expect(activePromise).resolves.toEqual(cancelledResult);
+});
+
 it('transfers saved files and drains other owned files before resolving without waiting for unlink', async () => {
   const pendingUnlink = deferred();
   mockUnlink.mockImplementation(() => pendingUnlink.promise);
