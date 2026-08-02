@@ -114,7 +114,7 @@ useEffect(() => {
 
 ### `cameraMode` {#cameramode-behavior}
 
-- **数组的首项决定初始状态**：初始前/后摄取首项的 `type`（缺省 `back`），初始闪光取首项的 `flashMode`（缺省 `off`）；其余项的 `type` / `flashMode` 不影响初始化。
+- **数组的首项决定初始状态**：初始前/后摄取首项的 `type`（缺省 `back`），初始闪光取首项的 `flashMode`（缺省 `off`）；其余项的 `type` / `flashMode` 不影响初始化。请求方向没有设备时会自动 fallback 到另一侧，最终文件的 `cameraType` 以实际选中的设备为准。
 - **多项时底部出现模式 tab**：相机底部按数组顺序渲染「单拍 / 连拍 / 视频」切换 pill，用户拍摄过程中可自由切换。仅一项时不显示 tab。
 - 每项的 `mode`、`quality` 等字段见 [`CameraMode`](/docs/api/types#cameramode)。
 
@@ -130,6 +130,8 @@ useEffect(() => {
 ### `watermark` {#watermark-behavior}
 
 传入则**取景画面实时显示水印戳记**（WYSIWYG），**每次快门后逐张烧入**（保存时返回的已是烧好的成片）。仅对照片（`image/jpeg`）生效，录像无水印。详见 [水印指南](/docs/guides/watermark)。
+
+显式选择 `16:9`（拍后裁切）或存在可见水印时，处理失败不会把 raw / 半成品交给结果：相机保持当前会话、保留此前文件并显示“照片处理失败，请重试”，用户可直接重拍。录像不进入照片 processor。
 
 ### 拍摄质量（`photoQualityPrioritization` / `photoHDR` / `videoBitRate`） {#quality-behavior}
 

@@ -83,7 +83,18 @@ function PhotoScreen() {
 
 `open(config)` 会先做运行时校验:非法配置直接 resolve `500/invalid_config`,不会替换当前有效会话;第二次合法 `open()` 会先以 `code: 0` 取消旧会话,再启动新会话。`close()`、Hook 卸载和过期回调都受当前会话门禁保护,同一个 Promise 最多 resolve 一次。
 
+请求的前/后摄不可用时会自动 fallback 到另一侧，返回文件的 `cameraType` 始终是实际选中的设备。显式 `16:9` 裁切或可见水印的照片处理失败时，相机留在当前会话显示“照片处理失败，请重试”，保留此前文件，**不会**以错误 raw / 半成品完成 `open()`；录像不经过照片 processor。
+
+返回的 `code: 200` 文件仍在临时目录。库会在 resolve 前把这些路径同步 transfer 给消费者，此后取消、删除、重拍、切模式、关闭、supersede、卸载和过期回调会 best-effort 回收其余仍归库所有的临时文件；transfer 不代表已保存到相册或持久化。长期使用请在 `200` 后自行复制到业务目录或上传。
+
 > 相机 + 水印需真机(摄像头硬件 + Skia GPU);模拟器 / web 跑不起来,属预期行为。
+
+## 原生接入门禁
+
+- Babel 必须启用 `react-native-worklets/plugin`；相机的 pinch / 动画依赖 worklet runtime。
+- App 根需要 `GestureHandlerRootView`，否则 Modal 内手势无法可靠识别。
+- 安装所有 native peer 后，iOS 必须执行 `cd ios && bundle exec pod install`。
+- 权限只按实际能力配置：`CAMERA` / `NSCameraUsageDescription` 必需；只有使用 `video` 时才加 `RECORD_AUDIO` / `NSMicrophoneUsageDescription`。本库不写系统相册，因此不无条件要求 `NSPhotoLibraryAddUsageDescription` 或 `READ_MEDIA_IMAGES`。
 
 ## 文档
 

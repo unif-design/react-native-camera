@@ -117,7 +117,30 @@ yarn add @dr.pogodin/react-native-fs
 
 ---
 
-## 2. 配置权限 {#权限配置}
+## 2. 配置 Babel 与手势根节点
+
+worklet 动画与 Modal 内 pinch / 点击手势需要以下宿主配置：
+
+```js title="babel.config.js"
+module.exports = {
+  presets: ['module:@react-native/babel-preset'],
+  plugins: ['react-native-worklets/plugin'],
+};
+```
+
+`react-native-worklets/plugin` 必须存在于 Babel plugins 中。然后用 `GestureHandlerRootView` 包住 App 根节点（或确认既有根节点已包住），让相机 Modal 内的 Gesture Handler 正常工作：
+
+```tsx
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+export function App() {
+  return <GestureHandlerRootView style={{ flex: 1 }}><AppContent /></GestureHandlerRootView>;
+}
+```
+
+---
+
+## 3. 配置权限 {#权限配置}
 
 ### iOS（Info.plist）
 
@@ -157,7 +180,7 @@ yarn add @dr.pogodin/react-native-fs
 
 ---
 
-## 3. 原生编译
+## 4. 原生编译
 
 ### iOS:pod install
 
@@ -179,7 +202,7 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 
 ---
 
-## 4. 弹窗 / Toast 无需额外挂载 Host
+## 5. 弹窗 / Toast 无需额外挂载 Host
 
 相机的**二次确认弹窗 / Toast 是内部自洽的** —— 由相机 Modal 子树内的本地弹窗系统(`CameraDialogHost`)渲染,**不依赖** `@unif/react-native-design` 的全局 `ConfirmHost` / `ToastHost`。因此接入本库时:
 

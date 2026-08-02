@@ -249,7 +249,7 @@ function main() {
   write(path.join(staticDir, 'llms-full.txt'), llmsFull);
 
   // /llms.txt — 标准索引(H1 + 摘要 + 按顶层目录分节的链接列表,站点根)。
-  // 链接指向每页纯 .md(供 agent 按需抓取),全文一次性喂入走 /llms-full.txt。
+  // 链接必须相对 llms.txt，部署在 GitHub Pages 子路径时才不会错误跳到域名根。
   const entries = files.map(f => {
     const slug = relSlug(f);
     const outPath = safeOutPath(slug);
@@ -260,7 +260,7 @@ function main() {
     return {
       title: title || finalSlug,
       // mdPath 从规范化写入路径 outPath 反推,与实际 md 文件严格一致(不用可能含 ../ 的原始 slug)
-      mdPath: '/' + path.relative(staticDir, outPath).split(path.sep).join('/'),
+      mdPath: path.relative(staticDir, outPath).split(path.sep).join('/'),
       slug: `/${finalSlug}`,
       section: seg.length > 1 ? seg[0] : '概览',
       description: description || null,
@@ -271,7 +271,7 @@ function main() {
   const llmsLines = [
     `# ${SITE_NAME}`,
     '',
-    `> ${SITE_NAME} 文档索引。每个链接是该页的纯 Markdown 版(供 LLM 抓取);需要完整全文一次性喂入时用 /llms-full.txt。`,
+    `> ${SITE_NAME} 文档索引。每个链接是该页的纯 Markdown 版(供 LLM 抓取);需要完整全文一次性喂入时用 [llms-full.txt](llms-full.txt)。`,
     '',
   ];
   for (const section of sortSections(Object.keys(bySection))) {
@@ -293,7 +293,8 @@ function buildToc(titles) {
   return ['## 目录', '', ...titles.map(t => `- ${t}`), ''].join('\n');
 }
 function formatIndexLine(e) {
-  return e.description ? `- [${e.title}](${e.mdPath}) — ${e.description}` : `- [${e.title}](${e.mdPath})`;
+  const mdPath = e.mdPath.replace(/^\/+/, '');
+  return e.description ? `- [${e.title}](${mdPath}) — ${e.description}` : `- [${e.title}](${mdPath})`;
 }
 function sortSections(keys) {
   return [...keys].sort((a, b) => (a === '概览' ? -1 : b === '概览' ? 1 : a.localeCompare(b)));

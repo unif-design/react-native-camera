@@ -53,13 +53,13 @@ import type {
 | 字段 | 类型 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `mode` | `'single' \| 'continuous' \| 'video'` | ✅ | — | 拍摄模式：单拍 / 连拍 / 视频 |
-| `type` | `'back' \| 'front'` | — | `'back'` | 初始前/后摄。**仅数组首项生效**（决定相机打开时的初始镜头） |
+| `type` | `'back' \| 'front'` | — | `'back'` | 请求的初始前/后摄。**仅数组首项生效**；请求侧无设备时自动 fallback 到另一侧 |
 | `flashMode` | `'auto' \| 'on' \| 'off'` | — | `'off'` | 初始闪光。**仅数组首项生效**作初始值；闪光开关之后由相机内 UI 控制 |
 | `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认） |
 | `recTime` | `number` | — | — | 录制时长上限（秒）。已接线 vision-camera `maxDuration`：到点原生自动停止、视频自动入已拍列表（缺省不设=不自动停） |
 
 :::note `type` / `flashMode` / `recTime` 的现状
-- `type`、`flashMode` 沿用自原版 4.x 的 API，仅**数组首项**被读取，作相机打开时的初始镜头 / 初始闪光；其余项的这两个字段被忽略。
+- `type`、`flashMode` 沿用自原版 4.x 的 API，仅**数组首项**被读取，作相机打开时的初始镜头 / 初始闪光；其余项的这两个字段被忽略。请求的前/后摄不可用时自动选择另一侧，最终 `CustomPhotoFile.cameraType` 是实际方向。
 - `recTime` 已接线到 vision-camera `maxDuration`（2.21 起）：到点原生自动停止，视频与手动停止走同一路径入列。缺省不传则不自动停。
 :::
 
@@ -126,6 +126,7 @@ import type {
 | `height` | `number` | 高（px） |
 | `mime` | `'image/jpeg' \| 'video/mp4'` | MIME 类型 |
 | `mode` | `'single' \| 'continuous' \| 'video'` | 模式（2.x 字段名，= `cameraMode`） |
+| `isRemake` | `boolean` | 是否翻拍；通用拍照恒为 `false` |
 | `duration?` | `number` | 时长（秒，仅 video 条目有，取录制实际时长） |
 
 :::info `cameraMode` 与 `mode` 的关系
@@ -133,7 +134,9 @@ import type {
 :::
 
 :::warning `path` / `uri` 指向临时文件，需要自行转存
-拍摄产物写在系统临时目录（`RNFS.TemporaryDirectoryPath`），不写入系统相册。要长期保留，就在拿到 `code === 200` 的 `data` 后复制到业务目录或直接上传。**当前实现不会自动清理这些文件**，磁盘占用与保留时长由消费方负责；系统也可能在任意时刻回收临时目录，不要把这些路径当作持久存储。
+拍摄产物写在系统临时目录（`RNFS.TemporaryDirectoryPath`），不写入系统相册。`code === 200` 前，库会同步把返回路径 transfer 给消费者；这只表示库不再负责删除它，**不表示已复制到持久目录或写入系统相册**。要长期保留，请在拿到 `data` 后立即复制到业务目录或上传。
+
+库会在 delete / retake / clear mode / cancel / close / supersede / unmount / stale callback 时 best-effort 回收仍由库拥有的临时路径；`open()` Promise 不等待后台 unlink I/O。系统也可能随时回收临时目录，不要把返回路径当作持久存储。
 :::
 
 ---

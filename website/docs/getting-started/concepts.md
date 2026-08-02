@@ -86,13 +86,13 @@ Promise.resolve(CameraResult)
 - **取消也 resolve** —— 用户取消时 `code` 为 `0`,**不会 reject**。
 - **合法重入先取消旧会话** —— 当前会话尚未完成时再次合法 `open()`,旧 Promise 先 resolve `code: 0`,然后新会话开始;非法新配置只返回 `500/invalid_config`,不影响旧会话。
 - **每个 Promise 最多完成一次** —— `close()`、Hook 卸载、保存回调或取消回调同时发生时,只有当前会话的第一个终态生效;旧会话的过期回调会被忽略。
-- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间 footer 提示「正在生成水印图片…」)。Promise resolve 时水印已烧入成片。
+- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间 footer 提示「正在生成水印图片…」)。显式 `16:9` 裁切或可见水印处理失败时，留在会话内显示“照片处理失败，请重试”，不交付 raw / 半成品，Promise 继续等待用户重试或取消。
 
 ### `config`:`cameraMode` 与 `dataRetainedMode`
 
 `api.open(config)` 的入参是 `OpenConfig`:
 
-- **`cameraMode: CameraMode[]`** —— 拍摄模式数组,至少一项。每项的 `mode` 为 `'single'`(单拍) / `'continuous'`(连拍) / `'video'`(录像);可选 `quality`(0~1 JPEG 压缩系数,默认 `0.9`)。传多项时,相机底部出现模式 tab 供用户切换。
+- **`cameraMode: CameraMode[]`** —— 拍摄模式数组,至少一项。每项的 `mode` 为 `'single'`(单拍) / `'continuous'`(连拍) / `'video'`(录像);可选 `quality`(0~1 JPEG 压缩系数,默认 `0.9`)。传多项时,相机底部出现模式 tab 供用户切换；首项请求的前/后摄不可用时会自动 fallback 到另一侧，返回文件记录实际 `cameraType`。
 - **`dataRetainedMode: 'clear' | 'retain'`** —— 用户切换模式时:`'clear'` 清除已拍文件,`'retain'` 保留。
 - **`watermark?`** —— 可选,见模型五。
 
@@ -138,9 +138,13 @@ watermark: {
 
 - **仅对照片(`image/jpeg`)生效** —— 水印烧图把结果编码为 JPEG;**录像(`video/mp4`)没有水印**。
 - **是可视标记,不是防篡改手段** —— 水印只是叠加在像素上的文字,不提供任何加密 / 防伪 / 签名保证。
-- **烧图失败不阻断保存** —— 读写或解码异常时返回原图,拍摄照常成功。
+- **处理失败可重试** —— 显式 `16:9` 裁切或可见水印的解码 / 绘制 / 编码失败时，不返回原图、不结束会话；相机显示“照片处理失败，请重试”，保留此前文件。录像不经过照片 processor。
 
 > 水印用法详解见[指南 → 水印](/docs/guides/watermark)。
+
+## 模型六：临时文件与所有权
+
+拍摄结果是临时路径，不会自动写入系统相册。`code === 200` 前库会同步 transfer 返回路径的所有权给消费者，之后消费者应自行复制 / 上传以长期保留；transfer 不是持久化动作。仍由库拥有的临时文件会在删除、重拍、清空模式、取消、关闭、supersede、卸载或过期 callback 时 best-effort 回收，Promise 不会等待 unlink 完成。
 
 ---
 

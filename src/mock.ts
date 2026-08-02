@@ -3,6 +3,8 @@
 //
 // 用法(消费者 jest setup 或单个测试文件):
 //
+//   import { renderHook } from '@testing-library/react-native';
+//
 //   jest.mock('@unif/react-native-camera', () =>
 //     require('@unif/react-native-camera/mock')
 //   );
@@ -11,10 +13,17 @@
 // open 默认 resolve { code: 0, data: [], message: 'cancelled' }。
 // 消费者可按需覆盖单次返回:
 //
-//   const [api] = useCamera();
+//   const { result } = renderHook(() => useCamera());
+//   const [api] = result.current;
 //   (api.open as jest.Mock).mockResolvedValueOnce({
-//     code: 200, data: [{ path: '/x.jpg', uri: 'file:///x.jpg', width: 1, height: 1,
-//                         mime: 'image/jpeg', mode: 'single' }], message: 'ok',
+//     code: 200,
+//     data: [{
+//       id: '1', cameraType: 'back', cameraMode: 'single',
+//       path: '/tmp/photo.jpg', uri: 'file:///tmp/photo.jpg',
+//       width: 1080, height: 1920, mime: 'image/jpeg',
+//       mode: 'single', isRemake: false,
+//     }],
+//     message: 'ok',
 //   });
 
 import { useRef } from 'react';

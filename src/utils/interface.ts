@@ -12,7 +12,7 @@ export type AspectRatio = '4:3' | '16:9';
 export type Point = { x: number; y: number };
 
 export type CameraMode = {
-  /** 初始前/后摄,缺省 back。H5 传入,接线为初始 device position。 */
+  /** 请求的初始前/后摄,缺省 back。请求侧不可用时自动 fallback 到另一侧，结果 cameraType 记录实际设备。 */
   type?: CameraType;
   /** 初始闪光(首项 cameraMode 生效);接线为初始闪光,运行时可在相机内左侧竖栏切换。 */
   flashMode?: FlashMode;
@@ -43,7 +43,7 @@ export type WatermarkType = {
 export type OpenConfig = {
   cameraMode: CameraMode[];
   dataRetainedMode: DataRetainedMode;
-  /** 水印,缺省不加;传入则取景显示戳记 + 保存时烧入成片 */
+  /** 水印,缺省不加;传入则取景显示戳记 + 保存时烧入成片。显式 16:9/可见水印处理失败会留在会话内重试，不交付 raw。 */
   watermark?: WatermarkType;
   /**
    * 照片质量优先级(全局,作用于所有照片模式)。
@@ -70,7 +70,7 @@ export type CustomPhotoFile = {
   // —— 原版字段 ——
   /** 唯一 id,时间戳 + 序号(避免同毫秒撞 id)。 */
   id: string;
-  /** 拍摄时的前/后摄。 */
+  /** 实际选中的拍摄前/后摄（请求侧不可用 fallback 时可能不同于 CameraMode.type）。 */
   cameraType: CameraType;
   /** 模式(原版字段名,与 mode 同值)。 */
   cameraMode: CameraModeName;

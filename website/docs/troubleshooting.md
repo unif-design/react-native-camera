@@ -95,7 +95,7 @@ yarn add @shopify/react-native-skia @dr.pogodin/react-native-fs
 cd ios && bundle exec pod install
 ```
 
-> 烧图本身有兜底:解码 / 读写异常时返回原图,拍摄照常成功(`code: 200`),只是没烧上水印。水印是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
+> 显式 `16:9` 裁切或可见水印处理失败时，不会返回 raw / 半成品并以 `200` 成功；相机会保留当前 session 与此前文件，提示“照片处理失败，请重试”。水印仍只是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
 
 ---
 
