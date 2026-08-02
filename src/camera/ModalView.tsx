@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@unif/react-native-design';
 import { CameraDialogProvider } from './ui/CameraDialogHost';
@@ -18,24 +19,33 @@ export function ModalView({ visible, onClose, children }: Props) {
       animationType="slide"
       statusBarTranslucent
       onRequestClose={onClose}
+      supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
       testID="camera-modal"
     >
-      <SafeAreaProvider>
-        {/* 相机 Modal 强制深色:取景永远暗底,内部 useColors() 恒返回 dark token
-            (含 CameraDialogHost 弹窗),不跟随宿主 / 系统主题。 */}
-        <ThemeProvider forceScheme="dark">
-          {/* 本地弹窗系统:相机 Modal 内部自带 confirm/toast(absolute overlay),
-              不走 design 全局 host —— 后者挂在 App 根,会被相机 Modal 盖住。 */}
-          <CameraDialogProvider>
-            <View style={styles.root}>{children}</View>
-          </CameraDialogProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
+      {/* Modal 展示在独立 native root/window，消费者 App 根的原生手势 root 无法覆盖
+          这里的子树；因此相机内部自带 flex:1 root，确保 pinch / tap 始终可识别。 */}
+      <GestureHandlerRootView
+        testID="camera-gesture-root"
+        style={styles.gestureRoot}
+      >
+        <SafeAreaProvider>
+          {/* 相机 Modal 强制深色:取景永远暗底,内部 useColors() 恒返回 dark token
+              (含 CameraDialogHost 弹窗),不跟随宿主 / 系统主题。 */}
+          <ThemeProvider forceScheme="dark">
+            {/* 本地弹窗系统:相机 Modal 内部自带 confirm/toast(absolute overlay),
+                不走 design 全局 host —— 后者挂在 App 根,会被相机 Modal 盖住。 */}
+            <CameraDialogProvider>
+              <View style={styles.root}>{children}</View>
+            </CameraDialogProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: { flex: 1 },
   // 相机 Modal 根视图固定黑底:相机 UX 惯例,与 Container / 预览系列一致.
   root: { flex: 1, backgroundColor: VIEWFINDER.black },
 });

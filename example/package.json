@@ -10,7 +10,10 @@
     "build:ios": "react-native build-ios --mode Debug"
   },
   "dependencies": {
+    "@dr.pogodin/react-native-fs": "^2.38.2",
     "@sbaiahmed1/react-native-blur": "^4.6.2",
+    "@shopify/react-native-skia": "^2.6.4",
+    "@unif/react-native-camera": "workspace:*",
     "@unif/react-native-design": "0.20.0",
     "react": "19.2.3",
     "react-native": "0.85.0",
@@ -21,6 +24,7 @@
     "react-native-reanimated-carousel": "^5.0.0",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-svg": "^15.15.5",
+    "react-native-video": "7.0.0-beta.9",
     "react-native-vision-camera": "^5.0.0",
     "react-native-vision-camera-worklets": "^5.0.0",
     "react-native-worklets": "^0.11.3"
