@@ -10,6 +10,7 @@ import type {
   OpenConfig,
 } from '../../utils';
 import { makePhotoFile } from '../__helpers__/factories';
+import { layoutCameraViewport } from '../__helpers__/containerSession';
 
 type MockCameraProps = {
   onConfigured?: () => void;
@@ -104,7 +105,10 @@ function latestCameraProps(): MockCameraProps {
   return props;
 }
 
-async function configureLatest(): Promise<void> {
+async function configureLatest(
+  harness: ReturnType<typeof render>
+): Promise<void> {
+  layoutCameraViewport(harness);
   await waitFor(() =>
     expect(latestCameraProps().onConfigured).toEqual(expect.any(Function))
   );
@@ -161,7 +165,7 @@ it('saves through the real Container and transfers only the returned final file 
   );
   const harness = render(<Harness />);
   const resultPromise = open(makeConfig('single'));
-  await configureLatest();
+  await configureLatest(harness);
 
   await act(async () => {
     fireEvent.press(harness.getByTestId('shutter-btn'));
@@ -185,7 +189,7 @@ it('saves through the real Container and transfers only the returned final file 
 it('routes the real Modal hardware back through the registered recording controller', async () => {
   const harness = render(<Harness />);
   const resultPromise = open(makeConfig('video'));
-  await configureLatest();
+  await configureLatest(harness);
   await act(async () => {
     fireEvent.press(harness.getByTestId('shutter-btn'));
     await Promise.resolve();
@@ -209,7 +213,7 @@ it('routes the real Modal hardware back through the registered recording control
 it('supersedes through the real bridge and rejects stale UI/native continuations without touching the replacement session', async () => {
   const harness = render(<Harness />);
   const firstPromise = open(makeConfig('video'));
-  await configureLatest();
+  await configureLatest(harness);
   await act(async () => {
     fireEvent.press(harness.getByTestId('shutter-btn'));
     await Promise.resolve();
@@ -226,7 +230,7 @@ it('supersedes through the real bridge and rejects stale UI/native continuations
     message: 'cancelled',
   });
   expect(mockCancelVideo).toHaveBeenCalledTimes(1);
-  await configureLatest();
+  await configureLatest(harness);
 
   let secondSettled = false;
   secondPromise.then(() => {
@@ -261,7 +265,7 @@ it('supersedes through the real bridge and rejects stale UI/native continuations
 it('real hook unmount force-tears down the mounted Container recording exactly once', async () => {
   const harness = render(<Harness />);
   const resultPromise = open(makeConfig('video'));
-  await configureLatest();
+  await configureLatest(harness);
   await act(async () => {
     fireEvent.press(harness.getByTestId('shutter-btn'));
     await Promise.resolve();

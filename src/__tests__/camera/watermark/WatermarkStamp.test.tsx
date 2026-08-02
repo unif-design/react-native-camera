@@ -1,18 +1,26 @@
-import { fireEvent } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import { makeAnimatedFrameStub } from '../../__helpers__/cameraFrame';
 import { renderDark } from '../../__helpers__/renderDark';
 import { WatermarkStamp } from '../../../camera/watermark/WatermarkStamp';
 
 const frame = { x: 12, y: 20, width: 300, height: 400 };
+const animatedFrame = makeAnimatedFrameStub(frame);
 
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
 it('使用显式 frame 渲染透明 Skia Canvas + Paragraph，不再渲染 RN Text', () => {
+  const transitioningFrame = makeAnimatedFrameStub({
+    x: 21,
+    y: 34,
+    width: 280,
+    height: 360,
+  });
   const { getByTestId, queryByText } = renderDark(
     <WatermarkStamp
       frame={frame}
+      animatedFrame={transitioningFrame}
       watermark={{ content: ['L1', 'L2'], position: 'top-right' }}
     />
   );
@@ -22,13 +30,14 @@ it('使用显式 frame 渲染透明 Skia Canvas + Paragraph，不再渲染 RN Te
   ).toEqual(
     expect.objectContaining({
       position: 'absolute',
-      left: 12,
-      top: 20,
-      width: 300,
-      height: 400,
+      left: 21,
+      top: 34,
+      width: 280,
+      height: 360,
     })
   );
   expect(getByTestId('watermark-canvas').props.opaque).toBe(false);
+  expect(getByTestId('watermark-stamp').props.onLayout).toBeUndefined();
   expect(queryByText('L1')).toBeNull();
   expect(queryByText('L2')).toBeNull();
 });
@@ -36,7 +45,11 @@ it('使用显式 frame 渲染透明 Skia Canvas + Paragraph，不再渲染 RN Te
 it('effect cleanup dispose Paragraph 与 Builder', () => {
   const skia = require('@shopify/react-native-skia');
   const rendered = renderDark(
-    <WatermarkStamp frame={frame} watermark={{ content: ['x'] }} />
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['x'] }}
+    />
   );
   const builder = skia.Skia.ParagraphBuilder.Make.mock.results.at(-1).value;
   const paragraph = builder.build.mock.results[0].value;
@@ -52,6 +65,7 @@ it('等价 watermark 新对象保持同一语义快照，不重建或提前 disp
   const rendered = renderDark(
     <WatermarkStamp
       frame={frame}
+      animatedFrame={animatedFrame}
       watermark={{ content: ['标题', '正文'], position: 'bottom-right' }}
     />
   );
@@ -61,6 +75,7 @@ it('等价 watermark 新对象保持同一语义快照，不重建或提前 disp
   rendered.rerender(
     <WatermarkStamp
       frame={{ ...frame }}
+      animatedFrame={animatedFrame}
       watermark={{ content: ['标题', '正文'], position: 'bottom-right' }}
     />
   );
@@ -73,7 +88,11 @@ it('等价 watermark 新对象保持同一语义快照，不重建或提前 disp
 it('省略 position 与显式 top-right 共用快照，切到其他 position 才替换', () => {
   const skia = require('@shopify/react-native-skia');
   const rendered = renderDark(
-    <WatermarkStamp frame={frame} watermark={{ content: ['水印'] }} />
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['水印'] }}
+    />
   );
   const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
   const oldParagraph = oldBuilder.build.mock.results[0].value;
@@ -81,6 +100,7 @@ it('省略 position 与显式 top-right 共用快照，切到其他 position 才
   rendered.rerender(
     <WatermarkStamp
       frame={frame}
+      animatedFrame={animatedFrame}
       watermark={{ content: ['水印'], position: 'top-right' }}
     />
   );
@@ -92,6 +112,7 @@ it('省略 position 与显式 top-right 共用快照，切到其他 position 才
   rendered.rerender(
     <WatermarkStamp
       frame={frame}
+      animatedFrame={animatedFrame}
       watermark={{ content: ['水印'], position: 'top-left' }}
     />
   );
@@ -104,13 +125,21 @@ it('省略 position 与显式 top-right 共用快照，切到其他 position 才
 it('watermark 语义变化时替换 Paragraph，并只释放被替换的快照', () => {
   const skia = require('@shopify/react-native-skia');
   const rendered = renderDark(
-    <WatermarkStamp frame={frame} watermark={{ content: ['旧水印'] }} />
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['旧水印'] }}
+    />
   );
   const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
   const oldParagraph = oldBuilder.build.mock.results[0].value;
 
   rendered.rerender(
-    <WatermarkStamp frame={frame} watermark={{ content: ['新水印'] }} />
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['新水印'] }}
+    />
   );
 
   const newBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[1].value;
@@ -142,24 +171,14 @@ it('effect cleanup 的 dispose 抛错不冒泡，并继续尝试 Paragraph 与 B
   });
   skia.Skia.ParagraphBuilder.Make.mockReturnValueOnce(builder);
   const rendered = renderDark(
-    <WatermarkStamp frame={frame} watermark={{ content: ['x'] }} />
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['x'] }}
+    />
   );
 
   expect(() => rendered.unmount()).not.toThrow();
   expect(paragraph.dispose).toHaveBeenCalledTimes(1);
   expect(builder.dispose).toHaveBeenCalledTimes(1);
-});
-
-it('兼容未传 frame：先由父容器 layout 得到实际 frame，不读取 window width', () => {
-  const skia = require('@shopify/react-native-skia');
-  const { getByTestId } = renderDark(
-    <WatermarkStamp watermark={{ content: ['x'] }} />
-  );
-  const root = getByTestId('watermark-stamp');
-
-  fireEvent(root, 'layout', {
-    nativeEvent: { layout: { x: 0, y: 0, width: 240, height: 320 } },
-  });
-
-  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(1);
 });

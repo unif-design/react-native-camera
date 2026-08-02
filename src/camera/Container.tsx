@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -9,10 +10,10 @@ import {
   Linking,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
-import { useCameraDevice } from 'react-native-vision-camera';
+import { useCameraDevice, type DeviceFilter } from 'react-native-vision-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   r,
@@ -26,8 +27,11 @@ import type {
   RegisterSessionContainer,
   RegisterSessionController,
 } from './session/controllerBridge';
+import { AnimatedCameraFrame } from './AnimatedCameraFrame';
 import type { FileRegistry } from './session/fileRegistry';
 import { nativeConfigurationKey } from './session/configuration';
+import { selectCameraDevice } from './session/deviceSelection';
+import { fitCameraFrame, type CameraViewport } from './session/frameRect';
 import { useCameraDialog } from './ui/CameraDialogHost';
 import { useAppActive } from './hooks/useAppActive';
 import { useCameraSessionController } from './hooks/useCameraSessionController';
@@ -61,6 +65,10 @@ const SIDE_RAIL_LIFT = r(1);
 
 // absolute 浮层的层级意图:footer 必须最高(始终可点)→ sideRail → zoomChips/watermark。
 const Z = { overlay: 7, sideRail: 9, footer: 10 };
+const CAMERA_DEVICE_FILTER: DeviceFilter = {
+  physicalDevices: ['ultra-wide-angle', 'wide-angle'],
+};
+const ZERO_VIEWPORT: CameraViewport = { width: 0, height: 0 };
 
 type Props = {
   sessionId: number;
@@ -95,25 +103,29 @@ export function Container({
   const state = usePermissionFlow();
 
   const insets = useSafeAreaInsets();
-  // 初始前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
-  // 运行时翻转(S7):直接切 position state(无翻转动画,真机反馈奇怪故移除)。
+  // 初始 requested 前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
+  // requested 只表示用户意图；actual device/position 统一由 selectCameraDevice 给出。
+  // 两个 hook 每次 render 固定按 back/front 调用，缺一侧时才能可靠 fallback 到另一侧，
+  // 也避免 requested 改变后违反 Hooks 顺序或把「该侧缺失」误判成「整机无相机」。
   // 5.x：physicalDevices 字符串不带 -camera。请求 ultra-wide-angle + wide-angle
   // 换取 0.5x 超广角档(0.5x 的「用户倍数」经下方 displayMul 转换,见 useZoomController;不是 minZoom≤0.5)。
   // physicalDevices 是 best-match 排序、非硬过滤(vision-camera 文档:「filter
   // never excludes cameras」):不支持超广角的机型会自动 fallback 到 wide-angle
-  // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null;真正的
-  // device==null 仅「该方向无相机」时出现,已由下方 NoCamera(code 404)兜底,不崩。
+  // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null；只有 back/front
+  // inventory 都为空时 selection 才为 null，并由下方 NoCamera(code 404)兜底。
   // 历史上单 'wide-angle' 为规避 iOS #3773,启用超广角后需真机验证不复现。
   const firstMode = config.cameraMode[0];
   const initialPosition = firstMode?.type ?? 'back';
   const [requestedPosition, setRequestedPosition] = useState<'back' | 'front'>(
     initialPosition
   );
-  const device = useCameraDevice(requestedPosition, {
-    physicalDevices: ['ultra-wide-angle', 'wide-angle'],
-  });
-  const actualPosition =
-    device?.position === 'front' ? ('front' as const) : ('back' as const);
+  const backDevice = useCameraDevice('back', CAMERA_DEVICE_FILTER);
+  const frontDevice = useCameraDevice('front', CAMERA_DEVICE_FILTER);
+  const selection = useMemo(
+    () => selectCameraDevice(requestedPosition, backDevice, frontDevice),
+    [backDevice, frontDevice, requestedPosition]
+  );
+  const device = selection?.device;
 
   // 变焦控制器:vzf↔display 推导、zoom state/shared、设备切换 clamp 全在 hook 内。
   // zoom 显示全程走 UI 线程 zoomShared(pinch 不刷 state);setZoom 仅点击档/手势结束/设备切换回写。
@@ -127,10 +139,13 @@ export function Container({
     onError: showError,
   });
   const initialNativeConfigurationKey =
-    device == null || firstMode == null
+    selection == null || firstMode == null
       ? UNCONFIGURED_NATIVE_KEY
       : nativeConfigurationKey({
-          device: { id: device.id, position: actualPosition },
+          device: {
+            id: selection.device.id,
+            position: selection.activePosition,
+          },
           mode: firstMode,
           aspectRatio: '16:9',
           photoQualityPrioritization: config.photoQualityPrioritization,
@@ -143,8 +158,8 @@ export function Container({
       files: [],
       modeIndex: 0,
       aspectRatio: '16:9',
-      activePosition: initialPosition,
-      canFlip: true,
+      activePosition: selection?.activePosition ?? initialPosition,
+      canFlip: selection?.canFlip ?? false,
       flash: firstMode?.flashMode ?? 'off',
       sound: false,
       nativeConfigurationKey: initialNativeConfigurationKey,
@@ -176,10 +191,13 @@ export function Container({
 
   const configurationKeyFor = useCallback(
     (mode: CameraMode, nextAspectRatio = aspectRatio) =>
-      device == null
+      selection == null
         ? UNCONFIGURED_NATIVE_KEY
         : nativeConfigurationKey({
-            device: { id: device.id, position: actualPosition },
+            device: {
+              id: selection.device.id,
+              position: selection.activePosition,
+            },
             mode,
             aspectRatio: nextAspectRatio,
             photoQualityPrioritization: config.photoQualityPrioritization,
@@ -187,34 +205,27 @@ export function Container({
             videoBitRate: config.videoBitRate,
           }),
     [
-      actualPosition,
       aspectRatio,
       config.photoHDR,
       config.photoQualityPrioritization,
       config.videoBitRate,
-      device,
+      selection,
     ]
   );
 
-  // useCameraDevice 会先按 requestedPosition 返回实际设备；在 layout phase 把真实
-  // device.position 与 native identity 原子提交进 reducer，首帧交互仍保持 configuring。
+  // selection 的 actual position / canFlip 与 native identity 一起原子提交；requested
+  // 从不进入 native key 或 metadata。fallback inventory 后续变化也会进入新 generation。
   useLayoutEffect(() => {
-    if (device == null || currentMode == null) return;
+    if (selection == null || currentMode == null) return;
     beginConfiguration(configurationKeyFor(currentMode), {
-      activePosition: actualPosition,
-      canFlip: true,
+      activePosition: selection.activePosition,
+      canFlip: selection.canFlip,
     });
-  }, [
-    actualPosition,
-    beginConfiguration,
-    configurationKeyFor,
-    currentMode,
-    device,
-  ]);
+  }, [beginConfiguration, configurationKeyFor, currentMode, selection]);
 
   const applyMode = (nextIndex: number): void => {
     const nextMode = config.cameraMode[nextIndex];
-    if (nextMode == null || device == null) return;
+    if (nextMode == null || selection == null) return;
     beginConfiguration(configurationKeyFor(nextMode), {
       modeIndex: nextIndex,
     });
@@ -239,7 +250,9 @@ export function Container({
   };
 
   const onChangeAspectRatio = (nextAspectRatio: '4:3' | '16:9'): void => {
-    if (!capabilities.aspect || currentMode == null || device == null) return;
+    if (!capabilities.aspect || currentMode == null || selection == null) {
+      return;
+    }
     beginConfiguration(configurationKeyFor(currentMode, nextAspectRatio), {
       aspectRatio: nextAspectRatio,
     });
@@ -270,11 +283,20 @@ export function Container({
 
   // footer 高度 onLayout 实测,驱动浮层(sideRail/zoomChips)的 bottom;初值用估值防首帧跳动。
   const [footerHeight, setFooterHeight] = useState(FOOTER_FALLBACK);
-
-  // 取景框尺寸(与 Camera frame 一致):水印浮层限制在此框内,使取景水印落在「取景画面」角落
-  // (与照片烧录的 16:9 右上角一致),而非整屏黑边区。frameAspect:4:3=3/4、16:9=9/16。
-  const { width: winW } = useWindowDimensions();
-  const frameAspect = aspectRatio === '4:3' ? 3 / 4 : 9 / 16;
+  const [viewport, setViewport] = useState<CameraViewport>(ZERO_VIEWPORT);
+  const frame = useMemo(
+    () => fitCameraFrame(viewport, aspectRatio),
+    [aspectRatio, viewport]
+  );
+  const frameReady = frame.width > 0 && frame.height > 0;
+  const onViewportLayout = useCallback((event: LayoutChangeEvent): void => {
+    const { width, height } = event.nativeEvent.layout;
+    setViewport((current) =>
+      current.width === width && current.height === height
+        ? current
+        : { width, height }
+    );
+  }, []);
 
   if (state === 'denied') {
     return (
@@ -312,7 +334,7 @@ export function Container({
     );
   }
 
-  if (device == null) {
+  if (selection == null) {
     return (
       <NoCamera
         onCancel={() =>
@@ -342,161 +364,185 @@ export function Container({
   }));
 
   return (
-    <View style={styles.root} testID="device-ready">
-      {/* 取景铺满整屏 → 画面相对整屏垂直居中(上下黑边对称,系统相机式布局)。
-          控件全部 absolute 浮在取景之上,所以这里不再用纵向 flex 分割。 */}
-      <Camera
-        ref={cameraRef}
-        device={device}
-        currentMode={currentMode}
-        // 取景仅在 App 前台且非烧录态时活:烧水印时停取景(省电 + 释放摄像头),回前台恢复。
-        // 预览态由上方 previewing 分支整体卸载 Camera(不靠此 gate);Modal 不可见时
-        // Container 根本不挂载,故无需额外可见性 prop。
-        isActive={appActive && !photo.burning}
-        // 烧水印期间盖刚拍原图防黑屏(isActive=false 取景已停,被它盖住);见顺滑回看 spec。
-        frozenUri={photo.freezeUri}
-        flash={flash}
-        aspectRatio={aspectRatio}
-        zoomShared={zoomShared}
-        // 前摄定焦 → 关 pinch(只留点击对焦),与下方「前置不渲染变焦档」一致。
-        enableZoom={capabilities.zoom && session.activePosition === 'back'}
-        enableFocus={capabilities.focus}
-        // pinch 放大软上限(vzf):maxDisplay 已并入 SOFT_MAX_DISPLAY,÷displayMul 回 vzf。
-        softMaxZoom={maxDisplay / displayMul}
-        // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
-        onZoomEnd={setZoom}
-        sound={sound}
-        // 拍摄质量参数从 OpenConfig 透传;三者缺省 undefined → Camera 内按需加键、不传则走 SDK 默认。
-        photoQualityPrioritization={config.photoQualityPrioritization}
-        photoHDR={config.photoHDR}
-        videoBitRate={config.videoBitRate}
-        // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
-        // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
-        onCameraError={(e) => showError(e?.message || '相机会话异常,请重试')}
-        onConfigured={() => configured(session.configurationGeneration)}
-      />
-
-      {!recording && config.watermark && (
-        <View
-          style={styles.watermark}
-          pointerEvents="none"
-          testID="watermark-wrapper"
-        >
-          {/* 内层取景框(与 Camera frame 同尺寸、被外层居中):WatermarkStamp 按 position 在框内定位,
-              使取景水印落在「取景画面」内的角落,与照片烧录的 16:9 右上角一致;不再整屏 absoluteFill
-              —— 否则 top-right 落到屏幕顶部黑边(取景画面之外,真机已复现)。 */}
-          <View
-            style={[
-              styles.watermarkFrame,
-              { width: winW, height: winW / frameAspect },
-            ]}
-          >
-            <WatermarkStamp watermark={config.watermark} />
-          </View>
+    <View
+      style={styles.root}
+      testID="camera-viewport"
+      onLayout={onViewportLayout}
+    >
+      {!frameReady ? (
+        <View style={styles.layoutPending} testID="layout-pending">
+          <Loading />
         </View>
-      )}
+      ) : (
+        <View style={styles.ready} testID="device-ready">
+          <AnimatedCameraFrame frame={frame}>
+            {(animatedFrame) => (
+              <>
+                {/* 取景铺满整屏 → 画面相对整屏垂直居中(上下黑边对称,系统相机式布局)。
+                    控件全部 absolute 浮在取景之上,所以这里不再用纵向 flex 分割。 */}
+                <Camera
+                  ref={cameraRef}
+                  device={selection.device}
+                  currentMode={currentMode}
+                  frame={frame}
+                  animatedFrame={animatedFrame}
+                  // 取景仅在 App 前台且非烧录态时活:烧水印时停取景(省电 + 释放摄像头),回前台恢复。
+                  // 预览态由上方 previewing 分支整体卸载 Camera(不靠此 gate);Modal 不可见时
+                  // Container 根本不挂载,故无需额外可见性 prop。
+                  isActive={appActive && !photo.burning}
+                  // 烧水印期间盖刚拍原图防黑屏(isActive=false 取景已停,被它盖住);见顺滑回看 spec。
+                  frozenUri={photo.freezeUri}
+                  flash={flash}
+                  aspectRatio={aspectRatio}
+                  zoomShared={zoomShared}
+                  // 前摄定焦 → 关 pinch(只留点击对焦),与下方「前置不渲染变焦档」一致。
+                  enableZoom={
+                    capabilities.zoom && session.activePosition === 'back'
+                  }
+                  enableFocus={capabilities.focus}
+                  // pinch 放大软上限(vzf):maxDisplay 已并入 SOFT_MAX_DISPLAY,÷displayMul 回 vzf。
+                  softMaxZoom={maxDisplay / displayMul}
+                  // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
+                  onZoomEnd={setZoom}
+                  sound={sound}
+                  // 拍摄质量参数从 OpenConfig 透传;三者缺省 undefined → Camera 内按需加键、不传则走 SDK 默认。
+                  photoQualityPrioritization={config.photoQualityPrioritization}
+                  photoHDR={config.photoHDR}
+                  videoBitRate={config.videoBitRate}
+                  // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
+                  // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
+                  onCameraError={(e) =>
+                    showError(e?.message || '相机会话异常,请重试')
+                  }
+                  onConfigured={() =>
+                    configured(session.configurationGeneration)
+                  }
+                />
 
-      {!recording && (
-        <View
-          style={[styles.sideRail, { bottom: footerHeight + SIDE_RAIL_LIFT }]}
-        >
-          <SideRail
-            flash={flash}
-            aspectRatio={aspectRatio}
-            sound={sound}
-            disabled={!capabilities.aspect}
-            onChangeFlash={(nextFlash) => controller.setFlash(nextFlash)}
-            onChangeAspectRatio={onChangeAspectRatio}
-            onToggleSound={() => controller.setSound(!sound)}
-          />
-          <SideActions
-            canSave={capabilities.save}
-            backDisabled={!capabilities.userCancel}
-            onBack={controller.requestUserCancel}
-            onSave={photo.save}
-          />
-        </View>
-      )}
+                {!recording && config.watermark && (
+                  <View
+                    style={styles.watermark}
+                    pointerEvents="none"
+                    testID="watermark-wrapper"
+                  >
+                    {/* 同一 frame + 同一组 SharedValue，目标与 250ms 过渡都严格同框。 */}
+                    <WatermarkStamp
+                      watermark={config.watermark}
+                      frame={frame}
+                      animatedFrame={animatedFrame}
+                    />
+                  </View>
+                )}
+              </>
+            )}
+          </AnimatedCameraFrame>
 
-      {/* 前置(front)不渲染变焦档:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
+          {!recording && (
+            <View
+              style={[
+                styles.sideRail,
+                { bottom: footerHeight + SIDE_RAIL_LIFT },
+              ]}
+            >
+              <SideRail
+                flash={flash}
+                aspectRatio={aspectRatio}
+                sound={sound}
+                disabled={!capabilities.aspect}
+                onChangeFlash={(nextFlash) => controller.setFlash(nextFlash)}
+                onChangeAspectRatio={onChangeAspectRatio}
+                onToggleSound={() => controller.setSound(!sound)}
+              />
+              <SideActions
+                canSave={capabilities.save}
+                backDisabled={!capabilities.userCancel}
+                onBack={controller.requestUserCancel}
+                onSave={photo.save}
+              />
+            </View>
+          )}
+
+          {/* 前置(front)不渲染变焦档:前摄定焦、变焦无意义且 0.5x 不存在;切回后置恢复显示。
           ZoomChips = 0.5/1 档位药丸(点击跳档,高亮当前档;高亮档文字实时显示倍数)。
           变焦本身由 Camera 的双指 pinch 写 zoomShared 驱动(见 Camera.tsx)。 */}
-      {!recording && session.activePosition === 'back' && (
-        <View
-          style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
-        >
-          <ZoomChips
-            zoomShared={zoomShared}
-            displayMul={displayMul}
-            // 0.5 档仅超广角机型有:设备最广(minDisplay)≤ 0.5x 才渲染(±1e-3 容浮点漂移)。
-            showHalf={minDisplay <= 0.5 + 1e-3}
-            disabled={!capabilities.zoom}
-            onSelect={(displayZ) => {
-              if (!capabilities.zoom) return;
-              // 点击档:边界用 display 空间,内部 zoom/zoomShared 仍是 vzf。
-              // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
-              const vzf = clamp(
-                displayZ / displayMul,
-                device.minZoom,
-                device.maxZoom
-              );
-              setZoom(vzf);
-              zoomShared.value = vzf;
-            }}
-          />
-        </View>
-      )}
+          {!recording && session.activePosition === 'back' && (
+            <View
+              style={[styles.zoomChips, { bottom: footerHeight + CONTROL_GAP }]}
+            >
+              <ZoomChips
+                zoomShared={zoomShared}
+                displayMul={displayMul}
+                // 0.5 档仅超广角机型有:设备最广(minDisplay)≤ 0.5x 才渲染(±1e-3 容浮点漂移)。
+                showHalf={minDisplay <= 0.5 + 1e-3}
+                disabled={!capabilities.zoom}
+                onSelect={(displayZ) => {
+                  if (!capabilities.zoom) return;
+                  // 点击档:边界用 display 空间,内部 zoom/zoomShared 仍是 vzf。
+                  // display → vzf 反算(÷displayMul)再 clamp 回设备 vzf 范围。
+                  const vzf = clamp(
+                    displayZ / displayMul,
+                    selection.device.minZoom,
+                    selection.device.maxZoom
+                  );
+                  setZoom(vzf);
+                  zoomShared.value = vzf;
+                }}
+              />
+            </View>
+          )}
 
-      {/* 「生成中」遮罩仅在**有水印**时显示:无水印纯裁切(16:9)只靠定格帧画面定一下、不弹文字遮罩,
+          {/* 「生成中」遮罩仅在**有水印**时显示:无水印纯裁切(16:9)只靠定格帧画面定一下、不弹文字遮罩,
           更接近系统相机「拍照回看」、不突兀(用户反馈)。定格帧本身(Camera frozenUri)防黑屏不变。
           footer 不再整段替换(模式药丸恒定,不卸载 → 不跳档)。 */}
-      {photo.burning && config.watermark != null && (
-        <View
-          style={styles.burningOverlay}
-          pointerEvents="none"
-          testID="burning"
-        >
-          {/* 半透明黑玻璃卡片托住 spinner+文字:浮在任意照片上都清晰、更精致(系统相机式 loading)。 */}
-          <View style={styles.burningCard}>
-            <Loading size={r(40)} color="#fff" thickness={r(3)} />
-            <Text style={styles.burningText}>水印生成中…</Text>
+          {photo.burning && config.watermark != null && (
+            <View
+              style={styles.burningOverlay}
+              pointerEvents="none"
+              testID="burning"
+            >
+              {/* 半透明黑玻璃卡片托住 spinner+文字:浮在任意照片上都清晰、更精致(系统相机式 loading)。 */}
+              <View style={styles.burningCard}>
+                <Loading size={r(40)} color="#fff" thickness={r(3)} />
+                <Text style={styles.burningText}>水印生成中…</Text>
+              </View>
+            </View>
+          )}
+
+          <CaptureFlash trigger={photo.flashNonce} />
+
+          <View
+            style={[styles.bottom, { paddingBottom: insets.bottom + r(1) }]}
+            onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+          >
+            {recording ? (
+              <View style={styles.center}>
+                <RecordingTimer seconds={recSeconds} />
+              </View>
+            ) : (
+              <View style={styles.center}>
+                <ModeSwitcherPill
+                  items={modeItems}
+                  currentIndex={session.modeIndex}
+                  disabled={!capabilities.mode}
+                  onSelect={onSelectMode}
+                />
+              </View>
+            )}
+            <ActionRow
+              mode={currentMode.mode}
+              recording={recording}
+              shutterDisabled={!capabilities.capture}
+              flipDisabled={!capabilities.flip}
+              galleryDisabled={!capabilities.gallery}
+              latestUri={photos.at(-1)?.uri}
+              count={photos.length}
+              onShutter={onShutter}
+              onFlip={onFlip}
+              onOpenPreview={photo.openGallery}
+            />
           </View>
         </View>
       )}
-
-      <CaptureFlash trigger={photo.flashNonce} />
-
-      <View
-        style={[styles.bottom, { paddingBottom: insets.bottom + r(1) }]}
-        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
-      >
-        {recording ? (
-          <View style={styles.center}>
-            <RecordingTimer seconds={recSeconds} />
-          </View>
-        ) : (
-          <View style={styles.center}>
-            <ModeSwitcherPill
-              items={modeItems}
-              currentIndex={session.modeIndex}
-              disabled={!capabilities.mode}
-              onSelect={onSelectMode}
-            />
-          </View>
-        )}
-        <ActionRow
-          mode={currentMode.mode}
-          recording={recording}
-          shutterDisabled={!capabilities.capture}
-          flipDisabled={!capabilities.flip}
-          galleryDisabled={!capabilities.gallery}
-          latestUri={photos.at(-1)?.uri}
-          count={photos.length}
-          onShutter={onShutter}
-          onFlip={onFlip}
-          onOpenPreview={photo.openGallery}
-        />
-      </View>
     </View>
   );
 }
@@ -506,22 +552,26 @@ const makeStyles = (c: ColorTokens) =>
     // 相机主容器固定黑底:相机 UX 惯例(取景物理常量),不走 c.background token。
     // position:relative → 内部 absolute 浮层(footer/sideRail/zoomChips)以整屏为参照。
     root: { flex: 1, backgroundColor: VIEWFINDER.black, position: 'relative' },
-    // 全屏容器:定位所有权单独交给 WatermarkStamp(它按 watermark.position 六选一 absolute 定位、
-    // 自带 maxWidth)。早期 wrapper 自己 right/top 定位 + 子节点也 absolute → wrapper 坍缩 0×0 锚屏幕
-    // 右上,非 top-right 档(bottom/center)定位参照错位。改全屏铺满让 Stamp 在全屏内正确定位。
+    ready: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+    layoutPending: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // wrapper 只提供与 Camera 相同的 viewport 坐标系；精确 rect 由显式 frame
+    // 交给 WatermarkStamp，不在这里再次预算或居中。
     watermark: {
       position: 'absolute',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      alignItems: 'center',
-      justifyContent: 'center',
       zIndex: Z.overlay,
     },
-    // 内层取景框:与 Camera frame 同尺寸(winW × winW/frameAspect)、被外层居中;overflow:hidden
-    // 使框内 absolute 定位的 WatermarkStamp 落在取景画面内,而非整屏黑边。
-    watermarkFrame: { overflow: 'hidden' },
     // 控件浮层的 bottom 由 footerHeight 实测内联设置(见 JSX),这里只放与底无关的样式。
     sideRail: {
       position: 'absolute',

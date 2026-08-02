@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -25,7 +25,6 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import {
@@ -36,11 +35,13 @@ import {
 } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
+import type { AnimatedCameraFrameRect } from './AnimatedCameraFrame';
 import { pinchVzf } from './hooks/zoomMath';
 import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
 import { createRecorderController } from './recording/recorderController';
+import type { CameraFrameRect } from './session/frameRect';
 import type { AspectRatio, FlashMode } from './setup';
 
 const NEUTRAL_ZOOM = 1;
@@ -69,6 +70,8 @@ export type CameraHandle = {
 type Props = {
   device: CameraDevice;
   currentMode: CameraMode;
+  frame: CameraFrameRect;
+  animatedFrame: AnimatedCameraFrameRect;
   isActive?: boolean;
   flash?: FlashMode;
   aspectRatio?: AspectRatio;
@@ -97,6 +100,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   {
     device,
     currentMode,
+    frame,
+    animatedFrame,
     isActive = true,
     flash,
     aspectRatio,
@@ -119,25 +124,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const cameraType = device.position === 'front' ? 'front' : 'back';
 
-  // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
-  const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
-
-  // 取景框丝滑切换 = 「原生系统相机式」放大缩小的载体:画幅变化时取景框高度**动画过渡**
-  // (withTiming 伸缩,非硬跳 aspectRatio)。配合下方 photo 流恒全幅 + resizeMode="cover",
-  // 画面随框平滑缩放、session 不重配、无黑屏无闪断 —— 原生顺滑的来源(传感器固定全幅出流,
-  // 切画幅只是 UI 缩放)。**不再盖黑色转场遮罩**(用户否决:黑过渡更糟,原生就是放大缩小)。
-  //
-  // 目标高在 **JS 侧**预算成数字(worklet 外算):frame 宽恒 100% 屏宽,高 = winW / frameAspect。
-  // (4:3 → winW×4/3;16:9 → winW×16/9)。frameStyle worklet 只读 SharedValue 数字,绝不在
-  // worklet 内调 design r()(2.15.1 fatal 教训:worklet 里 r() 切倍数崩,jest 测不到)。
-  const { width: winW } = useWindowDimensions();
-  const targetFrameH = winW / frameAspect;
-  const frameH = useSharedValue(targetFrameH);
-  // 时长 250ms 为初值,真机可再调。
-  useEffect(() => {
-    frameH.value = withTiming(targetFrameH, { duration: 250 });
-  }, [frameH, targetFrameH]);
-  const frameStyle = useAnimatedStyle(() => ({ height: frameH.value }));
+  // 动画值由 Container 的 AnimatedCameraFrame 单点驱动，并与 WatermarkStamp 共用；
+  // worklet 只读 SharedValue 数字，绝不调用 design r()/rf() Remote Function。
+  const frameStyle = useAnimatedStyle(() => ({
+    left: animatedFrame.x.value,
+    top: animatedFrame.y.value,
+    width: animatedFrame.width.value,
+    height: animatedFrame.height.value,
+  }));
 
   // photo 流**恒固定全幅 UHD_4_3**(不随 aspectRatio 变):4:3 是传感器原生全幅,16:9 视野 =
   // 4:3 竖屏裁左右。固定它 → usePhotoOutput 入参不随画幅变 → photo outputs 身份稳定 →
@@ -377,6 +371,10 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const outputs: CameraOutput[] =
     currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
 
+  // Container 已在 zero viewport 阶段挡住挂载；内部再守一次，避免未来调用方把
+  // 无效目标 rect 送入 native Camera。
+  if (frame.width <= 0 || frame.height <= 0) return null;
+
   return (
     <View style={styles.root}>
       <GestureDetector gesture={composed}>
@@ -441,10 +439,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: VIEWFINDER.black,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  // 高度由 frameStyle 动画驱动(不在此写死 aspectRatio,改画幅时高度 withTiming 平滑伸缩)。
-  // overflow:hidden 裁掉溢出部分,框内只显示输出比例的画面。
-  frame: { width: '100%', overflow: 'hidden' },
+  // 完整 rect 由 frameStyle 动画驱动；overflow:hidden 裁掉 cover 的溢出画面。
+  frame: { position: 'absolute', overflow: 'hidden' },
 });

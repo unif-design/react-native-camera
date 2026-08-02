@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Canvas, Paragraph } from '@shopify/react-native-skia';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { WatermarkType } from '../../utils';
+import type { AnimatedCameraFrameRect } from '../AnimatedCameraFrame';
 import type { CameraFrameRect } from '../session/frameRect';
 import {
   createWatermarkParagraph,
@@ -11,11 +13,8 @@ import {
 
 type Props = {
   watermark: WatermarkType;
-  /**
-   * Task 6 会让 Camera 与水印强制消费同一个 frame；当前兼容旧 Container，
-   * 未传时只测量父取景框，不再读取 window 尺寸。
-   */
-  frame?: CameraFrameRect;
+  frame: CameraFrameRect;
+  animatedFrame: AnimatedCameraFrameRect;
 };
 
 type PreparedState = {
@@ -23,10 +22,8 @@ type PreparedState = {
   value: WatermarkParagraph;
 };
 
-export function WatermarkStamp({ watermark, frame }: Props) {
-  const [measured, setMeasured] = useState({ width: 0, height: 0 });
-  const width = frame?.width ?? measured.width;
-  const height = frame?.height ?? measured.height;
+export function WatermarkStamp({ watermark, frame, animatedFrame }: Props) {
+  const { width, height } = frame;
   const watermarkKey = JSON.stringify({
     content: watermark.content,
     position: watermark.position ?? 'top-right',
@@ -50,34 +47,19 @@ export function WatermarkStamp({ watermark, frame }: Props) {
     return () => value.dispose();
   }, [height, paragraphKey, watermarkSnapshot, width]);
 
-  const onLayout =
-    frame == null
-      ? (event: LayoutChangeEvent) => {
-          const { width: nextWidth, height: nextHeight } =
-            event.nativeEvent.layout;
-          setMeasured({ width: nextWidth, height: nextHeight });
-        }
-      : undefined;
   const visible = prepared?.key === paragraphKey ? prepared.value : null;
-  const rootStyle =
-    frame == null
-      ? styles.fill
-      : [
-          styles.frame,
-          {
-            left: frame.x,
-            top: frame.y,
-            width: frame.width,
-            height: frame.height,
-          },
-        ];
+  const frameStyle = useAnimatedStyle(() => ({
+    left: animatedFrame.x.value,
+    top: animatedFrame.y.value,
+    width: animatedFrame.width.value,
+    height: animatedFrame.height.value,
+  }));
 
   return (
-    <View
+    <Animated.View
       testID="watermark-stamp"
       pointerEvents="none"
-      onLayout={onLayout}
-      style={rootStyle}
+      style={[styles.frame, frameStyle]}
     >
       <Canvas
         testID="watermark-canvas"
@@ -94,7 +76,7 @@ export function WatermarkStamp({ watermark, frame }: Props) {
           />
         )}
       </Canvas>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -1,6 +1,7 @@
 import * as VisionCamera from 'react-native-vision-camera';
 import { Camera } from '../../camera/Camera';
 import type { CameraMode } from '../../utils';
+import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
@@ -16,6 +17,8 @@ const useVideoOutputMock = jest.mocked(VisionCamera.useVideoOutput);
 
 const singleMode: CameraMode = { mode: 'single' };
 const videoMode: CameraMode = { mode: 'video' };
+const frame = { x: 0, y: 0, width: 390, height: 520 };
+const animatedFrame = makeAnimatedFrameStub(frame);
 
 type RenderProps = Partial<{
   currentMode: CameraMode;
@@ -35,6 +38,8 @@ function renderCamera(p: RenderProps = {}) {
         }) as never
       }
       currentMode={p.currentMode ?? singleMode}
+      frame={frame}
+      animatedFrame={animatedFrame}
       isActive={false}
       photoQualityPrioritization={p.photoQualityPrioritization}
       photoHDR={p.photoHDR}
@@ -154,6 +159,8 @@ it('forwards the native onConfigured callback without changing Camera identity',
     <Camera
       device={makeDeviceStub() as never}
       currentMode={singleMode}
+      frame={frame}
+      animatedFrame={animatedFrame}
       isActive={false}
       onConfigured={onConfigured}
     />

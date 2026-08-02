@@ -9,6 +9,7 @@ import {
   type VideoCallbacks,
 } from '../../camera/Camera';
 import type { CameraMode } from '../../utils';
+import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
@@ -36,12 +37,16 @@ const useMicrophonePermissionMock = jest.mocked(
 // 直接渲染 <Camera>(绕过 Container),isActive=false 对齐烧水印时停取景。
 const singleMode: CameraMode = { mode: 'single' };
 const videoMode: CameraMode = { mode: 'video' };
+const frame = { x: 0, y: 0, width: 390, height: 520 };
+const animatedFrame = makeAnimatedFrameStub(frame);
 
 function renderCamera(frozenUri?: string) {
   return renderDark(
     <Camera
       device={makeDeviceStub() as never}
       currentMode={singleMode}
+      frame={frame}
+      animatedFrame={animatedFrame}
       isActive={false}
       frozenUri={frozenUri}
     />
@@ -110,6 +115,8 @@ function renderVideoCamera(currentMode: CameraMode = videoMode) {
       ref={ref}
       device={makeDeviceStub() as never}
       currentMode={mode}
+      frame={frame}
+      animatedFrame={animatedFrame}
       isActive={false}
     />
   );
@@ -312,6 +319,8 @@ describe('录像 native adapter', () => {
             ref={ref}
             device={makeDeviceStub() as never}
             currentMode={videoMode}
+            frame={frame}
+            animatedFrame={animatedFrame}
             isActive={false}
           />
         </ThemeProvider>

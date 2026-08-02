@@ -4,7 +4,10 @@ import { fireEvent, render, within } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
-import { createContainerSessionProps } from '../__helpers__/containerSession';
+import {
+  createContainerSessionProps,
+  layoutCameraViewport,
+} from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // Container 走到 device-ready 需:已授权 + 有设备。全局 jest.setup mock 把权限设 false、
@@ -39,7 +42,9 @@ const r = (position: 'back' | 'front') => {
       />
     </CameraDialogProvider>
   );
-  return renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  return rendered;
 };
 
 it('后置(back)渲染变焦档(0.5/1)', () => {
@@ -121,7 +126,9 @@ it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 po
       />
     </CameraDialogProvider>
   );
-  const { getByTestId } = renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  const { getByTestId } = rendered;
   const style = StyleSheet.flatten(
     getByTestId('watermark-wrapper').props.style
   );

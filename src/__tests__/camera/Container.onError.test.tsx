@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
-import { createContainerSessionProps } from '../__helpers__/containerSession';
+import {
+  createContainerSessionProps,
+  layoutCameraViewport,
+} from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // 已授权 + 有后置设备 → Container 走到 device-ready,渲染 <Camera>。
@@ -49,7 +52,9 @@ function renderContainer(onSettle: (r: unknown) => void) {
       />
     </CameraDialogProvider>
   );
-  return renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  return rendered;
 }
 
 it('onCameraError 触发顶部错误条(showError)', () => {

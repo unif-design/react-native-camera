@@ -20,6 +20,7 @@ import type {
 } from '../../utils';
 import { makePhotoFile } from '../__helpers__/factories';
 import { renderDark } from '../__helpers__/renderDark';
+import { layoutCameraViewport } from '../__helpers__/containerSession';
 
 type MockCameraProps = {
   device: CameraDevice;
@@ -57,7 +58,9 @@ jest.mock('react-native-vision-camera', () => {
   return vc.makeVisionCameraMock({
     ...vc.grantedPermissionOverrides(),
     useCameraDevice: (requested: 'back' | 'front') =>
-      vc.makeDeviceStub({ position: mockActualPosition ?? requested }),
+      mockActualPosition == null || mockActualPosition === requested
+        ? vc.makeDeviceStub({ position: requested })
+        : undefined,
   });
 });
 
@@ -176,6 +179,7 @@ function renderContainer(config: OpenConfig): Harness {
       />
     </CameraDialogProvider>
   );
+  layoutCameraViewport(rendered);
   return {
     ...rendered,
     registry,

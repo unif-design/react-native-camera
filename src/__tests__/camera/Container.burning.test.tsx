@@ -1,7 +1,10 @@
 import type { ReactElement } from 'react';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
-import { createContainerSessionProps } from '../__helpers__/containerSession';
+import {
+  createContainerSessionProps,
+  layoutCameraViewport,
+} from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 import { usePhotoCaptureTransaction } from '../../camera/hooks/usePhotoCaptureTransaction';
 import type { PhotoCaptureTransaction } from '../../camera/hooks/usePhotoCaptureTransaction';
@@ -65,7 +68,9 @@ function renderContainer(
       />
     </CameraDialogProvider>
   );
-  return renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  return rendered;
 }
 
 const WM: WatermarkType = { content: ['L1'], position: 'top-right' };
