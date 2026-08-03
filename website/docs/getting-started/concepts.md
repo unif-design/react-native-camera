@@ -86,7 +86,7 @@ Promise.resolve(CameraResult)
 - **取消也 resolve** —— 用户取消时 `code` 为 `0`,**不会 reject**。
 - **合法重入先取消旧会话** —— 当前会话尚未完成时再次合法 `open()`,旧 Promise 先 resolve `code: 0`,然后新会话开始;非法新配置只返回 `500/invalid_config`,不影响旧会话。
 - **每个 Promise 最多完成一次** —— `close()`、Hook 卸载、保存回调或取消回调同时发生时,只有当前会话的第一个终态生效;旧会话的过期回调会被忽略。
-- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间 footer 提示「正在生成水印图片…」)。显式 `16:9` 裁切或可见水印处理失败时，留在会话内显示“照片处理失败，请重试”，不交付 raw / 半成品，Promise 继续等待用户重试或取消。
+- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间取景画面中央显示「水印生成中…」遮罩)。显式 `16:9` 裁切或可见水印处理失败时，留在会话内显示“照片处理失败，请重试”，不交付 raw / 半成品，Promise 继续等待用户重试或取消。
 
 ### `config`:`cameraMode` 与 `dataRetainedMode`
 
@@ -125,7 +125,7 @@ Promise.resolve(CameraResult)
 
 ## 模型五:Skia 水印(仅照片)
 
-传入 `watermark` 后,相机在用户确认时用 **Skia** 把多行文字**离屏合成、烧进成片**:
+传入 `watermark` 后,相机在每次快门后用 **Skia** 把多行文字**离屏合成、烧进成片**:
 
 ```ts
 watermark: {
