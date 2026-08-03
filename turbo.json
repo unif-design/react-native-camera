@@ -1,62 +1,72 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".nvmrc", ".yarnrc.yml"],
+  "globalDependencies": [".nvmrc", ".yarnrc.yml", ".yarn/releases/**"],
   "globalEnv": ["NODE_ENV"],
   "tasks": {
-    "build:android": {
-      "env": ["ANDROID_HOME", "ORG_GRADLE_PROJECT_newArchEnabled"],
+    "@unif/react-native-camera-example#build:android": {
+      "env": [
+        "ANDROID_HOME",
+        "ANDROID_SDK_ROOT",
+        "JAVA_HOME",
+        "ORG_GRADLE_PROJECT_newArchEnabled"
+      ],
       "inputs": [
-        "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/yarn.lock",
         "$TURBO_ROOT$/tsconfig.json",
         "$TURBO_ROOT$/tsconfig.build.json",
         "$TURBO_ROOT$/babel.config.js",
+        "$TURBO_ROOT$/react-native.config.js",
         "$TURBO_ROOT$/src/**",
+        "!$TURBO_ROOT$/src/__tests__/**",
         "$TURBO_ROOT$/.yarn/patches/**",
+        "$TURBO_ROOT$/example/package.json",
+        "$TURBO_ROOT$/example/app.json",
+        "$TURBO_ROOT$/example/index.js",
         "$TURBO_ROOT$/example/babel.config.js",
+        "$TURBO_ROOT$/example/metro.config.js",
+        "$TURBO_ROOT$/example/tsconfig.json",
+        "$TURBO_ROOT$/example/src/**",
         "$TURBO_ROOT$/example/android/**",
-        "$TURBO_ROOT$/example/ios/**",
         "!$TURBO_ROOT$/example/android/.gradle/**",
         "!$TURBO_ROOT$/example/android/build/**",
         "!$TURBO_ROOT$/example/android/app/build/**",
-        "!$TURBO_ROOT$/example/ios/Pods/**",
-        "!$TURBO_ROOT$/example/ios/build/**",
         "!android/.gradle/**",
         "!android/build/**",
-        "!android/app/build/**",
-        "!ios/Pods/**",
-        "!ios/build/**"
+        "!android/app/build/**"
       ],
       "outputs": []
     },
-    "build:ios": {
+    "@unif/react-native-camera-example#build:ios": {
       "env": [
         "RCT_NEW_ARCH_ENABLED",
         "RCT_REMOVE_LEGACY_ARCH",
         "RCT_USE_RN_DEP",
-        "RCT_USE_PREBUILT_RNCORE"
+        "RCT_USE_PREBUILT_RNCORE",
+        "XCODE_VERSION"
       ],
       "inputs": [
-        "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/yarn.lock",
         "$TURBO_ROOT$/tsconfig.json",
         "$TURBO_ROOT$/tsconfig.build.json",
         "$TURBO_ROOT$/babel.config.js",
+        "$TURBO_ROOT$/react-native.config.js",
         "$TURBO_ROOT$/src/**",
+        "!$TURBO_ROOT$/src/__tests__/**",
         "$TURBO_ROOT$/.yarn/patches/**",
+        "$TURBO_ROOT$/example/package.json",
+        "$TURBO_ROOT$/example/app.json",
+        "$TURBO_ROOT$/example/index.js",
         "$TURBO_ROOT$/example/babel.config.js",
-        "$TURBO_ROOT$/example/android/**",
+        "$TURBO_ROOT$/example/metro.config.js",
+        "$TURBO_ROOT$/example/tsconfig.json",
+        "$TURBO_ROOT$/example/src/**",
+        "$TURBO_ROOT$/example/.bundle/config",
+        "$TURBO_ROOT$/example/Gemfile",
         "$TURBO_ROOT$/example/ios/**",
-        "!$TURBO_ROOT$/example/android/.gradle/**",
-        "!$TURBO_ROOT$/example/android/build/**",
-        "!$TURBO_ROOT$/example/android/app/build/**",
         "!$TURBO_ROOT$/example/ios/Pods/**",
         "!$TURBO_ROOT$/example/ios/build/**",
-        "!android/.gradle/**",
-        "!android/build/**",
-        "!android/app/build/**",
         "!ios/Pods/**",
         "!ios/build/**"
       ],

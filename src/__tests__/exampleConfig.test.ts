@@ -10,6 +10,10 @@ function readExample(relativePath: string): string {
   return readFileSync(join(exampleRoot, relativePath), 'utf8');
 }
 
+function readRoot(relativePath: string): string {
+  return readFileSync(join(root, relativePath), 'utf8');
+}
+
 function readWebsite(relativePath: string): string {
   return readFileSync(join(websiteRoot, relativePath), 'utf8');
 }
@@ -218,6 +222,24 @@ it('example App 以固定 Provider 顺序装配唯一 camera hook 与 holder', (
     /useEffect\(\s*\(\)\s*=>\s*\(\)\s*=>\s*\{\s*api\.close\(\);\s*\},\s*\[api\]\s*\)/
   );
   expect(source).not.toMatch(/\bConfirmHost\b|\bToastHost\b/);
+});
+
+it('CI 显式执行 example suites 与 contract，并保留完整 coverage gate', () => {
+  const workflow = readRoot('.github/workflows/ci.yml');
+  const exampleSuites = 'yarn test src/__tests__/example --runInBand';
+  const exampleContract =
+    'yarn test src/__tests__/exampleConfig.test.ts --runInBand';
+  const fullCoverage = 'yarn test --maxWorkers=2 --coverage';
+
+  expect(workflow).toContain(exampleSuites);
+  expect(workflow).toContain(exampleContract);
+  expect(workflow).toContain(fullCoverage);
+  expect(workflow.indexOf(exampleSuites)).toBeLessThan(
+    workflow.indexOf(exampleContract)
+  );
+  expect(workflow.indexOf(exampleContract)).toBeLessThan(
+    workflow.indexOf(fullCoverage)
+  );
 });
 
 it('camera wiring AST contract 识别包根 named alias 与 namespace 调用', () => {

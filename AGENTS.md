@@ -28,7 +28,13 @@ npx skills add unif-design/skills --skill rn-library --skill camera --global --a
 
 ## 仓库定位
 
-`@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / Skia 水印。目标运行时:**RN 0.85 新架构**(Fabric + Nitro Modules)、React 19、TypeScript 6。
+`@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / Skia 水印。
+
+当前仓库开发与 example 的验证基线是 **React Native 0.86.2 新架构**(Fabric + Nitro
+Modules)、**React 19.2.3**、**@unif/react-native-design 0.20.0** 与 TypeScript 6。
+发布包面向消费者的公共 contract 仍是
+`peerDependencies.react-native: ">=0.85.0"`；不得把当前验证版本误写成公共下限，也不得
+为同步文档收紧该 peer。
 
 **纯 JS 库**(无 `android/` `ios/` `cpp/` 原生源码) —— 原生能力全部来自 peerDependencies(vision-camera / nitro / skia / fs / video),本库只编排 JS/TS。`package.json#files` 里列了 `android/ios/cpp/*.podspec` 是模板的防御性写法,实际不打进包。
 
@@ -46,6 +52,8 @@ yarn lint --fix       # 自动修复
 yarn test             # jest(跑 src/__tests__/ 下 *.test.{ts,tsx},镜像源码结构)
 yarn test src/__tests__/useCamera.test.tsx   # 跑单文件
 yarn test -t "pattern"                        # 按测试名过滤
+yarn test src/__tests__/example --runInBand  # example 纯逻辑与 App 行为
+yarn test src/__tests__/exampleConfig.test.ts --runInBand  # example/native contract
 yarn prepare          # react-native-builder-bob → lib/module + lib/typescript
 yarn clean            # 清 lib/ + example 构建产物
 
@@ -207,7 +215,7 @@ design 是必装 peer,本库从它取这些(不自造):
 - **升级 native peer 后必须 `pod install`** —— `react-native-video` 7.x / Skia / fs 都有原生代码,升级后不重跑 `cd ios && bundle exec pod install` 会在编译/运行时报原生符号缺失。Android 端 Gradle 自动同步,无需额外配置。
 - **相机弹窗 / toast 自洽,无需为相机挂 host** —— 二次确认 / toast 由相机内部 `CameraDialogHost`(`useCameraDialog()`)在相机 Modal 子树内渲染,不依赖 App 根的 design `<ConfirmHost/>` / `<ToastHost/>`(见上「与 design 的耦合」)。若消费者用 design 其它命令式组件(本库之外),仍按 design 文档自行挂 host。
 - **必须真机调试** —— 相机 + 水印需要真机摄像头硬件 + Skia GPU。iOS 模拟器 / Android 模拟器 / web 都跑不起来,这是**预期行为,不是 bug**。
-- **仅新架构** —— 依赖 Nitro / vision-camera 5.x,旧架构(Bridge)不支持。**iOS 15.1+** / Android API 24+。(最低 iOS 由 RN 0.85 core 决定:RN 0.80+ 把 `min_ios_version_supported` 抬到 `15.1`,vision-camera / nitro / nitro-image / video / fs / blur 等 RN-core podspec 都继承它;Skia 写死 14.0、reanimated/worklets 13.4 更低,取**最高**即 15.1。)
+- **仅新架构** —— 依赖 Nitro / vision-camera 5.x,旧架构(Bridge)不支持。**iOS 15.1+** / Android API 24+。(公共 RN peer 下限 0.85 所在的 RN 0.80+ 已把 `min_ios_version_supported` 抬到 `15.1`;当前仓库实际用 RN 0.86.2 验证。vision-camera / nitro / nitro-image / video / fs / blur 等 RN-core podspec 都继承该下限,Skia 写死 14.0、reanimated/worklets 13.4 更低,取**最高**即 15.1。)
 - **权限按实际能力配置** —— Camera 是拍照 / 录像必需权限:iOS `NSCameraUsageDescription`,Android `android.permission.CAMERA`;用户拒绝后走 `code: 403`。Microphone 只在使用 video 时需要:iOS `NSMicrophoneUsageDescription`,Android `android.permission.RECORD_AUDIO`;本库在开始录像前请求,拒绝时不创建 Recorder、不 settle `403`,而是留在当前 session 显示录像启动错误。库只返回临时文件,不写系统相册,因此 `NSPhotoLibraryAddUsageDescription` / `READ_MEDIA_IMAGES` 不是本库无条件要求;消费者另行保存或读取相册时再按自己的实现配置。
 
 ## 测试

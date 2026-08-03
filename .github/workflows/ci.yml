@@ -156,6 +156,12 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Run example tests
+        run: yarn test src/__tests__/example --runInBand
+
+      - name: Run example contract
+        run: yarn test src/__tests__/exampleConfig.test.ts --runInBand
+
       - name: Run unit tests
         run: yarn test --maxWorkers=2 --coverage
 

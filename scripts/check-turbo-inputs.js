@@ -6,6 +6,7 @@ const { execFileSync } = require('node:child_process');
 const requiredInputs = [
   'src/camera/hooks/usePhotoCaptureTransaction.ts',
   'example/babel.config.js',
+  'example/src/App.tsx',
 ];
 
 const excludedInputPatterns = [
@@ -31,11 +32,14 @@ function getTasks(platform) {
 }
 
 function includesInput(inputs, expected) {
+  const workspaceRelative = expected.startsWith('example/')
+    ? expected.slice('example/'.length)
+    : null;
   return inputs.some(
     (input) =>
       input === expected ||
       input.endsWith(`/${expected}`) ||
-      (expected === 'example/babel.config.js' && input === 'babel.config.js')
+      (workspaceRelative != null && input === workspaceRelative)
   );
 }
 
@@ -52,13 +56,27 @@ function assertTaskInputs(platform, task) {
       throw new Error(`${task.taskId} 不应把缓存/输出纳入 input: ${leaked}`);
     }
   }
+  const oppositePlatform = platform === 'android' ? 'ios' : 'android';
+  const oppositePlatformPattern = new RegExp(
+    `(?:^|/)${oppositePlatform}(?:/|$)`
+  );
+  const crossPlatformInput = inputs.find((input) =>
+    oppositePlatformPattern.test(input)
+  );
+  if (crossPlatformInput != null) {
+    throw new Error(
+      `${task.taskId} 不应纳入 ${oppositePlatform} input: ${crossPlatformInput}`
+    );
+  }
   console.log(`[ok] ${task.taskId} (${inputs.length} inputs)`);
 }
 
 for (const platform of ['android', 'ios']) {
   const tasks = getTasks(platform);
-  if (tasks.length === 0) {
-    throw new Error(`Turbo dry-run 未找到 build:${platform} task`);
+  if (tasks.length !== 1) {
+    throw new Error(
+      `Turbo dry-run 的 build:${platform} 必须只有 example task，实际 ${tasks.length}`
+    );
   }
   tasks.forEach((task) => assertTaskInputs(platform, task));
 }
