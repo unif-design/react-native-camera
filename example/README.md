@@ -59,7 +59,7 @@ Android 先从 `adb devices` 取得 serial：
 
 ```sh
 adb devices
-yarn example android --device "ANDROID_DEVICE_SERIAL"
+yarn example android --deviceId "ANDROID_DEVICE_SERIAL"
 ```
 
 iOS 先取得设备 UDID：

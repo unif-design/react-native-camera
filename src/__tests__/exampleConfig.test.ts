@@ -242,6 +242,14 @@ it('CI 显式执行 example suites 与 contract，并保留完整 coverage gate'
   );
 });
 
+it('example README 将 adb serial 传给 CLI 的 deviceId 参数', () => {
+  const readme = readExample('README.md');
+
+  expect(readme).toContain(
+    'adb devices\nyarn example android --deviceId "ANDROID_DEVICE_SERIAL"'
+  );
+});
+
 it('camera wiring AST contract 识别包根 named alias 与 namespace 调用', () => {
   const namedAlias: SourceInput = {
     fileName: 'NamedAlias.tsx',
