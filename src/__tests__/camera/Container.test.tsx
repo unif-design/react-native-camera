@@ -1,8 +1,13 @@
-import type { ReactElement } from 'react';
+import { StrictMode, type ReactElement } from 'react';
 import { StyleSheet } from 'react-native';
-import { fireEvent, within } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import {
+  createContainerSessionProps,
+  layoutCameraViewport,
+} from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // Container 走到 device-ready 需:已授权 + 有设备。全局 jest.setup mock 把权限设 false、
@@ -13,10 +18,13 @@ import { renderDark } from '../__helpers__/renderDark';
 // 注:jest.mock 被 babel 提升到 import 之上;helper 在工厂内 require(不能闭包捕获顶层 import)。
 jest.mock('react-native-vision-camera', () => {
   const vc = require('../__helpers__/visionCameraMock');
+  const devices = {
+    back: vc.makeDeviceStub({ position: 'back' }),
+    front: vc.makeDeviceStub({ position: 'front' }),
+  };
   return vc.makeVisionCameraMock({
     ...vc.grantedPermissionOverrides(),
-    useCameraDevice: (position: 'back' | 'front') =>
-      vc.makeDeviceStub({ position }),
+    useCameraDevice: (position: 'back' | 'front') => devices[position],
   });
 });
 
@@ -28,6 +36,7 @@ const r = (position: 'back' | 'front') => {
   const ui: ReactElement = (
     <CameraDialogProvider>
       <Container
+        {...createContainerSessionProps()}
         config={{
           ...baseConfig,
           cameraMode: [{ mode: 'single', type: position }],
@@ -36,7 +45,9 @@ const r = (position: 'back' | 'front') => {
       />
     </CameraDialogProvider>
   );
-  return renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  return rendered;
 };
 
 it('后置(back)渲染变焦档(0.5/1)', () => {
@@ -68,6 +79,29 @@ it('后置 dual:点 1x 档 → display 1 反算 vzf 2.0 → 高亮跳到 1 档�
   ).toBeTruthy();
 });
 
+it('后置 dual:JS zoom 经 Container 传给档位 accessibility selected', () => {
+  const { getByRole } = r('back');
+  const half = getByRole('button', {
+    name: '0.5 倍变焦',
+    selected: false,
+  });
+  expect(
+    getByRole('button', {
+      name: '1 倍变焦',
+      selected: true,
+    })
+  ).toBeTruthy();
+
+  fireEvent.press(half);
+
+  expect(
+    getByRole('button', {
+      name: '0.5 倍变焦',
+      selected: true,
+    })
+  ).toBeTruthy();
+});
+
 it('前置(front)不渲染变焦档', () => {
   const { getByTestId, queryByTestId } = r('front');
   expect(getByTestId('device-ready')).toBeTruthy();
@@ -77,6 +111,30 @@ it('前置(front)不渲染变焦档', () => {
   expect(queryByTestId('zoom-readout')).toBeNull();
 });
 
+it('React 19 StrictMode effect replay 不把活跃 Container 当成真实卸载', () => {
+  const onSettle = jest.fn();
+  // StrictMode 必须位于测试根；若经 renderDark wrapper 包在 ThemeProvider 里面，
+  // React 不会 replay 这棵子树的 effect，测试会假绿。
+  render(
+    <StrictMode>
+      <ThemeProvider forceScheme="dark">
+        <CameraDialogProvider>
+          <Container
+            {...createContainerSessionProps()}
+            config={{
+              ...baseConfig,
+              cameraMode: [{ mode: 'single', type: 'back' }],
+            }}
+            onSettle={onSettle}
+          />
+        </CameraDialogProvider>
+      </ThemeProvider>
+    </StrictMode>
+  );
+
+  expect(onSettle).not.toHaveBeenCalled();
+});
+
 it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 position 定位', () => {
   // wrapper 必须 absoluteFill —— 否则唯一子节点 absolute → Yoga 下 wrapper 坍缩 0×0 锚屏幕右上,
   // 非 top-right 档(bottom/center)在 0 尺寸盒内定位参照错位(成片烧录走像素空间不受影响,
@@ -84,6 +142,7 @@ it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 po
   const ui: ReactElement = (
     <CameraDialogProvider>
       <Container
+        {...createContainerSessionProps()}
         config={{
           ...baseConfig,
           cameraMode: [{ mode: 'single', type: 'back' }],
@@ -93,7 +152,9 @@ it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 po
       />
     </CameraDialogProvider>
   );
-  const { getByTestId } = renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  const { getByTestId } = rendered;
   const style = StyleSheet.flatten(
     getByTestId('watermark-wrapper').props.style
   );

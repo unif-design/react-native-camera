@@ -55,14 +55,25 @@ jest.mock('react-native-gesture-handler', () => {
   // hook API(v3):useTapGesture/usePinchGesture/useSimultaneousGestures 返回稳定 gesture
   // 占位;GestureDetector 桩直接渲 children、不消费 gesture,故占位空对象即可。
   const gesture = {};
+  let latestTapConfig: any;
   return {
-    useTapGesture: () => gesture,
+    useTapGesture: jest.fn((config: any) => {
+      latestTapConfig = config;
+      return gesture;
+    }),
     usePinchGesture: () => gesture,
     useSimultaneousGestures: () => gesture,
     GestureDetector: ({ children }: any) => children,
     GestureHandlerRootView: View,
     PinchGestureHandler: View,
     TapGestureHandler: View,
+    __gestureMock: {
+      deactivateTap: (event: { x: number; y: number }) =>
+        latestTapConfig?.onDeactivate?.(event),
+      reset: () => {
+        latestTapConfig = undefined;
+      },
+    },
   };
 });
 
@@ -267,20 +278,86 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-// react-native-video 7.x:native 模块,jest 渲染成占位 View
+// react-native-video 7.x:native 模块,jest 渲染成占位 View。
+// 事件状态仍由测试显式 emit，不在 mock 内复制播放器状态机；这样 VideoPlayer 测试验证的是
+// 组件如何消费 native event，而不是 mock 自己是否会乐观切换。
 jest.mock('react-native-video', () => {
+  const React = require('react');
   const { View } = require('react-native');
-  return {
-    __esModule: true,
-    useVideoPlayer: () => ({
-      play: () => {},
-      pause: () => {},
-      loop: false,
+  const listeners = new Map<object, Map<string, (...args: any[]) => void>>();
+  const setupCallbacks: any[] = [];
+  const listenerAdds: any[] = [];
+  const listenerRemoves: any[] = [];
+  const players: any[] = [];
+  const createPlayer = jest.fn((source: unknown) => {
+    const player = {
+      source,
+      play: jest.fn(),
+      pause: jest.fn(),
+      // 故意与产品要求相反：只有 VideoPlayer setup 显式关闭 loop，测试才会通过。
+      loop: true,
       muted: false,
       rate: 1,
       status: 'idle',
-    }),
+    };
+    players.push(player);
+    return player;
+  });
+  const useVideoPlayer = jest.fn(
+    (source: unknown, setup?: (player: any) => void) => {
+      const sourceKey = JSON.stringify(source);
+      setupCallbacks.push(setup);
+      return React.useMemo(() => {
+        const player = createPlayer(source);
+        setup?.(player);
+        return player;
+        // sourceKey 对齐真实 useVideoPlayer 的 serialized source lifecycle。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [sourceKey]);
+    }
+  );
+  const useEvent = jest.fn(
+    (player: object, event: string, callback: (...args: any[]) => void) => {
+      React.useEffect(() => {
+        listenerAdds.push({ player, event, callback });
+        let playerListeners = listeners.get(player);
+        if (playerListeners == null) {
+          playerListeners = new Map();
+          listeners.set(player, playerListeners);
+        }
+        playerListeners.set(event, callback);
+        return () => {
+          listenerRemoves.push({ player, event, callback });
+          if (playerListeners?.get(event) === callback) {
+            playerListeners.delete(event);
+          }
+        };
+      }, [player, event, callback]);
+    }
+  );
+  return {
+    __esModule: true,
+    useEvent,
+    useVideoPlayer,
     VideoView: (props: any) => require('react').createElement(View, props),
+    __videoMock: {
+      players,
+      setupCallbacks,
+      listenerAdds,
+      listenerRemoves,
+      emit: (player: object, event: string, ...args: any[]) => {
+        const callback = listeners.get(player)?.get(event);
+        callback?.(...args);
+        return callback != null;
+      },
+      reset: () => {
+        listeners.clear();
+        players.splice(0);
+        setupCallbacks.splice(0);
+        listenerAdds.splice(0);
+        listenerRemoves.splice(0);
+      },
+    },
   };
 });
 
@@ -289,10 +366,13 @@ jest.mock('@dr.pogodin/react-native-fs', () => ({
   TemporaryDirectoryPath: '/tmp',
   readFile: jest.fn().mockResolvedValue('BASE64DATA'),
   writeFile: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined),
 }));
 
 // @shopify/react-native-skia:native 模块,jest 下桩离屏合成(返 1080×1440)
 jest.mock('@shopify/react-native-skia', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   const noop = () => {};
   const mkImage = { width: () => 1080, height: () => 1440, dispose: noop };
   const mkCanvas = {
@@ -307,11 +387,16 @@ jest.mock('@shopify/react-native-skia', () => {
   const mkSurface = {
     getCanvas: () => mkCanvas,
     makeImageSnapshot: () => mkSnapshot,
+    width: () => 1080,
+    height: () => 1440,
     dispose: noop,
   };
   return {
     Skia: {
-      Data: { fromBase64: jest.fn(() => ({ dispose: noop })) },
+      Data: {
+        fromURI: jest.fn(async () => ({ dispose: noop })),
+        fromBase64: jest.fn(() => ({ dispose: noop })),
+      },
       Image: { MakeImageFromEncoded: jest.fn(() => mkImage) },
       Surface: { MakeOffscreen: jest.fn(() => mkSurface) },
       Font: jest.fn(() => ({
@@ -325,19 +410,21 @@ jest.mock('@shopify/react-native-skia', () => {
       // burnWatermark 改用 Paragraph(系统字体 + 字形 fallback,能烧 CJK),故水印烧图测试走这里。
       ParagraphBuilder: {
         Make: jest.fn(() => {
+          const paragraph = {
+            layout: jest.fn(),
+            paint: jest.fn(),
+            getHeight: jest.fn(() => 120),
+            getLongestLine: jest.fn(() => 200),
+            getMaxWidth: jest.fn(() => 200),
+            dispose: jest.fn(),
+          };
           const builder: any = {
-            pushStyle: () => builder,
-            addText: () => builder,
-            pop: () => builder,
-            reset: () => builder,
-            build: () => ({
-              layout: noop,
-              paint: noop,
-              getHeight: () => 120,
-              getLongestLine: () => 200,
-              getMaxWidth: () => 200,
-              dispose: noop,
-            }),
+            pushStyle: jest.fn(() => builder),
+            addText: jest.fn(() => builder),
+            pop: jest.fn(() => builder),
+            reset: jest.fn(() => builder),
+            build: jest.fn(() => paragraph),
+            dispose: jest.fn(),
           };
           return builder;
         }),
@@ -367,5 +454,12 @@ jest.mock('@shopify/react-native-skia', () => {
       Black: 900,
       ExtraBlack: 1000,
     },
+    Canvas: ({ children, ...props }: any) =>
+      React.createElement(View, props, children),
+    Paragraph: (props: any) =>
+      React.createElement(View, {
+        ...props,
+        testID: 'watermark-paragraph',
+      }),
   };
 });

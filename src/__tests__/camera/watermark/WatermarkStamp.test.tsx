@@ -1,25 +1,184 @@
+import { StyleSheet } from 'react-native';
+import { makeAnimatedFrameStub } from '../../__helpers__/cameraFrame';
 import { renderDark } from '../../__helpers__/renderDark';
 import { WatermarkStamp } from '../../../camera/watermark/WatermarkStamp';
 
-// 相机 Modal 强制 dark,WatermarkStamp 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
+const frame = { x: 12, y: 20, width: 300, height: 400 };
+const animatedFrame = makeAnimatedFrameStub(frame);
 
-it('renders content lines + testID', () => {
-  const { getByTestId, getByText } = renderDark(
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+it('使用显式 frame 渲染透明 Skia Canvas + Paragraph，不再渲染 RN Text', () => {
+  const transitioningFrame = makeAnimatedFrameStub({
+    x: 21,
+    y: 34,
+    width: 280,
+    height: 360,
+  });
+  const { getByTestId, queryByText } = renderDark(
     <WatermarkStamp
+      frame={frame}
+      animatedFrame={transitioningFrame}
       watermark={{ content: ['L1', 'L2'], position: 'top-right' }}
     />
   );
-  expect(getByTestId('watermark-stamp')).toBeTruthy();
-  expect(getByText('L1')).toBeTruthy();
-  expect(getByText('L2')).toBeTruthy();
+
+  expect(
+    StyleSheet.flatten(getByTestId('watermark-stamp').props.style)
+  ).toEqual(
+    expect.objectContaining({
+      position: 'absolute',
+      left: 21,
+      top: 34,
+      width: 280,
+      height: 360,
+    })
+  );
+  expect(getByTestId('watermark-canvas').props.opaque).toBe(false);
+  expect(getByTestId('watermark-stamp').props.onLayout).toBeUndefined();
+  expect(queryByText('L1')).toBeNull();
+  expect(queryByText('L2')).toBeNull();
 });
 
-it('no crash for center/bottom', () => {
-  expect(() =>
-    renderDark(
-      <WatermarkStamp
-        watermark={{ content: ['x'], position: 'bottom-center' }}
-      />
-    )
-  ).not.toThrow();
+it('effect cleanup dispose Paragraph 与 Builder', () => {
+  const skia = require('@shopify/react-native-skia');
+  const rendered = renderDark(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['x'] }}
+    />
+  );
+  const builder = skia.Skia.ParagraphBuilder.Make.mock.results.at(-1).value;
+  const paragraph = builder.build.mock.results[0].value;
+
+  rendered.unmount();
+
+  expect(paragraph.dispose).toHaveBeenCalledTimes(1);
+  expect(builder.dispose).toHaveBeenCalledTimes(1);
+});
+
+it('等价 watermark 新对象保持同一语义快照，不重建或提前 dispose', () => {
+  const skia = require('@shopify/react-native-skia');
+  const rendered = renderDark(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['标题', '正文'], position: 'bottom-right' }}
+    />
+  );
+  const builder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
+  const paragraph = builder.build.mock.results[0].value;
+
+  rendered.rerender(
+    <WatermarkStamp
+      frame={{ ...frame }}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['标题', '正文'], position: 'bottom-right' }}
+    />
+  );
+
+  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(1);
+  expect(paragraph.dispose).not.toHaveBeenCalled();
+  expect(builder.dispose).not.toHaveBeenCalled();
+});
+
+it('省略 position 与显式 top-right 共用快照，切到其他 position 才替换', () => {
+  const skia = require('@shopify/react-native-skia');
+  const rendered = renderDark(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['水印'] }}
+    />
+  );
+  const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
+  const oldParagraph = oldBuilder.build.mock.results[0].value;
+
+  rendered.rerender(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['水印'], position: 'top-right' }}
+    />
+  );
+
+  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(1);
+  expect(oldParagraph.dispose).not.toHaveBeenCalled();
+  expect(oldBuilder.dispose).not.toHaveBeenCalled();
+
+  rendered.rerender(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['水印'], position: 'top-left' }}
+    />
+  );
+
+  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(2);
+  expect(oldParagraph.dispose).toHaveBeenCalledTimes(1);
+  expect(oldBuilder.dispose).toHaveBeenCalledTimes(1);
+});
+
+it('watermark 语义变化时替换 Paragraph，并只释放被替换的快照', () => {
+  const skia = require('@shopify/react-native-skia');
+  const rendered = renderDark(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['旧水印'] }}
+    />
+  );
+  const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
+  const oldParagraph = oldBuilder.build.mock.results[0].value;
+
+  rendered.rerender(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['新水印'] }}
+    />
+  );
+
+  const newBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[1].value;
+  const newParagraph = newBuilder.build.mock.results[0].value;
+  expect(skia.Skia.ParagraphBuilder.Make).toHaveBeenCalledTimes(2);
+  expect(oldParagraph.dispose).toHaveBeenCalledTimes(1);
+  expect(oldBuilder.dispose).toHaveBeenCalledTimes(1);
+  expect(newParagraph.dispose).not.toHaveBeenCalled();
+  expect(newBuilder.dispose).not.toHaveBeenCalled();
+});
+
+it('effect cleanup 的 dispose 抛错不冒泡，并继续尝试 Paragraph 与 Builder', () => {
+  const skia = require('@shopify/react-native-skia');
+  const paragraph = {
+    layout: jest.fn(),
+    paint: jest.fn(),
+    getHeight: jest.fn(() => 120),
+    dispose: jest.fn(() => {
+      throw new Error('paragraph dispose failed');
+    }),
+  };
+  const builder: Record<string, jest.Mock> = {};
+  builder.pushStyle = jest.fn(() => builder);
+  builder.addText = jest.fn(() => builder);
+  builder.pop = jest.fn(() => builder);
+  builder.build = jest.fn(() => paragraph);
+  builder.dispose = jest.fn(() => {
+    throw new Error('builder dispose failed');
+  });
+  skia.Skia.ParagraphBuilder.Make.mockReturnValueOnce(builder);
+  const rendered = renderDark(
+    <WatermarkStamp
+      frame={frame}
+      animatedFrame={animatedFrame}
+      watermark={{ content: ['x'] }}
+    />
+  );
+
+  expect(() => rendered.unmount()).not.toThrow();
+  expect(paragraph.dispose).toHaveBeenCalledTimes(1);
+  expect(builder.dispose).toHaveBeenCalledTimes(1);
 });

@@ -117,26 +117,47 @@ yarn add @dr.pogodin/react-native-fs
 
 ---
 
-## 2. 配置权限 {#权限配置}
+## 2. 配置 Babel 与相机手势根
+
+worklet 动画与 Modal 内 pinch / 点击手势需要 Babel plugin。它必须是 `plugins` 的**最后一项**：
+
+```js title="babel.config.js"
+module.exports = {
+  presets: ['module:@react-native/babel-preset'],
+  plugins: [
+    // 其它 plugin 在前
+    'react-native-worklets/plugin',
+  ],
+};
+```
+
+不要在 `react-native-worklets/plugin` 后追加其它 plugin，也不要改成
+`react-native-reanimated/plugin`。相机使用独立 native Modal，库已在 **Modal 内部**
+包好 `flex: 1` 的 `GestureHandlerRootView`；pinch 变焦与点击对焦不要求消费者再为相机
+包 App 根。宿主其它页面是否使用 `GestureHandlerRootView`，只按消费者自身手势依赖决定。
+
+---
+
+## 3. 配置权限 {#权限配置}
 
 ### iOS（Info.plist）
 
-在 `ios/<AppName>/Info.plist` 中添加以下三个权限 key:
+在 `ios/<AppName>/Info.plist` 中声明实际使用的权限。`NSCameraUsageDescription` 是使用本库的必需项;只有配置并使用 `video` 模式时才需要 `NSMicrophoneUsageDescription`:
 
 | Key | 说明 |
 | --- | --- |
-| `NSCameraUsageDescription` | 使用摄像头拍照 / 录像时展示给用户的说明文字 |
-| `NSMicrophoneUsageDescription` | 录制视频时需要麦克风权限,展示给用户的说明文字 |
-| `NSPhotoLibraryAddUsageDescription` | 保存照片 / 视频到相册时展示给用户的说明文字 |
+| `NSCameraUsageDescription` | **必需**。使用摄像头拍照 / 录像时展示给用户的说明文字 |
+| `NSMicrophoneUsageDescription` | **仅 video 模式需要**。录制视频时展示给用户的说明文字 |
 
 ```xml title="ios/<AppName>/Info.plist"
 <key>NSCameraUsageDescription</key>
 <string>需要访问摄像头以拍摄照片和视频</string>
+<!-- 只有 App 使用 video 模式时才添加 -->
 <key>NSMicrophoneUsageDescription</key>
 <string>录制视频时需要使用麦克风</string>
-<key>NSPhotoLibraryAddUsageDescription</key>
-<string>需要访问相册以保存拍摄的照片和视频</string>
 ```
+
+本库把拍摄结果作为 App 临时目录中的文件返回,**不会写入或读取系统相册**,因此接入本库本身不要求 `NSPhotoLibraryAddUsageDescription`。若消费 App 另外实现“保存到系统相册”或“从相册选择”,请按对应 Photos API / 第三方库的要求单独声明权限。
 
 ### Android（AndroidManifest.xml）
 
@@ -144,19 +165,20 @@ yarn add @dr.pogodin/react-native-fs
 
 | 权限 | 说明 |
 | --- | --- |
-| `android.permission.CAMERA` | 拍照 / 录像所需的摄像头权限 |
-| `android.permission.RECORD_AUDIO` | 录制视频时的麦克风权限 |
-| `android.permission.READ_MEDIA_IMAGES` | Android 13+ 读取相册图片权限 |
+| `android.permission.CAMERA` | **必需**。拍照 / 录像所需的摄像头权限 |
+| `android.permission.RECORD_AUDIO` | **仅 video 模式需要**。录制视频时的麦克风权限 |
 
 ```xml title="android/app/src/main/AndroidManifest.xml"
 <uses-permission android:name="android.permission.CAMERA" />
+<!-- 只有 App 使用 video 模式时才添加 -->
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
-<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 ```
+
+本库不读取系统相册,因此接入本库本身不要求 `android.permission.READ_MEDIA_IMAGES`。消费 App 若另有读取 / 选择相册图片的功能,请按目标 Android 版本和所用 Photo Picker / MediaStore 方案单独配置。
 
 ---
 
-## 3. 原生编译
+## 4. 原生编译
 
 ### iOS:pod install
 
@@ -178,7 +200,7 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 
 ---
 
-## 4. 弹窗 / Toast 无需额外挂载 Host
+## 5. 弹窗 / Toast 无需额外挂载 Host
 
 相机的**二次确认弹窗 / Toast 是内部自洽的** —— 由相机 Modal 子树内的本地弹窗系统(`CameraDialogHost`)渲染,**不依赖** `@unif/react-native-design` 的全局 `ConfirmHost` / `ToastHost`。因此接入本库时:
 

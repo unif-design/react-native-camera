@@ -12,13 +12,13 @@ export type AspectRatio = '4:3' | '16:9';
 export type Point = { x: number; y: number };
 
 export type CameraMode = {
-  /** 初始前/后摄,缺省 back。H5 传入,接线为初始 device position。 */
+  /** 请求的初始前/后摄,缺省 back。请求侧不可用时自动 fallback 到另一侧，结果 cameraType 记录实际设备。 */
   type?: CameraType;
   /** 初始闪光(首项 cameraMode 生效);接线为初始闪光,运行时可在相机内左侧竖栏切换。 */
   flashMode?: FlashMode;
   /** 拍摄模式。 */
   mode: CameraModeName;
-  /** JPEG 压缩 0~1,缺省 0.9。质量优先级见 OpenConfig.photoQualityPrioritization(缺省走 SDK 默认 'balanced')。 */
+  /** JPEG 压缩 0~1,缺省 0.9。质量优先级见 OpenConfig.photoQualityPrioritization(省略时沿用 SDK 默认)。 */
   quality?: number;
   /**
    * 录制时长上限(秒),video 模式。已接线 vision-camera maxDuration:到点原生自动停,
@@ -43,13 +43,13 @@ export type WatermarkType = {
 export type OpenConfig = {
   cameraMode: CameraMode[];
   dataRetainedMode: DataRetainedMode;
-  /** 水印,缺省不加;传入则取景显示戳记 + 保存时烧入成片 */
+  /** 水印,缺省不加;传入则取景显示戳记 + 保存时烧入成片。显式 16:9/可见水印处理失败会留在会话内重试，不交付 raw。 */
   watermark?: WatermarkType;
   /**
    * 照片质量优先级(全局,作用于所有照片模式)。
-   * **缺省 undefined = 不传该字段,走 SDK 默认 'balanced'**(不替消费者写死取舍)。
-   * 传 'speed'/'quality' 在不支持的设备会被安全降级为 'balanced'(不 throw,见 Camera.tsx
-   * 的 supportsSpeedQualityPrioritization guard);'balanced' 任何设备可传。
+   * **缺省 undefined = 不传该字段,沿用 SDK 默认**(不替消费者写死取舍)。
+   * 只有 'speed' 在设备不支持时会安全降级为 'balanced'(不 throw,见 Camera.tsx
+   * 的 supportsSpeedQualityPrioritization guard);'quality' / 'balanced' 任何设备直传。
    */
   photoQualityPrioritization?: 'speed' | 'balanced' | 'quality';
   /**
@@ -70,7 +70,7 @@ export type CustomPhotoFile = {
   // —— 原版字段 ——
   /** 唯一 id,时间戳 + 序号(避免同毫秒撞 id)。 */
   id: string;
-  /** 拍摄时的前/后摄。 */
+  /** 实际选中的拍摄前/后摄（请求侧不可用 fallback 时可能不同于 CameraMode.type）。 */
   cameraType: CameraType;
   /** 模式(原版字段名,与 mode 同值)。 */
   cameraMode: CameraModeName;

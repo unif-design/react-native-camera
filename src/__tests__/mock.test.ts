@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-native';
 import { useCamera, toFileUri } from '../mock';
+import type { CameraResult } from '../utils';
 
 // mock 版 useCamera 现在是真正的 hook(用 useRef 固定 api 身份,对齐真实实现),
 // 故须在 render 内调用 —— 用 renderHook 而非模块顶层直接调。
@@ -23,16 +24,31 @@ it('mock open() defaults to cancelled', async () => {
 it('mock open() can be overridden per call', async () => {
   const { result } = renderHook(() => useCamera());
   const [api] = result.current;
-  (api.open as jest.Mock).mockResolvedValueOnce({
+  const success: CameraResult = {
     code: 200,
-    data: [],
+    data: [
+      {
+        id: '1',
+        cameraType: 'back',
+        cameraMode: 'single',
+        path: '/tmp/photo.jpg',
+        uri: 'file:///tmp/photo.jpg',
+        width: 1080,
+        height: 1920,
+        mime: 'image/jpeg',
+        mode: 'single',
+        isRemake: false,
+      },
+    ],
     message: 'ok',
-  });
+  };
+  (api.open as jest.Mock).mockResolvedValueOnce(success);
   const r = await api.open({
     cameraMode: [{ mode: 'single' }],
     dataRetainedMode: 'clear',
   });
   expect(r.code).toBe(200);
+  expect(r.data).toEqual(success.data);
 });
 
 it('mock useCamera 返回稳定 api(同一 render 内多次读取身份不变)', () => {

@@ -20,10 +20,12 @@ export type ModeItem = { key: string; label: string };
 export function ModeSwitcherPill({
   items,
   currentIndex,
+  disabled = false,
   onSelect,
 }: {
   items: ModeItem[];
   currentIndex: number;
+  disabled?: boolean;
   onSelect: (i: number) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -78,6 +80,10 @@ export function ModeSwitcherPill({
             testID={`mode-pill-${i}`}
             style={styles.item}
             onPress={() => onSelect(i)}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={`${it.label}模式`}
+            accessibilityState={{ selected: sel, disabled }}
           >
             <Text style={[styles.txt, sel && styles.txtSel]}>{it.label}</Text>
           </TouchableOpacity>

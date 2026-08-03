@@ -34,7 +34,8 @@ jest.mock('@unif/react-native-camera', () =>
 默认是取消(`code: 0`)。要测拍照成功,用 `mockResolvedValueOnce` 覆盖一次返回:
 
 ```ts
-const [api] = useCamera();
+const { result } = renderHook(() => useCamera());
+const [api] = result.current;
 (api.open as jest.Mock).mockResolvedValueOnce({
   code: 200,
   data: [
@@ -48,6 +49,7 @@ const [api] = useCamera();
       height: 1,
       mime: 'image/jpeg',
       mode: 'single',
+      isRemake: false,
     },
   ],
   message: 'ok',
@@ -59,6 +61,7 @@ const [api] = useCamera();
 ## 完整示例
 
 ```ts
+import { renderHook } from '@testing-library/react-native';
 import { useCamera } from '@unif/react-native-camera';
 
 jest.mock('@unif/react-native-camera', () =>
@@ -67,14 +70,16 @@ jest.mock('@unif/react-native-camera', () =>
 
 describe('拍照流程', () => {
   it('用户取消时 code 为 0', async () => {
-    const [api] = useCamera();
+    const { result } = renderHook(() => useCamera());
+    const [api] = result.current;
     // open 默认 resolve { code: 0, data: [], message: 'cancelled' }
     const res = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
     expect(res.code).toBe(0);
   });
 
   it('拍照成功时返回文件列表', async () => {
-    const [api] = useCamera();
+    const { result } = renderHook(() => useCamera());
+    const [api] = result.current;
     (api.open as jest.Mock).mockResolvedValueOnce({
       code: 200,
       data: [
@@ -88,6 +93,7 @@ describe('拍照流程', () => {
           height: 1,
           mime: 'image/jpeg',
           mode: 'single',
+          isRemake: false,
         },
       ],
       message: 'ok',

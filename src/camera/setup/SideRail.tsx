@@ -19,6 +19,7 @@ type Props = {
   flash: FlashMode;
   aspectRatio: AspectRatio;
   sound: boolean;
+  disabled?: boolean;
   onChangeFlash: (m: FlashMode) => void;
   onChangeAspectRatio: (r: AspectRatio) => void;
   onToggleSound: () => void;
@@ -28,6 +29,12 @@ const flashIcon: Record<FlashMode, IconName> = {
   off: 'flash-off',
   on: 'flash-on',
   auto: 'flash-auto',
+};
+
+const FLASH_LABEL: Record<FlashMode, string> = {
+  off: '关闭',
+  on: '开启',
+  auto: '自动',
 };
 
 // 闪光原地轮换:点一下 auto → on → off → auto(与画幅 4:3↔16:9 文字按钮一致的「点击切换」交互)。
@@ -42,6 +49,7 @@ export function SideRail({
   flash,
   aspectRatio,
   sound,
+  disabled = false,
   onChangeFlash,
   onChangeAspectRatio,
   onToggleSound,
@@ -56,6 +64,10 @@ export function SideRail({
         onPress={() =>
           onChangeAspectRatio(aspectRatio === '4:3' ? '16:9' : '4:3')
         }
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={`切换画幅比例，当前 ${aspectRatio}`}
+        accessibilityState={{ disabled }}
       >
         <Text style={styles.aspectTxt}>{aspectRatio}</Text>
       </TouchableOpacity>
@@ -64,6 +76,10 @@ export function SideRail({
         testID="flash-btn"
         style={[styles.btn, flash !== 'off' && styles.btnActive]}
         onPress={() => onChangeFlash(FLASH_NEXT[flash])}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={`切换闪光灯，当前${FLASH_LABEL[flash]}`}
+        accessibilityState={{ disabled }}
       >
         <Icon name={flashIcon[flash]} size={r(20)} color={c.foreground} />
       </TouchableOpacity>
@@ -72,6 +88,10 @@ export function SideRail({
         testID="sound-btn"
         style={[styles.btn, sound && styles.btnActive]}
         onPress={onToggleSound}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={sound ? '关闭快门声音' : '开启快门声音'}
+        accessibilityState={{ disabled }}
       >
         <Icon
           name={sound ? 'sound' : 'sound-off'}

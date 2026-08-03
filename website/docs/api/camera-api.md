@@ -39,7 +39,7 @@ type CameraApi = {
 open(config: OpenConfig): Promise<CameraResult>
 ```
 
-弹出相机全屏模态。用户在模态内完成拍摄 → 预览确认 / 取消后，Promise resolve 为 [`CameraResult`](/docs/api/types#cameraresult)。**取消不会 reject**——而是 resolve 出 `code: 0`。
+先校验配置，再弹出相机全屏模态。用户在模态内完成拍摄 → 预览确认 / 取消后，Promise resolve 为 [`CameraResult`](/docs/api/types#cameraresult)。**取消不会 reject**——而是 resolve 出 `code: 0`。
 
 **参数：**
 
@@ -62,6 +62,18 @@ if (res.code === 200) {
 }
 ```
 
+### 运行时校验与重复调用 {#open-lifecycle}
+
+`open(config)` 不只依赖 TypeScript 类型，还会在运行时校验 `cameraMode`、`dataRetainedMode`、每个模式的字段，以及 `watermark` / 拍摄质量等可选字段：
+
+- **配置非法**：立即 resolve `{ code: 500, data: [], message: 'invalid_config' }`，不会打开相机，也不会替换正在进行的有效会话。
+- **配置合法且已有会话**：先把旧会话以 `code: 0` 取消，再创建并显示新会话；旧 Promise 会先完成，新 Promise 等待新会话结果。
+- **过期回调**：旧 `Container` 的保存 / 关闭回调会被忽略，不会完成新会话。`close()`、组件卸载与各种回调竞争时，同一个 `open()` Promise 最多 resolve 一次。
+
+:::warning `holder` 仍是完成会话的必要条件
+若未把 `useCamera()` 返回的 `holder` 渲染进 React 树，合法 `open()` 虽然创建了会话，但 `Container` 不会挂载，Promise 会保持 pending，直到 `close()`、下一次合法 `open()` 或 Hook 卸载取消它。详见 [useCamera](/docs/api/use-camera#return)。
+:::
+
 ---
 
 ## `close()` {#close}
@@ -70,7 +82,7 @@ if (res.code === 200) {
 close(): void
 ```
 
-强制关闭相机模态（若当前处于打开状态）。内部等价于以 `code: 0`（`message: 'cancelled'`）settle 当前 `open()` 的 Promise。
+强制关闭当前相机会话（若存在）。内部等价于以 `code: 0`（`message: 'cancelled'`）settle 当前 `open()` 的 Promise；重复 `close()` 或随后到达的旧回调不会再次 settle 它。
 
 **通常无需手动调用**——用户拍摄完成或取消后 `open()` 会自动 resolve 并关闭相机。仅在需要从外部强制收起相机时使用（例如路由拦截、用户登出）。
 
@@ -96,13 +108,13 @@ useEffect(() => {
 | `cameraMode` | [`CameraMode[]`](/docs/api/types#cameramode) | ✅ | — | 拍摄模式数组，至少一项 |
 | `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍文件 |
 | `watermark` | [`WatermarkType`](/docs/api/types#watermarktype) | — | 不加水印 | 文字水印配置 |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | SDK 默认 `'balanced'` | 照片质量优先级（全局） |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | 走 SDK 默认 | 照片质量优先级（全局） |
 | `photoHDR` | `boolean` | — | 由相机 negotiate | 是否启用照片 HDR |
 | `videoBitRate` | `number` | — | 编码器自适应 | 录像目标码率（bps） |
 
 ### `cameraMode` {#cameramode-behavior}
 
-- **数组的首项决定初始状态**：初始前/后摄取首项的 `type`（缺省 `back`），初始闪光取首项的 `flashMode`（缺省 `off`）；其余项的 `type` / `flashMode` 不影响初始化。
+- **数组的首项决定初始状态**：初始前/后摄取首项的 `type`（缺省 `back`），初始闪光取首项的 `flashMode`（缺省 `off`）；其余项的 `type` / `flashMode` 不影响初始化。请求方向没有设备时会自动 fallback 到另一侧，最终文件的 `cameraType` 以实际选中的设备为准。
 - **多项时底部出现模式 tab**：相机底部按数组顺序渲染「单拍 / 连拍 / 视频」切换 pill，用户拍摄过程中可自由切换。仅一项时不显示 tab。
 - 每项的 `mode`、`quality` 等字段见 [`CameraMode`](/docs/api/types#cameramode)。
 
@@ -119,13 +131,15 @@ useEffect(() => {
 
 传入则**取景画面实时显示水印戳记**（WYSIWYG），**每次快门后逐张烧入**（保存时返回的已是烧好的成片）。仅对照片（`image/jpeg`）生效，录像无水印。详见 [水印指南](/docs/guides/watermark)。
 
+显式选择 `16:9`（拍后裁切）或存在可见水印时，处理失败不会把 raw / 半成品交给结果：相机保持当前会话、保留此前文件并显示“照片处理失败，请重试”，用户可直接重拍。录像不进入照片 processor。
+
 ### 拍摄质量（`photoQualityPrioritization` / `photoHDR` / `videoBitRate`） {#quality-behavior}
 
 三个**可选**字段，用于按需覆盖底层 vision-camera 的拍摄质量取舍。**核心约定：缺省（不传）时库不写入任何偏好，完全走 SDK 默认协商**——只有显式传值才生效。
 
 | 字段 | 缺省（不传） | 传值时 |
 | --- | --- | --- |
-| `photoQualityPrioritization` | 不写入该选项 → SDK 默认 `'balanced'` | `'balanced'` / `'quality'` 任何设备直传；`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
+| `photoQualityPrioritization` | 不写入该选项，由 SDK 自行决定 | `'balanced'` / `'quality'` 任何设备直传；`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
 | `photoHDR` | 不下发 `photoHDR` 约束 → 由相机 negotiate 自行决定 | 传 `true` / `false` 作为约束下发（显式开 / 显式关） |
 | `videoBitRate` | 不写入 → 编码器按分辨率自适应 | 作为 `targetBitRate`（bps）下发；编码器会参考但可能因系统压力 / 画面运动 / 文件大小约束略有出入 |
 

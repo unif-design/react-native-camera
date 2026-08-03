@@ -6,9 +6,12 @@ export type WmLayout = {
   align: WmAlign;
   anchorY: 'top' | 'bottom';
   fontSize: number;
+  lineHeight: number;
   lineGap: number;
-  pad: number;
-  maxWidth: number;
+  heightMultiplier: number;
+  padding: number;
+  paragraphWidth: number;
+  x: number;
 };
 
 const POS: Record<
@@ -23,20 +26,37 @@ const POS: Record<
   'bottom-right': { align: 'right', anchorY: 'bottom' },
 };
 
-// 相对目标宽度的比例(起点值,真机微调到与 digest §水印 一致)
 export function computeWatermarkLayout(
-  targetWidth: number,
-  wm: WatermarkType
+  width: number,
+  height: number,
+  watermark: WatermarkType
 ): WmLayout {
-  const { align, anchorY } = POS[wm.position ?? 'top-right'];
-  const fontSize = Math.round(targetWidth * 0.033);
+  const { align, anchorY } = POS[watermark.position ?? 'top-right'];
+  const shortSide = Math.min(width, height);
+  const fontSize = Math.max(1, Math.round(shortSide * 0.033));
+  const lineHeight = Math.max(fontSize, Math.round(fontSize * 1.45));
+  const padding = Math.max(0, Math.round(shortSide * 0.04));
+  const paragraphWidth = Math.max(
+    1,
+    Math.min(Math.round(width * 0.7), width - 2 * padding)
+  );
+  const x =
+    align === 'left'
+      ? padding
+      : align === 'center'
+        ? (width - paragraphWidth) / 2
+        : width - padding - paragraphWidth;
+
   return {
-    content: wm.content,
+    content: [...watermark.content],
     align,
     anchorY,
     fontSize,
-    lineGap: Math.round(fontSize * 0.45),
-    pad: Math.round(targetWidth * 0.04),
-    maxWidth: Math.round(targetWidth * 0.7),
+    lineHeight,
+    lineGap: lineHeight - fontSize,
+    heightMultiplier: lineHeight / fontSize,
+    padding,
+    paragraphWidth,
+    x,
   };
 }

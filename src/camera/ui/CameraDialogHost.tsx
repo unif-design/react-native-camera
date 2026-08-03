@@ -222,6 +222,8 @@ export function CameraDialogProvider({ children }: { children: ReactNode }) {
             <Text
               style={[styles.errorText, { color: c.foreground }]}
               numberOfLines={1}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
             >
               相机异常:{errorMsg}
             </Text>

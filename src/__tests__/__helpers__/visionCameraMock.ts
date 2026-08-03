@@ -93,6 +93,7 @@ export function grantedPermissionOverrides(): VcOverrides {
  * 入参形态变更只改这一处,避免各处重复整份 mock。
  */
 export function makeVisionCameraMock(overrides: VcOverrides = {}) {
+  const React = require('react') as typeof import('react');
   return {
     useCameraPermission: () => ({
       hasPermission: false,
@@ -125,7 +126,18 @@ export function makeVisionCameraMock(overrides: VcOverrides = {}) {
       }),
     })),
     useFrameOutput: () => ({}),
-    Camera: ({ children }: { children?: unknown }) => children ?? null,
+    Camera: ({
+      children,
+      onConfigured,
+    }: {
+      children?: unknown;
+      onConfigured?: () => void;
+    }) => {
+      React.useEffect(() => {
+        onConfigured?.();
+      }, [onConfigured]);
+      return children ?? null;
+    },
     // 出图分辨率目标常量(Camera.tsx 用 CommonResolutions.UHD_*);此前各 mock 漏它导致 undefined。
     CommonResolutions: VC_COMMON_RESOLUTIONS,
     ...overrides,

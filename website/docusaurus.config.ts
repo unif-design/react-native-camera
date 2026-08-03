@@ -53,7 +53,7 @@ const config: Config = {
 
   plugins: [
     // 让文档站直接 import `@unif/react-native-camera` 源码并在浏览器渲染。
-    // 通过 webpack alias 把 npm 包名映射到 ../src/index.ts,保持源码 hot reload。
+    // 通过 webpack alias 把 npm 包名映射到 ../src/index.tsx,保持源码 hot reload。
     // 注意:Native 调用(相机/视频录制)在浏览器没有原生侧,
     // 仅用作类型 + 组件 UI 的视觉预览,真实相机功能需要在 RN runtime。
     './src/plugins/docusaurus-rnw',

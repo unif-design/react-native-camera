@@ -84,7 +84,7 @@ module.exports = function reactNativeWebPlugin(context) {
             //  - 即便仓库内通过 yarn workspaces 把 npm 名 symlink 到本地源码,源码里又有 `@/*`
             //    barrel,也得让 webpack 解析到源码本体而非编译产物。
             //  - `$` 精确匹配,不影响 `@unif/react-native-camera/<subpath>` 写法。
-            '@unif/react-native-camera$': path.resolve(srcDir, 'index.ts'),
+            '@unif/react-native-camera$': path.resolve(srcDir, 'index.tsx'),
           },
           // RNW / 多平台库会用 .web.js / .web.tsx 等后缀提供 web-specific 实现。
           extensions: [

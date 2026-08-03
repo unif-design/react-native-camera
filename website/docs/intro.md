@@ -34,7 +34,7 @@ if (res.code === 200) { /* res.data 是拍到的文件 */ }
 ## 核心概念
 
 - **模态相机,非内嵌取景器** —— `api.open()` 弹出全屏模态,而不是把 `<CameraView />` 嵌进页面布局。适合"按需拍照"(巡检存证、表单附件、工单照片),不适合持续取景的 AR / 扫码场景。
-- **唯一公开面 `useCamera()`** —— 返回 `[api, holder]`。`api` 控制开关(`open` / `close`),`holder` 是相机模态的宿主节点,**必须渲染进 React 树**,否则 `api.open()` 静默无效。
+- **唯一公开面 `useCamera()`** —— 返回 `[api, holder]`。`api` 控制开关(`open` / `close`),`holder` 是相机模态的宿主节点,**必须渲染进 React 树**;缺它时 UI 不会挂载,合法 `open()` 的 Promise 会保持 pending,直到显式或生命周期取消。
 - **配置全部传给 `api.open(config)`** —— `cameraMode[]`(单拍 / 连拍 / 录像)、`dataRetainedMode`(切模式时清/留已拍文件)、可选 `watermark`(给照片烧文字水印)。
 - **结果用 `CameraResult.code` 判定** —— `200` 才是成功(取 `res.data`),`0` 是取消,`403/404/500/503` 是各类失败。
 

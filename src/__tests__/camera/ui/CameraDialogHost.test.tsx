@@ -136,13 +136,17 @@ describe('CameraDialogHost', () => {
     });
 
     it('触发后显示错误条 + "相机异常:" 前缀文案', () => {
-      const { getByTestId, getByText, queryByTestId } = render(
+      const { getByRole, getByTestId, getByText, queryByTestId } = render(
         wrap(<ErrorTrigger msg="session 中断" />)
       );
       expect(queryByTestId('camera-error-bar')).toBeNull();
       fireEvent.press(getByTestId('trigger-error'));
       expect(getByTestId('camera-error-bar')).toBeTruthy();
       expect(getByText('相机异常:session 中断')).toBeTruthy();
+      expect(getByRole('alert')).toHaveProp(
+        'accessibilityLiveRegion',
+        'assertive'
+      );
     });
 
     it('4s 后自动消失', () => {

@@ -4,7 +4,11 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { r, useColors } from '@unif/react-native-design';
 import type { Point } from '../utils';
 
-type Props = { point: Point; onAnimationEnd: () => void };
+type Props = {
+  point: Point;
+  requestId: number;
+  onAnimationEnd: (requestId: number) => void;
+};
 
 // 聚焦指示器(取景态固定深色,品牌橙):四角括号 + 中心点 + 右侧曝光小太阳。
 // 设计稿 viewBox 390×844 视口下盒子 110×88,transformOrigin 居中(44,44)。
@@ -24,7 +28,7 @@ const RAY_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
-export function FocusIndicator({ point, onAnimationEnd }: Props) {
+export function FocusIndicator({ point, requestId, onAnimationEnd }: Props) {
   const c = useColors();
   const scale = useRef(new Animated.Value(1.35)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -54,13 +58,13 @@ export function FocusIndicator({ point, onAnimationEnd }: Props) {
       }),
     ]);
     // 仅动画**自然结束**时回调:连续点击对焦时旧实例 unmount → cleanup 的 anim.stop() 会以
-    // { finished:false } 同步触发 start 回调;若不判 finished,会把刚设的新对焦点 setFocusPoint(null)
+    // { finished:false } 同步触发 start 回调;若不判 finished,会把刚设的新 focus request
     // 清掉 → 新指示环闪现即消失。故只在 finished 时 onAnimationEnd。
     anim.start(({ finished }) => {
-      if (finished) onAnimationEnd();
+      if (finished) onAnimationEnd(requestId);
     });
     return () => anim.stop();
-  }, [scale, opacity, onAnimationEnd]);
+  }, [scale, opacity, requestId, onAnimationEnd]);
 
   return (
     <Animated.View

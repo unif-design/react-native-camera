@@ -34,7 +34,7 @@ import type {
 | `cameraMode` | [`CameraMode[]`](#cameramode) | ✅ | — | 拍摄模式数组，至少一项；多项时底部出现模式 tab |
 | `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍照片 |
 | `watermark` | [`WatermarkType`](#watermarktype) | — | 不加水印 | 文字水印配置；传入则取景显示戳记 + 保存时烧入成片 |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认 `'balanced'`** | 照片质量优先级（全局）。缺省不传该字段、由 vision-camera 用默认 `'balanced'`；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'`/`'balanced'` 任何设备直传 |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认** | 照片质量优先级（全局）。缺省时库不传该字段，由 SDK 自行决定；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'` / `'balanced'` 任何设备直传 |
 | `photoHDR` | `boolean` | — | **由相机 negotiate 决定** | 是否启用照片 HDR（多帧融合，更宽动态范围）。缺省不下发该约束、不强制开关；传 `boolean` 才作为约束下发 |
 | `videoBitRate` | `number` | — | **编码器自适应** | 录像目标码率（bps，全局，作用于 video 模式）。缺省不传、由编码器按分辨率自适应；仅在需要明确控制时传（如 4K 约 20–40 Mbps） |
 
@@ -53,13 +53,13 @@ import type {
 | 字段 | 类型 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `mode` | `'single' \| 'continuous' \| 'video'` | ✅ | — | 拍摄模式：单拍 / 连拍 / 视频 |
-| `type` | `'back' \| 'front'` | — | `'back'` | 初始前/后摄。**仅数组首项生效**（决定相机打开时的初始镜头） |
+| `type` | `'back' \| 'front'` | — | `'back'` | 请求的初始前/后摄。**仅数组首项生效**；请求侧无设备时自动 fallback 到另一侧 |
 | `flashMode` | `'auto' \| 'on' \| 'off'` | — | `'off'` | 初始闪光。**仅数组首项生效**作初始值；闪光开关之后由相机内 UI 控制 |
-| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认 `'balanced'`） |
+| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认） |
 | `recTime` | `number` | — | — | 录制时长上限（秒）。已接线 vision-camera `maxDuration`：到点原生自动停止、视频自动入已拍列表（缺省不设=不自动停） |
 
 :::note `type` / `flashMode` / `recTime` 的现状
-- `type`、`flashMode` 沿用自原版 4.x 的 API，仅**数组首项**被读取，作相机打开时的初始镜头 / 初始闪光；其余项的这两个字段被忽略。
+- `type`、`flashMode` 沿用自原版 4.x 的 API，仅**数组首项**被读取，作相机打开时的初始镜头 / 初始闪光；其余项的这两个字段被忽略。请求的前/后摄不可用时自动选择另一侧，最终 `CustomPhotoFile.cameraType` 是实际方向。
 - `recTime` 已接线到 vision-camera `maxDuration`（2.21 起）：到点原生自动停止，视频与手动停止走同一路径入列。缺省不传则不自动停。
 :::
 
@@ -94,11 +94,15 @@ import type {
 | `0` | 取消 | 用户取消、点返回或调用 `api.close()`（`data` 为空） |
 | `403` | 无权限 | 相机权限被拒 |
 | `404` | 无设备 | 没有可用摄像设备 |
-| `500` | 配置非法 | `cameraMode` 为空数组 / 无效项（拍照运行时失败不再返回此码，见下） |
+| `500` | 配置非法 | `cameraMode` / `dataRetainedMode` 或任一可选字段未通过运行时类型、枚举或数值范围校验（拍照运行时失败不再返回此码，见下） |
 | `503` | 录像失败 | 保留码，当前不触发（录像失败改走相机内重试，见下） |
 
 :::info 拍照 / 录像运行时失败：相机内重试，不返回 code
 自 2.21 起，快门拍摄失败、录像启动 / 停止失败**不再 resolve 关相机**，而是在相机内弹顶部错误条提示重试、不丢已拍（对齐 1.x「失败停留」）。故 `500` 仅余「配置非法」、`503` 当前无触发路径，二者保留作 API 兼容。
+:::
+
+:::note 非法配置不会打断当前会话
+`open(config)` 会先做运行时校验。非法调用直接 resolve `500/invalid_config`，不会替换正在进行的有效会话；第二次合法调用才会先以 `code: 0` 取消旧会话，再启动新会话。
 :::
 
 :::warning 判成功务必 `=== 200`
@@ -122,10 +126,17 @@ import type {
 | `height` | `number` | 高（px） |
 | `mime` | `'image/jpeg' \| 'video/mp4'` | MIME 类型 |
 | `mode` | `'single' \| 'continuous' \| 'video'` | 模式（2.x 字段名，= `cameraMode`） |
+| `isRemake` | `boolean` | 是否翻拍；通用拍照恒为 `false` |
 | `duration?` | `number` | 时长（秒，仅 video 条目有，取录制实际时长） |
 
 :::info `cameraMode` 与 `mode` 的关系
 `cameraMode` 与 `mode` 是**同一值的两个别名**，始终相等：`cameraMode` 是原版（1.x）字段名，`mode` 是 2.x 引入的字段名。两者同时存在以保证向后兼容，按习惯选用其一即可。
+:::
+
+:::warning `path` / `uri` 指向临时文件，需要自行转存
+拍摄产物写在系统临时目录（`RNFS.TemporaryDirectoryPath`），不写入系统相册。`code === 200` 前，库会同步把返回路径 transfer 给消费者；这只表示库不再负责删除它，**不表示已复制到持久目录或写入系统相册**。要长期保留，请在拿到 `data` 后立即复制到业务目录或上传。
+
+库会在 delete / retake / clear mode / cancel / close / supersede / unmount / stale callback 时 best-effort 回收仍由库拥有的临时路径；`open()` Promise 不等待后台 unlink I/O。系统也可能随时回收临时目录，不要把返回路径当作持久存储。
 :::
 
 ---

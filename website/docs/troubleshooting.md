@@ -14,14 +14,14 @@ description: "@unif/react-native-camera 排障决策树：相机黑屏（权限 
 
 两个最常见原因,逐一排查:
 
-### 因 1:`holder` 没渲染进树 → `api.open()` 静默无效
+### 因 1:`holder` 没渲染进树 → UI 不挂载且 Promise 持续 pending
 
-`useCamera()` 返回的 `holder` 必须出现在 React 树里,否则相机不弹、`api.open()` 什么都不做。
+`useCamera()` 返回的 `holder` 必须出现在 React 树里。缺少它时,合法 `api.open()` 仍会创建会话并返回 Promise,但相机 `Container` 没有挂载,所以 UI 不弹、拍摄流程也无法完成该 Promise。Promise 会保持 pending,直到 `api.close()`、后续合法 `open()` 或 Hook 卸载取消它。
 
 ```tsx
 // ❌ Incorrect:拿了 holder 却没放进树
 const [api, holder] = useCamera();
-return <Button title="拍照" onPress={() => api.open(cfg)} />; // api.open() 什么都不做
+return <Button title="拍照" onPress={() => api.open(cfg)} />; // 会话创建,但 Promise 持续 pending
 
 // ✅ Correct:holder 必须在 React 树里(位置不限)
 const [api, holder] = useCamera();
@@ -37,8 +37,10 @@ return (
 
 模态弹出但取景画面全黑,通常是**缺权限键**:
 
-- **iOS** —— `ios/<App>/Info.plist` 缺 `NSCameraUsageDescription`(录像还需 `NSMicrophoneUsageDescription`、存相册需 `NSPhotoLibraryAddUsageDescription`)。
-- **Android** —— `android/app/src/main/AndroidManifest.xml` 缺 `android.permission.CAMERA`(录像需 `RECORD_AUDIO`,读图需 `READ_MEDIA_IMAGES`)。
+- **iOS** —— `ios/<App>/Info.plist` 缺 `NSCameraUsageDescription`;只有使用录像模式时还需 `NSMicrophoneUsageDescription`。
+- **Android** —— `android/app/src/main/AndroidManifest.xml` 缺 `android.permission.CAMERA`;只有使用录像模式时还需 `RECORD_AUDIO`。
+
+本库只返回 App 临时目录中的拍摄文件,不读写系统相册,因此不会无条件要求 `NSPhotoLibraryAddUsageDescription` 或 `READ_MEDIA_IMAGES`。若 App 另有保存 / 选择相册内容的业务,再按那项能力单独配置。
 
 补齐后重新编译(iOS 还要 `pod install`)。完整权限键见[安装 → 权限配置](/docs/getting-started/installation#权限配置)。若权限本身被用户拒绝,`api.open()` 会 resolve `code: 403`,按下文处理。
 
@@ -93,7 +95,7 @@ yarn add @shopify/react-native-skia @dr.pogodin/react-native-fs
 cd ios && bundle exec pod install
 ```
 
-> 烧图本身有兜底:解码 / 读写异常时返回原图,拍摄照常成功(`code: 200`),只是没烧上水印。水印是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
+> 显式 `16:9` 裁切或可见水印处理失败时，不会返回 raw / 半成品并以 `200` 成功；相机会保留当前 session 与此前文件，提示“照片处理失败，请重试”。水印仍只是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
 
 ---
 
@@ -109,7 +111,7 @@ cd ios && bundle exec pod install
 
 ## 处理 `api.open()` 的 result code
 
-`api.open()` 永远 resolve(取消也不 reject),按 `code` 兜底:
+正常渲染 `holder` 后,每个 `api.open()` 会话都会以 `CameraResult` resolve(取消也不 reject),按 `code` 兜底。若缺少 `holder`,合法调用会因 `Container` 未挂载而保持 pending,需由 `close()`、后续合法 `open()` 或 Hook 卸载取消:
 
 ```ts
 const res = await api.open(cfg);
@@ -118,7 +120,7 @@ switch (res.code) {
   case 0:   /* 用户取消,静默 */ break;
   case 403: /* 无权限:引导去系统设置 */ break;
   case 404: /* 无摄像设备:提示不支持 */ break;
-  case 500: /* 配置非法（cameraMode 为空）*/ break;
+  case 500: /* 配置非法（必填项或可选字段未通过运行时校验）*/ break;
   case 503: /* 保留码，当前不触发（录像失败走相机内重试）*/ break;
 }
 ```

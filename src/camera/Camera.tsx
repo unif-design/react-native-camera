@@ -3,10 +3,12 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
-import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
+import * as RNFS from '@dr.pogodin/react-native-fs';
+import { Image, StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -17,13 +19,12 @@ import {
   type CameraDevice,
   type CameraOutput,
   type FocusOptions,
-  type Recorder,
+  type RecordingFinishedReason,
 } from 'react-native-vision-camera';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import {
@@ -34,23 +35,48 @@ import {
 } from 'react-native-gesture-handler';
 import type { CameraMode, CustomPhotoFile, Point } from '../utils';
 import { buildPhotoFile } from '../utils';
+import type { AnimatedCameraFrameRect } from './AnimatedCameraFrame';
 import { pinchVzf } from './hooks/zoomMath';
 import { captureToTempFile } from './capturePhotoHelper';
 import { VIEWFINDER } from './colors/viewfinder';
 import { FocusIndicator } from './FocusIndicator';
+import { createRecorderController } from './recording/recorderController';
+import type { CameraFrameRect } from './session/frameRect';
 import type { AspectRatio, FlashMode } from './setup';
 
 const NEUTRAL_ZOOM = 1;
 
+type FocusRequest = {
+  point: Point;
+  requestId: number;
+};
+
+export type VideoCallbacks = {
+  onFinished: (
+    file: CustomPhotoFile,
+    reason: RecordingFinishedReason,
+    duration: number
+  ) => void;
+  onError: (error: Error) => void;
+  /** Camera 的 native output identity 被替换或 owner dispose；不是录像 native error。 */
+  onCancelled?: () => void;
+  /** 生产事务注入原 session registry；单独使用 Camera 时直接 best-effort 删除。 */
+  onDiscardedFile?: (path: string) => void;
+};
+
 export type CameraHandle = {
   capture: () => Promise<CustomPhotoFile | null>;
-  startVideo: () => Promise<void>;
-  stopVideo: () => Promise<CustomPhotoFile | null>;
+  startVideo: (callbacks: VideoCallbacks) => Promise<'started' | 'denied'>;
+  stopVideo: () => Promise<void>;
+  cancelVideo: () => Promise<void>;
+  getRecordedDuration: () => number;
 };
 
 type Props = {
   device: CameraDevice;
   currentMode: CameraMode;
+  frame: CameraFrameRect;
+  animatedFrame: AnimatedCameraFrameRect;
   isActive?: boolean;
   flash?: FlashMode;
   aspectRatio?: AspectRatio;
@@ -60,6 +86,7 @@ type Props = {
   zoomShared?: SharedValue<number>;
   // 是否启用双指 pinch 变焦:前摄定焦(position==='front')传 false → 只剩点击对焦。
   enableZoom?: boolean;
+  enableFocus?: boolean;
   // pinch 放大软上限(vzf)= maxDisplay / displayMul(见 useZoomController);clamp 落点用。
   softMaxZoom?: number;
   // pinch 结束回写一次 JS 侧 zoom(vzf):仅手势结束,不 pinch 全程回写(性能根治)。
@@ -71,20 +98,24 @@ type Props = {
   photoHDR?: boolean;
   videoBitRate?: number;
   onCameraError?: (error: Error) => void;
-  /** 录像被原生侧自发结束(maxDuration 到点/磁盘满/中断)时回调,把文件交还上层入 photos + 复位录制态。 */
-  onSpontaneousVideoFinish?: (file: CustomPhotoFile) => void;
+  /** 将 native completion 绑定到实际发起该配置的 VisionCamera 实例。 */
+  configurationGeneration?: number;
+  onConfigured?: () => void;
 };
 
 export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   {
     device,
     currentMode,
+    frame,
+    animatedFrame,
     isActive = true,
     flash,
     aspectRatio,
     frozenUri,
     zoomShared,
     enableZoom = true,
+    enableFocus = true,
     softMaxZoom,
     onZoomEnd,
     sound,
@@ -92,7 +123,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     photoHDR,
     videoBitRate,
     onCameraError,
-    onSpontaneousVideoFinish,
+    configurationGeneration = 0,
+    onConfigured,
   },
   ref
 ) {
@@ -100,30 +132,20 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   const cameraType = device.position === 'front' ? 'front' : 'back';
 
-  // aspectRatio = 宽/高。4:3 竖屏取景 高>宽 → 3/4;16:9 → 9/16。
-  const frameAspect = (aspectRatio ?? '4:3') === '4:3' ? 3 / 4 : 9 / 16;
-
-  // 取景框丝滑切换 = 「原生系统相机式」放大缩小的载体:画幅变化时取景框高度**动画过渡**
-  // (withTiming 伸缩,非硬跳 aspectRatio)。配合下方 photo 流恒全幅 + resizeMode="cover",
-  // 画面随框平滑缩放、session 不重配、无黑屏无闪断 —— 原生顺滑的来源(传感器固定全幅出流,
-  // 切画幅只是 UI 缩放)。**不再盖黑色转场遮罩**(用户否决:黑过渡更糟,原生就是放大缩小)。
-  //
-  // 目标高在 **JS 侧**预算成数字(worklet 外算):frame 宽恒 100% 屏宽,高 = winW / frameAspect。
-  // (4:3 → winW×4/3;16:9 → winW×16/9)。frameStyle worklet 只读 SharedValue 数字,绝不在
-  // worklet 内调 design r()(2.15.1 fatal 教训:worklet 里 r() 切倍数崩,jest 测不到)。
-  const { width: winW } = useWindowDimensions();
-  const targetFrameH = winW / frameAspect;
-  const frameH = useSharedValue(targetFrameH);
-  // 时长 250ms 为初值,真机可再调。
-  useEffect(() => {
-    frameH.value = withTiming(targetFrameH, { duration: 250 });
-  }, [frameH, targetFrameH]);
-  const frameStyle = useAnimatedStyle(() => ({ height: frameH.value }));
+  // 动画值由 Container 的 AnimatedCameraFrame 单点驱动，并与 WatermarkStamp 共用；
+  // worklet 只读 SharedValue 数字，绝不调用 design r()/rf() Remote Function。
+  const frameStyle = useAnimatedStyle(() => ({
+    left: animatedFrame.x.value,
+    top: animatedFrame.y.value,
+    width: animatedFrame.width.value,
+    height: animatedFrame.height.value,
+  }));
 
   // photo 流**恒固定全幅 UHD_4_3**(不随 aspectRatio 变):4:3 是传感器原生全幅,16:9 视野 =
   // 4:3 竖屏裁左右。固定它 → usePhotoOutput 入参不随画幅变 → photo outputs 身份稳定 →
   // **photo 模式切画幅 session 完全不重配、取景流不闪断**(原生顺滑的关键)。出图 16:9 改由
-  // 拍后 Skia 居中裁切实现(见 cropToRatio + useCaptureFlow),vision-camera 拍照本身无 crop 参数。
+  // `usePhotoCaptureTransaction` 调用 `processPhoto` 拍后 Skia 居中裁切，
+  // vision-camera 拍照本身无 crop 参数。
   // targetResolution 是「目标」,相机 negotiate 时**比例优先于像素数**(见 CameraPhotoOutput d.ts);
   // UHD_4_3 → 3024×4032(≈12MP),对齐官方 example。
   const targetResolution = CommonResolutions.UHD_4_3;
@@ -145,8 +167,8 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     quality: currentMode.quality ?? 0.9,
     targetResolution,
     // 强制 JPEG 容器:缺省 'native' 在 iOS 默认出 HEIC,而 Skia 的 MakeImageFromEncoded 解不了 HEIC →
-    // cropToRatio/burnWatermark 走 `if (!image) return file` 静默返原图(16:9 不裁、水印不烧)。
-    // 指定 jpeg 让出图可被 Skia 解码,也与 buildPhotoFile 写死的 mime='image/jpeg' 一致。
+    // 指定 jpeg 让 processPhoto 能由 Skia 解码并完成裁切/水印，也与
+    // buildPhotoFile 写死的 mime='image/jpeg' 一致。
     containerFormat: 'jpeg',
     // 按需加键:仅在 config 显式传了优先级时写入,缺省不传 → SDK 默认。
     // 用对象展开按需加键(而非 `qualityPrioritization: undefined`):避免把 undefined 灌进 options。
@@ -178,12 +200,13 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const { hasPermission: hasMic, requestPermission: requestMic } =
     useMicrophonePermission();
 
-  const activeRecorderRef = useRef<Recorder | null>(null);
-  const preparedRecorderRef = useRef<Recorder | null>(null);
-  const finishResolverRef = useRef<
-    ((file: CustomPhotoFile | null) => void) | null
-  >(null);
-
+  const recorderController = useMemo(
+    () =>
+      createRecorderController({
+        createRecorder: (settings) => videoOutput.createRecorder(settings),
+      }),
+    [videoOutput]
+  );
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
   // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
@@ -192,12 +215,14 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   // pinch 软上限(vzf):缺省回退到设备 maxZoom(无软钳),正常由 Container 传 maxDisplay/displayMul。
   const softMaxVzf = softMaxZoom ?? device.maxZoom;
 
-  const [focusPoint, setFocusPoint] = useState<Point | null>(null);
+  const focusRequestIdRef = useRef(0);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
 
   const handleFocus = useCallback(
     async (x: number, y: number) => {
-      if (!device.supportsFocusMetering) return;
-      setFocusPoint({ x, y });
+      if (!enableFocus || !device.supportsFocusMetering) return;
+      const requestId = ++focusRequestIdRef.current;
+      setFocusRequest({ point: { x, y }, requestId });
       try {
         await cameraRef.current?.focusTo({ x, y }, {
           responsiveness: 'snappy',
@@ -208,11 +233,17 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         console.warn('focusTo failed', e);
       }
     },
-    [device.supportsFocusMetering]
+    [device.supportsFocusMetering, enableFocus]
   );
+  const handleFocusAnimationEnd = useCallback((requestId: number) => {
+    setFocusRequest((current) =>
+      current?.requestId === requestId ? null : current
+    );
+  }, []);
 
   // 点击对焦。
   const tap = useTapGesture({
+    enabled: enableFocus,
     onDeactivate: ({ x, y }) => {
       'worklet';
       runOnJS(handleFocus)(x, y);
@@ -274,103 +305,56 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
         }
       },
 
-      startVideo: async () => {
-        if (!hasMic) {
-          await requestMic().catch(() => {});
-        }
+      startVideo: async (callbacks) => {
         // recTime → maxDuration(同为秒,直传):到点原生自动停 → onRecordingFinished 回调
-        // (无 stopVideo resolver 时走 onSpontaneousVideoFinish 入 photos)。缺省不设 → 不自动停。
+        // 缺省不设 → 不自动停。每次 start 都现算并创建一次性 Recorder,不跨设置预热/复用。
         const settings =
           currentMode.recTime != null
             ? { maxDuration: currentMode.recTime }
             : {};
-        let recorder = preparedRecorderRef.current;
-        try {
-          if (recorder == null) {
-            recorder = await videoOutput.createRecorder(settings);
-          }
-          preparedRecorderRef.current = null;
-          if (activeRecorderRef.current != null) {
-            // 已在录:手头 recorder 没用上 → 放回 prepared 复用,避免泄漏原生 encoder/file handle。
-            preparedRecorderRef.current = recorder;
-            return;
-          }
-          activeRecorderRef.current = recorder;
-
-          await recorder.startRecording(
-            (filePath, _reason) => {
+        return recorderController.start({
+          hasMicrophonePermission: hasMic,
+          requestMicrophonePermission: requestMic,
+          settings,
+          callbacks: {
+            onFinished: (filePath, reason, duration) => {
               const file = buildPhotoFile(
-                { path: filePath, width: 0, height: 0 },
+                { path: filePath, width: 0, height: 0, duration },
                 'video',
                 cameraType,
                 true
               );
-              activeRecorderRef.current = null;
-              if (finishResolverRef.current) {
-                // stopVideo 在等:兑现它的 Promise。
-                finishResolverRef.current(file);
-                finishResolverRef.current = null;
-              } else {
-                // 自发结束(maxDuration 到点/磁盘满/中断):无 resolver → 上报,别丢文件 + 复位录制态。
-                onSpontaneousVideoFinish?.(file);
+              callbacks.onFinished(file, reason, duration);
+            },
+            onError: callbacks.onError,
+            onCancelled: callbacks.onCancelled,
+            // 事务路径会注入原 session FileRegistry：先登记、再按 operation token 决定
+            // 交付或删除。Camera 单独使用时仍保留 RNFS best-effort 兜底，避免 cancel /
+            // error 终态之后才落盘的视频静默留在临时目录。
+            onDiscardedFile: (path) => {
+              if (callbacks.onDiscardedFile != null) {
+                callbacks.onDiscardedFile(path);
+                return;
+              }
+              try {
+                RNFS.unlink(path).catch((error) => {
+                  console.warn('discarded video cleanup failed', error);
+                });
+              } catch (error) {
+                console.warn('discarded video cleanup failed', error);
               }
             },
-            (error) => {
-              console.warn('recorder error', error);
-              activeRecorderRef.current = null;
-              finishResolverRef.current?.(null);
-              finishResolverRef.current = null;
-            },
-            () => {},
-            () => {}
-          );
-
-          preparedRecorderRef.current =
-            await videoOutput.createRecorder(settings);
-        } catch (e) {
-          console.warn('startRecording failed', e);
-          activeRecorderRef.current = null;
-          // 释放手头未挂载成功的 recorder(原生 encoder/file handle),再上抛 → useVideoRecorder
-          // 不进假录制态(不置 recording),Container 弹错误条而非 settle 关相机(P1#1b)。
-          try {
-            recorder?.dispose();
-          } catch (err) {
-            console.warn('recorder dispose failed', err);
-          }
-          throw e;
-        }
+          },
+        });
       },
 
-      stopVideo: async () => {
-        const active = activeRecorderRef.current;
-        if (active == null) return null;
-        try {
-          const durationSec = active.recordedDuration;
-          const finishedPromise = new Promise<CustomPhotoFile | null>(
-            (resolve) => {
-              finishResolverRef.current = (file) => {
-                if (file != null && durationSec != null) {
-                  resolve({ ...file, duration: durationSec });
-                } else {
-                  resolve(file);
-                }
-              };
-            }
-          );
-          await active.stopRecording();
-          return await finishedPromise;
-        } catch (e) {
-          console.warn('stopRecording failed', e);
-          activeRecorderRef.current = null;
-          // 清 stale resolver:stop 失败后别留指向已弃 Promise 的回调(否则下次 finish 误兑现旧 Promise)。
-          finishResolverRef.current = null;
-          return null;
-        }
-      },
+      stopVideo: () => recorderController.stop(),
+      cancelVideo: () => recorderController.cancel(),
+      getRecordedDuration: () => recorderController.getRecordedDuration(),
     }),
     [
       photoOutput,
-      videoOutput,
+      recorderController,
       currentMode.mode,
       currentMode.recTime,
       hasMic,
@@ -379,42 +363,42 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
       device.hasFlash,
       cameraType,
       sound,
-      onSpontaneousVideoFinish,
     ]
   );
 
-  // 卸载/离开 video 时清理 recorder:Nitro 对象 GC 延迟,prepared 但未用的 recorder
-  // 仍持有原生 encoder/file handle —— 不主动释放会泄漏。active 在录则 cancelRecording()
-  // (异步,删临时文件);prepared 直接 dispose()(同步,HybridObject 释放原生资源)。
+  // Controller 变更(例如 video output identity 改变)或卸载时强制取消；pending permission/create
+  // 也会被 attempt token 失效，晚到 Recorder 只清理、不再 start。
+  //
+  // setup 里必须 activate()：React 19 StrictMode 会 setup→cleanup→setup **复用同一个 useMemo
+  // 实例**，只有 cleanup 而没有重新激活，cleanup 里的 dispose() 会把 controllerDisposed 永久
+  // 置 true，此后 startVideo 永远返回 'denied'(真机 dev 构建下相机可用但完全录不了像)。
+  // 选 activate() 而不是「可替换 controller ref」：videoOutput identity 真变时 useMemo 会产出
+  // **新** controller，旧实例没人再引用、activate 不到，因此「旧 controller 永久失效」仍然成立。
   useEffect(() => {
+    recorderController.activate();
     return () => {
-      const active = activeRecorderRef.current;
-      if (active != null) {
-        active.cancelRecording().catch(() => {});
-        activeRecorderRef.current = null;
-      }
-      const prepared = preparedRecorderRef.current;
-      if (prepared != null) {
-        // dispose() 同步释放原生资源,对象已处异常状态时可能 throw —— unmount cleanup
-        // 里 throw 会红屏,故吞掉(资源最终由 GC 兜底)。
-        try {
-          prepared.dispose();
-        } catch (e) {
-          console.warn('recorder dispose failed', e);
-        }
-        preparedRecorderRef.current = null;
-      }
+      recorderController.dispose().catch((error) => {
+        console.warn('recorder cancel failed', error);
+      });
     };
-  }, []);
+  }, [recorderController]);
 
   const outputs: CameraOutput[] =
     currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
+
+  // Container 已在 zero viewport 阶段挡住挂载；内部再守一次，避免未来调用方把
+  // 无效目标 rect 送入 native Camera。
+  if (frame.width <= 0 || frame.height <= 0) return null;
 
   return (
     <View style={styles.root}>
       <GestureDetector gesture={composed}>
         <Animated.View style={[styles.frame, frameStyle]}>
           <VisionCamera
+            // VisionCamera 5.0.11 会用 latest-callback wrapper 包装 onConfigured。
+            // generation 变化时隔离实例，旧 configure Promise 即使在 passive cleanup 前完成，
+            // 也只能调用旧实例/旧 generation 的 callback，不能误把新配置提前标成 ready。
+            key={configurationGeneration}
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             // resizeMode="cover":photo 流恒 4:3 全幅 → 4:3 frame 下 cover 与 contain 视觉完全相同
@@ -445,13 +429,15 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               onCameraError?.(error);
             }}
             onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
+            onConfigured={onConfigured}
             nativeID="vision-camera"
           />
-          {focusPoint && (
+          {focusRequest && (
             <FocusIndicator
-              key={`${focusPoint.x}-${focusPoint.y}`}
-              point={focusPoint}
-              onAnimationEnd={() => setFocusPoint(null)}
+              key={focusRequest.requestId}
+              point={focusRequest.point}
+              requestId={focusRequest.requestId}
+              onAnimationEnd={handleFocusAnimationEnd}
             />
           )}
           {frozenUri != null && (
@@ -473,10 +459,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: VIEWFINDER.black,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  // 高度由 frameStyle 动画驱动(不在此写死 aspectRatio,改画幅时高度 withTiming 平滑伸缩)。
-  // overflow:hidden 裁掉溢出部分,框内只显示输出比例的画面。
-  frame: { width: '100%', overflow: 'hidden' },
+  // 完整 rect 由 frameStyle 动画驱动；overflow:hidden 裁掉 cover 的溢出画面。
+  frame: { position: 'absolute', overflow: 'hidden' },
 });

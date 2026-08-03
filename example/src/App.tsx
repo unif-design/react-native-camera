@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   Button,
@@ -58,13 +59,19 @@ function AppInner() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <AppInner />
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={rootStyles.root}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AppInner />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const rootStyles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 const makeStyles = (c: ColorTokens) =>
   StyleSheet.create({

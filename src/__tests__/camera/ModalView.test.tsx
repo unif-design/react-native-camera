@@ -1,4 +1,4 @@
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { ModalView } from '../../camera/ModalView';
 
@@ -26,4 +26,30 @@ it('visible=false 时渲染不崩(相机未弹常态)', () => {
       </ModalView>
     )
   ).not.toThrow();
+});
+
+it('Modal 自带 flex:1 GestureHandlerRootView，手势不依赖消费者根节点', () => {
+  const { getByTestId } = render(
+    <ModalView visible onClose={() => {}}>
+      <Text>gesture child</Text>
+    </ModalView>
+  );
+
+  expect(
+    StyleSheet.flatten(getByTestId('camera-gesture-root').props.style)
+  ).toEqual(expect.objectContaining({ flex: 1 }));
+});
+
+it('Modal 仅开放正向竖屏与左右横屏', () => {
+  const { getByTestId } = render(
+    <ModalView visible onClose={() => {}}>
+      <Text>orientation child</Text>
+    </ModalView>
+  );
+
+  expect(getByTestId('camera-modal').props.supportedOrientations).toEqual([
+    'portrait',
+    'landscape-left',
+    'landscape-right',
+  ]);
 });

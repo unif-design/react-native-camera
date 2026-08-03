@@ -44,7 +44,8 @@
     "typecheck": "tsc",
     "release": "release-it --only-version",
     "test": "jest",
-    "lint": "eslint \"**/*.{js,jsx,mjs,ts,tsx}\""
+    "lint": "eslint \"**/*.{js,jsx,mjs,ts,tsx}\"",
+    "check:turbo-inputs": "node scripts/check-turbo-inputs.js"
   },
   "keywords": [
     "react-native",
@@ -218,5 +219,8 @@
       "eslint"
     ],
     "version": "0.62.0"
+  },
+  "resolutions": {
+    "@react-native/gradle-plugin@npm:0.85.0": "patch:@react-native/gradle-plugin@npm%3A0.85.0#~/.yarn/patches/@react-native-gradle-plugin-npm-0.85.0-d5db84ae63.patch"
   }
 }

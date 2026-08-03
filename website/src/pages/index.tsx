@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
+import type {
+  useCamera as useCameraHook,
+  OpenConfig,
+} from '@unif/react-native-camera';
 
 import '@unif/react-native-design/docs-home.css';
 
@@ -137,6 +141,28 @@ const ST = (s: string) => <span className="tok-str">{s}</span>;
 const FN = (s: string) => <span className="tok-fn">{s}</span>;
 const DIM = (s: string) => <span className="tok-dim">{s}</span>;
 
+// 主页代码窗与公开类型绑定；只 import type，浏览器不会加载 native 相机 runtime，
+// 但 website typecheck 会在公开 API 漂移时立即失败。
+const homepageOpenConfig = {
+  cameraMode: [
+    { mode: 'continuous' },
+    { mode: 'video', recTime: 15 },
+  ],
+  dataRetainedMode: 'retain',
+  watermark: {
+    content: ['Unif · 巡检记录', '上海市', '2026-08-02'],
+    position: 'top-right',
+  },
+} satisfies OpenConfig;
+
+export function HomepageCameraContract(
+  useCamera: typeof useCameraHook
+): React.ReactElement {
+  const [api, holder] = useCamera();
+  void api.open(homepageOpenConfig);
+  return holder;
+}
+
 const CODE_LINES: CodeLine[] = [
   <>
     {K('import')} <span className="tok-id">{'{ useCamera }'}</span> {K('from')}{' '}
@@ -148,27 +174,30 @@ const CODE_LINES: CodeLine[] = [
   </>,
   <>
     {'  '}
-    {K('const')} camera = {FN('useCamera')}({'{'}
+    {K('const')} [api, holder] = {FN('useCamera')}()
   </>,
   <>
-    {'    '}mode: {ST("'burst'")},
+    {'  '}{K('const')} open = () =&gt; api.{FN('open')}({'{'}
   </>,
   <>
-    {'    '}watermark: {ST("'Unif · {date}'")},
+    {'    '}cameraMode: [{'{'} mode: {ST("'continuous'")} {'}'},
   </>,
   <>
-    {'    '}maxDuration: <span className="tok-id">15</span>,
+    {'    '}{'{' } mode: {ST("'video'")}, recTime: <span className="tok-id">15</span> {'}'}],
   </>,
   <>
-    {'  '}
-    {'})'})
+    {'    '}dataRetainedMode: {ST("'retain'")},
+  </>,
+  <>
+    {'    '}watermark: {'{'} content: [{ST("'Unif · 巡检'")}], position: {ST("'top-right'")} {'}'},
+  </>,
+  <>
+    {'  '}{'});'}
   </>,
   <>{' '}</>,
   <>
     {'  '}
-    {K('return')} {DIM('<')}
-    {FN('Pressable')} onPress={'{'}camera.<span className="tok-id">open</span>
-    {'}'} {DIM('/>')}
+    {K('return')} {DIM('<>')} {DIM('<')}{FN('Pressable')} onPress={'{'}open{'}'} {DIM('/>')} {'{'}holder{'}'} {DIM('</>')}
   </>,
   <>{'}'}</>,
 ];

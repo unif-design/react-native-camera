@@ -2,6 +2,10 @@ import type { ReactElement } from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
+import {
+  createContainerSessionProps,
+  layoutCameraViewport,
+} from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // 已授权 + 有后置设备 → Container 走到 device-ready,渲染 <Camera>。
@@ -10,10 +14,14 @@ import { renderDark } from '../__helpers__/renderDark';
 // jest.mock 被 babel 提升到 import 上,故 helper 在工厂内 require(不能闭包捕获顶层 import)。
 jest.mock('react-native-vision-camera', () => {
   const vc = require('../__helpers__/visionCameraMock');
+  const devices = {
+    back: vc.makeDeviceStub({ position: 'back' }),
+    front: vc.makeDeviceStub({ position: 'front' }),
+  };
   return vc.makeVisionCameraMock({
     ...vc.grantedPermissionOverrides(),
-    useCameraDevice: (position: 'back' | 'front') =>
-      vc.makeDeviceStub({ position }),
+    // 官方 hook 在设备清单不变时保持对象身份;测试桩也必须遵守这一契约。
+    useCameraDevice: (position: 'back' | 'front') => devices[position],
   });
 });
 
@@ -41,10 +49,16 @@ const baseConfig = {
 function renderContainer(onSettle: (r: unknown) => void) {
   const ui: ReactElement = (
     <CameraDialogProvider>
-      <Container config={baseConfig} onSettle={onSettle} />
+      <Container
+        {...createContainerSessionProps()}
+        config={baseConfig}
+        onSettle={onSettle}
+      />
     </CameraDialogProvider>
   );
-  return renderDark(ui);
+  const rendered = renderDark(ui);
+  layoutCameraViewport(rendered);
+  return rendered;
 }
 
 it('onCameraError 触发顶部错误条(showError)', () => {
