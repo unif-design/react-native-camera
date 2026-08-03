@@ -4,44 +4,58 @@ import {
   type ShowcaseRoute,
 } from '../../../example/src/navigation/localNavigation';
 
-const routeNames = [
-  'home',
-  'basic-capture',
-  'multi-mode',
-  'watermark-evidence',
-  'quality-lab',
-] as const satisfies readonly ShowcaseRoute['name'][];
-
-const allRoutesCovered: Exclude<
-  ShowcaseRoute['name'],
-  (typeof routeNames)[number]
-> extends never
-  ? true
-  : never = true;
-
-it('固定五个 showcase route 名称', () => {
-  expect(allRoutesCovered).toBe(true);
-  expect(routeNames).toEqual([
-    'home',
+const routeCases = [
+  ['home', { name: 'home' }, { stack: [{ name: 'home' }, { name: 'home' }] }],
+  [
     'basic-capture',
+    { name: 'basic-capture' },
+    { stack: [{ name: 'home' }, { name: 'basic-capture' }] },
+  ],
+  [
     'multi-mode',
+    { name: 'multi-mode' },
+    { stack: [{ name: 'home' }, { name: 'multi-mode' }] },
+  ],
+  [
     'watermark-evidence',
+    { name: 'watermark-evidence' },
+    { stack: [{ name: 'home' }, { name: 'watermark-evidence' }] },
+  ],
+  [
     'quality-lab',
-  ]);
-});
+    { name: 'quality-lab' },
+    { stack: [{ name: 'home' }, { name: 'quality-lab' }] },
+  ],
+] as const satisfies readonly (readonly [
+  ShowcaseRoute['name'],
+  ShowcaseRoute,
+  NavigationState,
+])[];
 
-it('push 将 typed route 追加到新 stack', () => {
-  const state: NavigationState = { stack: [{ name: 'home' }] };
+type CompleteRouteCases =
+  Exclude<
+    ShowcaseRoute['name'],
+    (typeof routeCases)[number][1]['name']
+  > extends never
+    ? typeof routeCases
+    : never;
 
-  expect(
-    navigationReducer(state, {
-      type: 'push',
-      route: { name: 'quality-lab' },
-    })
-  ).toEqual({
-    stack: [{ name: 'home' }, { name: 'quality-lab' }],
-  });
-});
+const completeRouteCases: CompleteRouteCases = routeCases;
+
+it.each(completeRouteCases)(
+  '%s route 由 reducer push 后可 reset 到 home',
+  (_name, route, pushedState) => {
+    const nextState = navigationReducer(
+      { stack: [{ name: 'home' }] },
+      { type: 'push', route }
+    );
+
+    expect(nextState).toEqual(pushedState);
+    expect(navigationReducer(nextState, { type: 'home' })).toEqual({
+      stack: [{ name: 'home' }],
+    });
+  }
+);
 
 it('back 只移除当前 route', () => {
   expect(
@@ -66,19 +80,4 @@ it('Android back 在根 route 不消费并保留原 state 引用', () => {
 
   expect(nextState).toBe(rootState);
   expect(nextState).toEqual({ stack: [{ name: 'home' }] });
-});
-
-it('home 将任意 stack reset 到新的根 route', () => {
-  expect(
-    navigationReducer(
-      {
-        stack: [
-          { name: 'home' },
-          { name: 'watermark-evidence' },
-          { name: 'quality-lab' },
-        ],
-      },
-      { type: 'home' }
-    )
-  ).toEqual({ stack: [{ name: 'home' }] });
 });
