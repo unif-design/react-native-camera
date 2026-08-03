@@ -105,9 +105,9 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 ### 照片处理 / Skia 水印(`src/camera/image/` + `src/camera/watermark/`)
 
 - `WatermarkType`:`content: string[]`(每项一行,第 0 行加粗)+ `position`(六选一,缺省 `'top-right'`)。
-- **Container 已接线路径**:`useCaptureFlow` 对 JPEG 串行调用 `cropToRatio()` 再调用 `burnWatermark()`;两个兼容 helper 都吞掉异常并返回各自输入 file。因此失败时可能把 raw、仅裁切或仅水印的结果加入 `photos`,不会显示「照片处理失败」。这是当前对外行为。
-- **内部原子 processor 契约**:`processPhoto()` 会快照 session / capture ID、画幅、quality、watermark 与实际 camera position;需要 16:9 或存在可见水印时只 decode / draw / JPEG encode 一次,quality 使用当前 mode。处理失败通过 registry best-effort 清理 raw 与可能存在的部分输出,再抛出 `.code === 'photo_processing_failed'` 的 `PhotoProcessingError`,绝不返回未满足请求的照片。
-- `processPhoto()` 与 `createFileRegistry()` 当前没有生产调用点,不能把其原子失败语义写成 `Container` 已生效行为。接入它的调用方必须在失败时不追加 raw,恢复可拍状态并显示「照片处理失败,请重试」,同时保留此前 files。录像不进入照片 processor。
+- **`usePhotoCaptureTransaction` 已接入 `processPhoto()`**:native capture 一返回 raw path 就先登记 session 所有权;JPEG 在 16:9 或存在可见水印时进入 processor,其余无需处理的输出才直接交付 normalized raw。
+- **原子 processor 契约**:`processPhoto()` 会快照 session / capture ID、画幅、quality、watermark 与实际 camera position;裁切 + 水印只做一次 decode / draw / JPEG encode,quality 使用当前 mode。处理失败会清理 raw 与可能存在的部分输出,再抛出 `.code === 'photo_processing_failed'` 的 `PhotoProcessingError`,绝不返回未满足请求的照片。
+- **失败不降级交付 raw**:当前 operation 会回到可拍状态并显示「照片处理失败,请重试」,此前 files 保持不变;stale operation 只做 owned file 清理,不更新 UI。录像不进入照片 processor。
 - Skia Data、Image、Surface、Paint、Paragraph Builder / Paragraph 与 Snapshot 都是 native 包装对象;所有成功 / 失败路径必须按依赖逆序 dispose,单个 dispose 失败不能遮蔽原错误或阻断其余清理。
 
 ### 与 `@unif/react-native-design` 的耦合(peer `>=0.20.0`)
@@ -139,7 +139,7 @@ design 是必装 peer,本库从它取这些(不自造):
 - **图标全用 design `Icon`,不自绘**(例:音量键 `name={sound ? 'sound' : 'sound-off'}`,`sound-off` 是本库给 design 加的)。**例外** `FocusIndicator`(点击对焦动画环)是动画图形,留 camera。
 - **字体 / 颜色全走 design token** — 字号 `type` / `t.*`、字重 `fw`、颜色 `useColors()`;`ModalView` 套 `forceScheme="dark"` 恒深色。**例外** `src/camera/colors/viewfinder.ts` 几个 design 表达不了的**取景物理常量**(纯黑 letterbox、半透明黑玻璃药丸、iOS 录制红 + tint、水印阴影)。
 - **取景整屏垂直居中** — 系统相机式:取景器铺满居中,控件浮层按 zIndex 叠其上。
-- **画幅比例用文字按钮切换** — `4:3` / `16:9`(非图标,左侧竖栏 `SideRail`),**默认 `16:9`**(`Container.tsx` `useState<AspectRatio>('16:9')`)。**切画幅原生式(系统相机同款)**:photo 流**恒固定全幅 `UHD_4_3`**(不随画幅)→ photo outputs 恒定 → **切画幅 session 零重配、取景流不闪断**;取景 `resizeMode="cover"` + 取景框高度 `withTiming` 平滑伸缩 → 切换 = 预览画面平滑放大缩小(16:9 下 cover 裁左右 = 正确 16:9 视野)。**16:9 出图 = Skia 拍后居中裁切**(`watermark/cropToRatio.ts`,等高裁宽、窄图 fallback 等宽裁高;红线同水印:**任何异常返原图绝不阻断保存、Skia 对象 finally 逆序 dispose**),`useCaptureFlow` 顺序 capture → 裁切 → 烧水印。**video 例外**:`targetResolution` 仍随画幅(视频无法拍后裁,video 模式切画幅会 session 重配,低频已接受)。高度动画 worklet 只读 SharedValue 数字,worklet 内绝不调 design `r()`(见下)。
+- **画幅比例用文字按钮切换** — `4:3` / `16:9`(非图标,左侧竖栏 `SideRail`),**默认 `16:9`**(`useCameraSessionController` 初始 state)。**切画幅原生式(系统相机同款)**:photo 流**恒固定全幅 `UHD_4_3`**(不随画幅)→ photo outputs 恒定 → **切画幅 session 零重配、取景流不闪断**;取景 `resizeMode="cover"` + 取景框高度 `withTiming` 平滑伸缩 → 切换 = 预览画面平滑放大缩小(16:9 下 cover 裁左右 = 正确 16:9 视野)。**16:9 出图 = `processPhoto()` 拍后居中裁切**:`computeCropRect()` 计算区域,裁切与可见水印在同一个 Skia surface 完成;任一步失败都清理 owned 输出并提示重试,不会交付原图。**video 例外**:`targetResolution` 仍随画幅(视频无法拍后裁,video 模式切画幅会 session 重配,低频已接受)。高度动画 worklet 只读 SharedValue 数字,worklet 内绝不调 design `r()`(见下)。
 - **闪光 / 声音用左侧竖栏切换** — 闪光三态**原地轮换**(点一下 auto→on→off→auto,**无弹出层**);声音开关 `name={sound ? 'sound' : 'sound-off'}`。capture 时 `flashMode` **全模式直传** vision-camera(我们的 `'auto'/'on'/'off'` 取值与其一致),仅 `device.hasFlash` guard(无物理闪光设备一律 `'off'`,否则 throw)。
 - **预览页底部按钮** — 扫一扫式「上 icon 下文字」圆按钮:返回 `undo`、删除 `trash`(放大过、小尺寸糊)、重拍 `refresh`、保存 `check`;配色:返回 · 重拍 = 浅灰白,删除 = 橙,保存 = 红。
 - **无网格** — 不提供九宫格构图叠加。
@@ -163,34 +163,35 @@ design 是必装 peer,本库从它取这些(不自造):
 
 ### 拍摄编排 / 预览 / 生命周期(`Container.tsx` + `src/camera/hooks/`)
 
-`Container.tsx` 是相机内 UI 总装,**生产交互状态由 5 个 hook + 局部 state / ref 驱动**(改交互流先定位到对应 hook,别在 Container 里堆):
+`Container.tsx` 是相机内 UI 总装,**生产交互状态由 reducer + 6 个 hook 驱动**(改交互流先定位到对应 hook,别在 Container 里堆):
 
 - `usePermissionFlow` —— 权限态(`pending`/`granted`/`denied`);`denied`→`NoPermission`(code 403),`pending`→Loading。
 - `useZoomController(device)` —— vzf↔display 推导 + `zoomShared` + 设备切换 clamp(见上「变焦」)。
-- `useVideoRecorder(cameraRef)` —— 录像状态机(`recording`/`recSeconds` + start/stop)。
-- `useCaptureFlow({...})` —— **拍摄编排核心**:`photos` / 预览态(`previewing` + `previewVariant`)/ 快门(照片+视频分支)/ 保存·取消·切模式 全在这。
+- `useCameraSessionController` —— reducer、capabilities、operation token、configuration generation、预览 / 保存 / 取消与 exactly-once settle。
+- `usePhotoCaptureTransaction` —— 拍照、原子处理、定格反馈、预览 / 删除 / 重拍与照片文件清理。
+- `useVideoTransaction` —— native 录像 start / stop / cancel、时长采样、stale callback 门禁与视频文件清理。
 - `useAppActive` —— App 前后台(切后台停取景,对齐官方 `isActive=appActive&&isScreenFocused`)。
 
 #### 状态机接线边界
 
 - **跨 session coordinator 已生效**:`useCamera.tsx` 负责 session ID、配置快照、supersede、exactly-once finish 与 stale callback 门禁。
-- **取消 bridge 未由真实 Container 注册**:`useCamera.tsx` 会传 `sessionId/onControllerChange`,但 `Container` 的真实 Props 只声明并消费 `config/onSettle`。因此 coordinator 中的 controller 当前保持 `null`;hardware back 会直接 settle `code: 0`,不会经过录像确认或 UI capability。`close()` / supersede / unmount 的 native 收尾依赖 Container / Camera 卸载 cleanup。
-- **统一 reducer 与 configuration generation 是内部纯逻辑契约**:`src/camera/session/{types,reducer,configuration,deviceSelection,frameRect}.ts` 当前没有生产 import,`Container` 也没有 dispatch reducer,`Camera` 没有向上提供带 generation 的 `onConfigured`。不要把 phase capability、operation token、device fallback 或 generation gate 描述成已接线行为。
-- 内部 `nativeConfigurationKey` 排除 photo 画幅和相同 photo output 参数的 `single ↔ continuous`;device、photo / video output、photo quality / prioritization / HDR、video 画幅 / bitrate 会改变 key。reducer 只在 key 变化时递增 generation,且只有最新 generation 的 `CONFIGURED` 能恢复 `ready`。
+- **Container 已注册 session controller 与 container presence bridge**:`registerContainer(sessionId)` 跟踪真实 mount / detach,`useCameraSessionController` 通过 `registerController` 暴露用户取消与强制 teardown。Modal back 走 controller capability / 录像确认;`close()`、supersede、真实 detach 与 unmount 会走强制收尾。
+- **`useCameraSessionController` 已用 reducer 驱动** phase、capabilities、operation token 与 configuration generation;同步 shadow state 让同一 call stack 的重复操作立即被拒绝,async continuation 必须携带当前 token 才能提交。
+- `nativeConfigurationKey` 排除 photo 画幅和相同 photo output 参数的 `single ↔ continuous`;device、photo / video output、photo quality / prioritization / HDR、video 画幅 / bitrate 会改变 key。reducer 只在 key 变化时递增 generation,Container 为 `Camera.onConfigured` 绑定当前 generation,只有最新 generation 能恢复 `ready`。
 
-关键行为(都在 `useCaptureFlow` / `Camera.tsx`):
+关键行为(都在 controller / transaction hooks / `Camera.tsx`):
 
-- **快门防重入**(`capturingRef` 同步守卫)—— state 异步挡不住同帧连点;**没有它疯狂连点快门会让多个 UHD capture + Skia 全分辨率烧水印并发堆积 → 内存峰值叠加 → iOS 直接杀进程(闪退)**。「串行烧水印、峰值内存恒定」只在单次 `onShutter` 内成立,跨次并发靠这个 ref 挡(快门按钮同时 `shutterDisabled={capturing}`)。
-- **`isActive = appActive && !burning`** —— 烧水印时停取景(省电 + 释放摄像头),回前台恢复;预览态由 `previewing` 分支整体卸载 Camera。
+- **快门防重入**(`beginPhoto()` 同步推进 controller shadow)—— React state 异步挡不住同帧连点;第二次 operation 会在 native capture 前被拒绝,UI 同时由 `capabilities.capture` 禁用快门,避免多个 UHD + Skia 事务并发导致内存峰值叠加。
+- **`isActive = appActive && !photo.burning && preview == null`** —— 烧录或预览时停取景;预览 overlay 保留已配置的 Camera 实例,返回 / 重拍 / 删除末张后无需重新 attach / configure。
 - **`onError` → 顶部非阻塞错误条,绝不关相机** —— `onError` 是「session 遇到任何错误」的诊断回调(`error` 是普通 Error、无 code 判致命性,且含重开/激活时 session 重启这类**可恢复**瞬时错误)。故只 `warn` + 冒泡给 Container 弹错误条(`useCameraDialog().showError`,带去抖 `ERROR_DEDUPE_MS`、4s 自动消失),**绝不据此 `settle(500)`**:早期无条件 settle 会把重开时的瞬时错误误当致命 → 第二次打开即报错关闭。
 - **预览页两种 variant**(`PreviewOverlay`)—— `confirm`(单拍 clear 拍完即进、不分类 tab、显示全 files)/ `gallery`(累积多张、按 `cameraMode` 分类 tab,**单类型也显示其 tab**)。图片 `contain` + **固定灰画布**(`VIEWFINDER.previewCanvas` `#1C1C1E`)：外层容器恒定,只图片比例变 → 不同画幅外层观感一致。
 - 镜头翻转图标 `camera-flip`(系统相机通用形态,比 `lens-flip` 直白);翻转直接切 `position`(无翻转动画,真机反馈奇怪故移除)。
 
 ### 临时文件与所有权
 
-- **Container 已接线路径没有 per-session registry**。照片 raw temp、`cropToRatio()` 输出、`burnWatermark()` 输出和已完成视频都直接进入局部 `photos`;删除、重拍、`clear` 切模式、取消与卸载只清 React state,不会调用 `RNFS.unlink()`。裁切后再烧水印还可能遗留 raw 与中间文件。
-- `src/camera/session/fileRegistry.ts` 的内部契约只允许删除已登记为 `owned` 的 path;删除前同步标记 `deleted`,不先 `exists()`;单项 unlink 失败只告警。`replace()` 先登记 final 再删除 raw,`transfer()` 保护成功返回文件,`drain()` 清理其余 owned path。该 registry 当前没有 session owner 或生产调用点。
-- `code: 200` 当前返回的是临时 path,不是持久相册文件。消费者需要长期保留时必须自行复制到持久目录;不要声称库已经在取消 / 删除时回收文件,或已经在成功时执行 ownership transfer。
+- **每个 session 都由 `useCamera()` 创建独立 `FileRegistry`**并传给照片 / 录像事务。native raw、processor final、已完成或 discarded 视频 path 都先登记为 `owned`,stale callback 才有权安全删除本 session 文件。
+- registry 删除前同步标记 `deleted`,不先 `exists()`;单项 unlink 失败只告警。`replace()` 先登记 final 再删除 raw;删除、重拍、`clear` 切模式会清理对应 owned path,取消、supersede、真实 detach 与 unmount 会 `drain()` 其余 owned 文件。
+- **成功 `code: 200` 前只 `transfer()` 返回文件**,随后 `drain()` 其余 owned path;transferred path 仍是临时文件,库不再删除。消费者需要长期保留时必须自行复制到持久目录。
 
 ## 关键坑
 
@@ -225,4 +226,4 @@ design 是必装 peer,本库从它取这些(不自造):
 
 ## 仓库内注释风格
 
-现有代码用中文记录非显而易见决策的 **why** —— 比如为什么 `requestPermission` 必须 `.catch` 兜底(vision-camera #3834 Android coroutine leak)、为什么启用 `ultra-wide-angle` 超广角后仍要真机验证不复现 iOS #3773、为什么相机弹窗走本地 `CameraDialogHost` 而非 design 全局 host(会被相机 Modal 盖住)、为什么水印 Skia 对象要逆序 dispose、为什么 photo id 用「时间戳 + 计数器」(防同毫秒撞 id)、为什么 worklet 内尺寸必须先在 worklet 外预算成数字常量(design `r()` 是 Remote Function,worklet 里调会 fatal,2.15.1 踩过)、为什么 photo 流恒固定全幅 UHD_4_3 而 16:9 靠拍后 Skia 裁切(targetResolution 不变 → 切画幅 session 零重配不闪断,原生丝滑的根)、为什么快门要 `capturingRef` 同步防重入(连点并发烧水印 OOM 闪退)。保持这个标准:能不写注释就不写,但当读者会想「为什么要这样写」时,就写一句把 why 讲清楚。
+现有代码用中文记录非显而易见决策的 **why** —— 比如为什么 `requestPermission` 必须 `.catch` 兜底(vision-camera #3834 Android coroutine leak)、为什么启用 `ultra-wide-angle` 超广角后仍要真机验证不复现 iOS #3773、为什么相机弹窗走本地 `CameraDialogHost` 而非 design 全局 host(会被相机 Modal 盖住)、为什么水印 Skia 对象要逆序 dispose、为什么 photo id 用「时间戳 + 计数器」(防同毫秒撞 id)、为什么 worklet 内尺寸必须先在 worklet 外预算成数字常量(design `r()` 是 Remote Function,worklet 里调会 fatal,2.15.1 踩过)、为什么 photo 流恒固定全幅 UHD_4_3 而 16:9 靠拍后 Skia 裁切(targetResolution 不变 → 切画幅 session 零重配不闪断,原生丝滑的根)、为什么 controller shadow 必须同步推进(同一 call stack 拒绝重复 UHD / Skia operation)。保持这个标准:能不写注释就不写,但当读者会想「为什么要这样写」时,就写一句把 why 讲清楚。

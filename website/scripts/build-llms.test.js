@@ -101,4 +101,134 @@ assert.throws(
   '文档门禁必须拒绝缺少公开文件字段的成功 fixture'
 );
 
+// 仓库事实与 website CI 同属文档可信度门禁：源码演进后不能继续发布相反的
+// AGENTS 说明，也不能让 website / llms.txt 变更绕过共享 CI。
+const repositoryRoot = path.resolve(__dirname, '..', '..');
+const agentsDoc = fs.readFileSync(
+  path.join(repositoryRoot, 'AGENTS.md'),
+  'utf8'
+);
+const staleAgentFacts = [
+  '`processPhoto()` 与 `createFileRegistry()` 当前没有生产调用点',
+  '取消 bridge 未由真实 Container 注册',
+  '统一 reducer 与 configuration generation 是内部纯逻辑契约',
+  'Container 已接线路径没有 per-session registry',
+  '该 registry 当前没有 session owner 或生产调用点',
+  '不要声称库已经在取消 / 删除时回收文件',
+];
+for (const staleFact of staleAgentFacts) {
+  assert(
+    !agentsDoc.includes(staleFact),
+    `AGENTS.md 仍包含已失效事实:${staleFact}`
+  );
+}
+
+const currentAgentFacts = [
+  'Container 已注册 session controller 与 container presence bridge',
+  '`useCameraSessionController` 已用 reducer 驱动',
+  '`usePhotoCaptureTransaction` 已接入 `processPhoto()`',
+  '每个 session 都由 `useCamera()` 创建独立 `FileRegistry`',
+  '成功 `code: 200` 前只 `transfer()` 返回文件',
+];
+for (const currentFact of currentAgentFacts) {
+  assert(
+    agentsDoc.includes(currentFact),
+    `AGENTS.md 缺少当前实现事实:${currentFact}`
+  );
+}
+
+const ciWorkflow = fs.readFileSync(
+  path.join(repositoryRoot, '.github', 'workflows', 'ci.yml'),
+  'utf8'
+);
+
+function extractWorkflowJob(workflow, jobId) {
+  const header = `\n  ${jobId}:\n`;
+  const jobStart = workflow.indexOf(header);
+  assert(jobStart >= 0, `CI 缺少 ${jobId} job`);
+  const jobBodyStart = jobStart + header.length;
+  const nextJobMatch = workflow
+    .slice(jobBodyStart)
+    .match(/\n  [a-z][a-z0-9_-]*:\n/);
+  const jobEnd =
+    nextJobMatch == null
+      ? workflow.length
+      : jobBodyStart + nextJobMatch.index;
+  return workflow.slice(jobStart, jobEnd);
+}
+
+const changesJob = extractWorkflowJob(ciWorkflow, 'changes');
+for (const permission of ['contents: read', 'pull-requests: read']) {
+  assert(
+    changesJob.includes(permission),
+    `CI changes job 缺少权限:${permission}`
+  );
+}
+
+assert(
+  ciWorkflow.includes('website: ${{ steps.filter.outputs.website }}'),
+  'CI changes job 缺少 website output'
+);
+
+const websiteFilterMatch = ciWorkflow.match(
+  /\n            website:\n((?:              - .*\n)+)/
+);
+assert(websiteFilterMatch, 'CI changes filters 缺少 website filter');
+const websiteFilter = websiteFilterMatch[1];
+for (const requiredPath of [
+  'AGENTS.md',
+  'website/**',
+  'src/**',
+  'package.json',
+  'yarn.lock',
+  'tsconfig*.json',
+  '.nvmrc',
+  '.github/actions/**',
+  '.github/workflows/ci.yml',
+]) {
+  assert(
+    websiteFilter.includes(`- '${requiredPath}'`),
+    `CI website filter 缺少 ${requiredPath}`
+  );
+}
+
+const websiteJob = extractWorkflowJob(ciWorkflow, 'website');
+const websiteCommands = [
+  'node website/scripts/build-llms.test.js',
+  'yarn workspace "$WEBSITE_WORKSPACE" typecheck',
+  'yarn workspace "$WEBSITE_WORKSPACE" build',
+];
+for (const contract of [
+  "if: needs.changes.outputs.website == 'true'",
+  "node -p \"require('./website/package.json').name\"",
+  'id: website',
+  'printf \'name=%s\\n\' "$WEBSITE_WORKSPACE" >> "$GITHUB_OUTPUT"',
+  'WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}',
+  ...websiteCommands,
+]) {
+  assert(websiteJob.includes(contract), `CI website job 缺少契约:${contract}`);
+}
+assert.strictEqual(
+  websiteJob.split(
+    'WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}'
+  ).length - 1,
+  2,
+  'CI website typecheck / build 必须分别注入 workspace env'
+);
+assert(
+  !websiteJob.includes(
+    'run: yarn workspace "${{ steps.website.outputs.name }}"'
+  ),
+  'CI website workspace output 不得直接插值进 run shell'
+);
+const websiteCommandPositions = websiteCommands.map((command) =>
+  websiteJob.indexOf(command)
+);
+for (let index = 1; index < websiteCommandPositions.length; index += 1) {
+  assert(
+    websiteCommandPositions[index - 1] < websiteCommandPositions[index],
+    'CI website job 必须依次运行 llms 测试、typecheck、build'
+  );
+}
+
 console.log('ALL PASS');

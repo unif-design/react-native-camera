@@ -7,7 +7,8 @@
 
 ## 范围
 
-- `unif-design/.github`:更新 `templates/workflows/ci.yml` 及模板契约测试。
+- `unif-design/.github`:更新 `templates/workflows/ci.yml`、模板契约测试及自动验证
+  workflow。
 - `react-native-camera`:同步共享 `ci.yml`,校准根 `AGENTS.md`。
 - 不修改 Camera 公共 API、运行时源码、依赖、版本、tag 或发布流程。
 - 不改 Camera Skill PR #10;它继续使用现有分支和 worktree。
@@ -16,16 +17,23 @@
 
 `changes` job 新增 `website` 输出。以下输入触发 website gate:
 
+- `AGENTS.md`
 - `website/**`
 - `src/**`
 - `package.json`、`yarn.lock`、`tsconfig*.json`
 - `.nvmrc`、`.github/actions/**`、`.github/workflows/ci.yml`
+
+`changes` job 单独保留 `contents: read` 并增加 `pull-requests: read`,供 checkout 与
+`dorny/paths-filter` 在 PR 事件下读取 changed files,其余 job 不扩大权限。
 
 `website` job 通过 `website/package.json#name` 动态取得 workspace 名,依次执行:
 
 1. `website/scripts/build-llms.test.js`
 2. website workspace `typecheck`
 3. website workspace `build`
+
+workspace output 先通过 step `env` 注入,再以 `"$WEBSITE_WORKSPACE"` 传给 yarn,不把
+PR 可修改的数据直接插值进 shell source。
 
 四个目标仓都有相同的 website 目录、脚本与 workspace 结构,因此 gate 保持在共享模板,
 不新增 Camera 专用 workflow,也不允许单仓 `ci.yml` 漂移。
@@ -47,6 +55,8 @@
 
 - 先扩展 `.github` 模板测试并确认它因缺少 website gate 失败。
 - 实现共享模板后让测试通过,再同步 Camera `ci.yml`。
+- `.github/.github/workflows/validate.yml` 在 PR 与 main push 自动执行 ShellCheck、
+  Bash syntax、模板 / AGENTS 同步契约及 pinned actionlint。
 - 断言 Camera `ci.yml` 与共享模板逐字一致。
 - Camera 运行 website llms 测试、website typecheck、website build、根 typecheck 与 lint。
 - 提交前确认 diff 只包含本设计列出的文档和 CI 文件。
