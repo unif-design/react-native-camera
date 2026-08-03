@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/unif-design/react-native-camera/compare/v3.0.0...v3.0.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* **camera:** harden camera state machine reliability ([#98](https://github.com/unif-design/react-native-camera/issues/98)) ([c95b3d4](https://github.com/unif-design/react-native-camera/commit/c95b3d4af4bb1380841ed585b4c14fde68069628))
+
 # [3.0.0](https://github.com/unif-design/react-native-camera/compare/v2.24.1...v3.0.0) (2026-07-30)
 
 
