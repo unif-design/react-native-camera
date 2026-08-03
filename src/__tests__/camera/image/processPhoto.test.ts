@@ -224,10 +224,10 @@ it('相同 session/capture 的不同 raw 生成独立 final path', async () => {
   expect(first.path).not.toBe(second.path);
   expect(firstRegistry.stateOf(first.path)).toBe('owned');
   expect(secondRegistry.stateOf(second.path)).toBe('owned');
-  expect(RNFS.writeFile.mock.calls.map(([path]) => path)).toEqual([
-    first.path,
-    second.path,
-  ]);
+  const writtenPaths = RNFS.writeFile.mock.calls.map(
+    (call: [string]) => call[0]
+  );
+  expect(writtenPaths).toEqual([first.path, second.path]);
 });
 
 it.each([
@@ -273,9 +273,9 @@ it.each<HarnessFailure>(['decode', 'surface', 'encode', 'write'])(
     expect(registry.stateOf(raw.path)).toBe('deleted');
     expect(unlink).toHaveBeenCalledWith(raw.path);
     if (failure === 'write') {
-      expect(
-        registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')
-      ).toBe('deleted');
+      expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
+        'deleted'
+      );
       expect(unlink).toHaveBeenCalledWith(
         '/tmp/camera_capture-7_42_capture-7.jpg'
       );
@@ -513,9 +513,7 @@ it('write 失败会立即 reject 并同步摘除所有权，不等待慢 unlink'
   );
   expect(unlink).toHaveBeenCalledTimes(2);
   expect(unlink).toHaveBeenCalledWith(raw.path);
-  expect(unlink).toHaveBeenCalledWith(
-    '/tmp/camera_capture-7_42_capture-7.jpg'
-  );
+  expect(unlink).toHaveBeenCalledWith('/tmp/camera_capture-7_42_capture-7.jpg');
 });
 
 it('有 cleanup delegate 时交还 raw/partial final，由调用方决定删除时机', async () => {
