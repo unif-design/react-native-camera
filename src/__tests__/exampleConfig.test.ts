@@ -3,9 +3,14 @@ import { join } from 'node:path';
 
 const root = process.cwd();
 const exampleRoot = join(root, 'example');
+const websiteRoot = join(root, 'website');
 
 function readExample(relativePath: string): string {
   return readFileSync(join(exampleRoot, relativePath), 'utf8');
+}
+
+function readWebsite(relativePath: string): string {
+  return readFileSync(join(websiteRoot, relativePath), 'utf8');
 }
 
 function pluginName(plugin: unknown): unknown {
@@ -83,6 +88,16 @@ it('iPhone 宿主开放正向竖屏与左右横屏且不声明相册、空定位
   expect(plist).not.toContain('<key>NSLocationWhenInUseUsageDescription</key>');
 });
 
+it('iOS Podfile 将 RN CLI autolinking 锚定到 example 根目录', () => {
+  const podfile = readExample('ios/Podfile');
+
+  expect(podfile).toContain('config = use_native_modules!([');
+  expect(podfile).toContain('process.chdir(#{File.dirname(__FILE__).to_json})');
+  expect(podfile).toContain(
+    "require.resolve('@react-native-community/cli', { paths: [process.cwd()] })"
+  );
+});
+
 it('Android 仅保留相机、录像权限并精确移除传递的旧写存储权限', () => {
   const manifest = readExample('android/app/src/main/AndroidManifest.xml');
 
@@ -113,9 +128,19 @@ it('安装后的 RN Gradle included build 使用兼容 Gradle 9 的 Foojay 1.0.0
   );
 });
 
-it('根与 example 使用 RN 0.86.2 且公共 RN peer 不收紧', () => {
+it('根、example 与 website 使用统一 RN 0.86.2 图且公共 RN peer 不收紧', () => {
   const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const examplePkg = JSON.parse(readExample('package.json'));
+  const websitePkg = JSON.parse(readWebsite('package.json'));
+  const installedWebsiteReact = JSON.parse(
+    readWebsite('node_modules/react/package.json')
+  );
+  const installedWebsiteReactDom = JSON.parse(
+    readWebsite('node_modules/react-dom/package.json')
+  );
+  const installedWebsiteReactNative = JSON.parse(
+    readWebsite('node_modules/react-native/package.json')
+  );
 
   expect(rootPkg.devDependencies['react-native']).toBe('0.86.2');
   expect(examplePkg.dependencies['react-native']).toBe('0.86.2');
@@ -125,6 +150,12 @@ it('根与 example 使用 RN 0.86.2 且公共 RN peer 不收紧', () => {
   expect(examplePkg.devDependencies['@react-native-community/cli']).toBe(
     '20.1.0'
   );
+  expect(websitePkg.dependencies.react).toBe('19.2.3');
+  expect(websitePkg.dependencies['react-dom']).toBe('19.2.3');
+  expect(websitePkg.dependencies['react-native']).toBe('0.86.2');
+  expect(installedWebsiteReact.version).toBe('19.2.3');
+  expect(installedWebsiteReactDom.version).toBe('19.2.3');
+  expect(installedWebsiteReactNative.version).toBe('0.86.2');
   expect(rootPkg.peerDependencies['react-native']).toBe('>=0.85.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
