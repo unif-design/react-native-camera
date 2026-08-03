@@ -1,11 +1,18 @@
+import { useState, type ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import type {
   CameraRunController,
   CameraRunSnapshot,
 } from '../../../example/src/domain/cameraRun';
-import { QualityLabScreen } from '../../../example/src/screens/QualityLabScreen';
-import { WatermarkEvidenceScreen } from '../../../example/src/screens/WatermarkEvidenceScreen';
+import {
+  initialQualityLabDraft,
+  QualityLabScreen,
+} from '../../../example/src/screens/QualityLabScreen';
+import {
+  initialWatermarkEvidenceDraft,
+  WatermarkEvidenceScreen,
+} from '../../../example/src/screens/WatermarkEvidenceScreen';
 
 // 根 Jest renderer 与 example workspace 必须共享同一 React hook dispatcher。
 jest.mock('../../../example/node_modules/react', () =>
@@ -38,10 +45,47 @@ function createRun(): CameraRunController {
   };
 }
 
+function WatermarkEvidenceHarness({
+  run,
+  now,
+}: {
+  run: CameraRunController;
+  now: () => Date;
+}): ReactElement {
+  const [draft, setDraft] = useState(initialWatermarkEvidenceDraft);
+
+  return (
+    <WatermarkEvidenceScreen
+      run={run}
+      now={now}
+      draft={draft}
+      onDraftChange={setDraft}
+      onBack={jest.fn()}
+    />
+  );
+}
+
+function QualityLabHarness({
+  run,
+}: {
+  run: CameraRunController;
+}): ReactElement {
+  const [draft, setDraft] = useState(initialQualityLabDraft);
+
+  return (
+    <QualityLabScreen
+      run={run}
+      draft={draft}
+      onDraftChange={setDraft}
+      onBack={jest.fn()}
+    />
+  );
+}
+
 it('水印页在点击时注入当前时间、trim 手工字段并提交所选位置', () => {
   const run = createRun();
   const now = jest.fn(() => new Date('2026-08-03T10:20:30.000Z'));
-  render(<WatermarkEvidenceScreen run={run} now={now} onBack={jest.fn()} />);
+  render(<WatermarkEvidenceHarness run={run} now={now} />);
 
   fireEvent.changeText(screen.getByLabelText('记录标题'), '  设备巡检记录  ');
   fireEvent.changeText(screen.getByLabelText('手工地点'), '  A 区东门  ');
@@ -70,10 +114,9 @@ it('水印页在点击时注入当前时间、trim 手工字段并提交所选�
 it('水印页阻止空标题提交，并显示字段错误', () => {
   const run = createRun();
   render(
-    <WatermarkEvidenceScreen
+    <WatermarkEvidenceHarness
       run={run}
       now={() => new Date('2026-08-03T10:20:30.000Z')}
-      onBack={jest.fn()}
     />
   );
 
@@ -86,7 +129,7 @@ it('水印页阻止空标题提交，并显示字段错误', () => {
 
 it('质量页照片默认值从 OpenConfig 完全省略 SDK 可选 key', () => {
   const run = createRun();
-  render(<QualityLabScreen run={run} onBack={jest.fn()} />);
+  render(<QualityLabHarness run={run} />);
 
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
 
@@ -103,7 +146,7 @@ it('质量页照片默认值从 OpenConfig 完全省略 SDK 可选 key', () => {
 
 it('质量页提交精确照片 quality、prioritization 与 HDR 配置', () => {
   const run = createRun();
-  render(<QualityLabScreen run={run} onBack={jest.fn()} />);
+  render(<QualityLabHarness run={run} />);
 
   fireEvent.changeText(screen.getByLabelText('JPEG quality'), '0.85');
   fireEvent.press(screen.getByRole('tab', { name: '质量优先' }));
@@ -121,7 +164,7 @@ it('质量页提交精确照片 quality、prioritization 与 HDR 配置', () => 
 
 it('质量页录像实验只提交 recTime 与显式 24Mbps', () => {
   const run = createRun();
-  render(<QualityLabScreen run={run} onBack={jest.fn()} />);
+  render(<QualityLabHarness run={run} />);
 
   fireEvent.press(screen.getByRole('tab', { name: '录像实验' }));
   fireEvent.press(screen.getByRole('tab', { name: '显式码率' }));

@@ -1,12 +1,19 @@
+import { useState, type ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type {
   CameraRunController,
   CameraRunRecord,
   CameraRunSnapshot,
 } from '../../../example/src/domain/cameraRun';
-import { BasicCaptureScreen } from '../../../example/src/screens/BasicCaptureScreen';
+import {
+  BasicCaptureScreen,
+  initialBasicCaptureDraft,
+} from '../../../example/src/screens/BasicCaptureScreen';
 import { HomeScreen } from '../../../example/src/screens/HomeScreen';
-import { MultiModeScreen } from '../../../example/src/screens/MultiModeScreen';
+import {
+  initialMultiModeDraft,
+  MultiModeScreen,
+} from '../../../example/src/screens/MultiModeScreen';
 
 // 根 Jest renderer 与 example workspace 必须共享同一 React hook dispatcher。
 jest.mock('../../../example/node_modules/react', () =>
@@ -58,7 +65,11 @@ jest.mock(
           Pressable,
           {
             accessibilityRole: onPress ? 'button' : undefined,
-            accessibilityLabel: onPress ? title : undefined,
+            accessibilityLabel: onPress
+              ? sub
+                ? `${title},${sub}`
+                : title
+              : undefined,
             onPress,
           },
           React.createElement(Text, null, title),
@@ -179,6 +190,40 @@ function createRun(
   };
 }
 
+type ScreenHarnessProps = {
+  run: CameraRunController;
+  onBack: () => void;
+};
+
+function BasicCaptureHarness({
+  run,
+  onBack,
+}: ScreenHarnessProps): ReactElement {
+  const [draft, setDraft] = useState(initialBasicCaptureDraft);
+
+  return (
+    <BasicCaptureScreen
+      run={run}
+      draft={draft}
+      onDraftChange={setDraft}
+      onBack={onBack}
+    />
+  );
+}
+
+function MultiModeHarness({ run, onBack }: ScreenHarnessProps): ReactElement {
+  const [draft, setDraft] = useState(initialMultiModeDraft);
+
+  return (
+    <MultiModeScreen
+      run={run}
+      draft={draft}
+      onDraftChange={setDraft}
+      onBack={onBack}
+    />
+  );
+}
+
 it('首页暴露四个场景入口并展示本进程拍摄历史', () => {
   const run = createRun({ records: [historyRecord] });
   const onNavigate = jest.fn();
@@ -192,7 +237,7 @@ it('首页暴露四个场景入口并展示本进程拍摄历史', () => {
   ] as const;
 
   for (const [label, route] of entries) {
-    fireEvent.press(screen.getByRole('button', { name: label }));
+    fireEvent.press(screen.getByRole('button', { name: new RegExp(label) }));
     expect(onNavigate).toHaveBeenLastCalledWith(route);
   }
   expect(onNavigate).toHaveBeenCalledTimes(4);
@@ -202,7 +247,7 @@ it('首页暴露四个场景入口并展示本进程拍摄历史', () => {
 
 it('基础拍摄切换录像、前摄与关闭闪光后只提交录像字段', () => {
   const run = createRun();
-  render(<BasicCaptureScreen run={run} onBack={jest.fn()} />);
+  render(<BasicCaptureHarness run={run} onBack={jest.fn()} />);
 
   expect(screen.getByText('照片质量：0.9')).toBeOnTheScreen();
   fireEvent.press(screen.getByRole('tab', { name: '录像' }));
@@ -223,7 +268,7 @@ it('基础拍摄切换录像、前摄与关闭闪光后只提交录像字段', (
 
 it('多模式 retain 同时更新解释、实际 JSON 与 controller 参数', () => {
   const run = createRun();
-  render(<MultiModeScreen run={run} onBack={jest.fn()} />);
+  render(<MultiModeHarness run={run} onBack={jest.fn()} />);
 
   expect(
     screen.getByText('切换拍摄模式时先确认，再清理已有文件。')
@@ -247,8 +292,8 @@ it('多模式 retain 同时更新解释、实际 JSON 与 controller 参数', ()
 });
 
 it.each([
-  ['基础拍摄', BasicCaptureScreen],
-  ['多模式', MultiModeScreen],
+  ['基础拍摄', BasicCaptureHarness],
+  ['多模式', MultiModeHarness],
 ] as const)('%s opening 时禁用主按钮', (_name, ScreenComponent) => {
   const run = createRun({ phase: 'opening' });
   render(<ScreenComponent run={run} onBack={jest.fn()} />);

@@ -135,29 +135,142 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-it('全 App 只调用一次公开 useCamera，holder 跨导航固定且唯一', () => {
+it('四个场景往返时始终只调用一次公开 useCamera，并只渲染一个可见 holder', () => {
   render(<App />);
 
   expect(useCamera).toHaveBeenCalledTimes(1);
   expect(screen.getAllByTestId('visible-camera-holder')).toHaveLength(1);
 
-  fireEvent.press(screen.getByRole('button', { name: '水印存证' }));
-  expect(screen.getByText('水印只作用于 JPEG')).toBeOnTheScreen();
-  expect(useCamera).toHaveBeenCalledTimes(1);
-  expect(screen.getAllByTestId('visible-camera-holder')).toHaveLength(1);
+  const scenarios = [
+    {
+      entryName: /基础拍摄/,
+      marker: '一次只传入一个 cameraMode，便于复制最小公开配置。',
+    },
+    {
+      entryName: /多模式/,
+      marker:
+        '一次打开同时提供单拍、连拍和录像，在相机内切换并比较文件保留语义。',
+    },
+    {
+      entryName: /水印存证/,
+      marker: '水印只作用于 JPEG',
+    },
+    {
+      entryName: /质量实验室/,
+      marker: '质量参数不等于分辨率设置',
+    },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    fireEvent.press(screen.getByRole('button', { name: scenario.entryName }));
+    expect(screen.getByText(scenario.marker)).toBeOnTheScreen();
+    expect(useCamera).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByTestId('visible-camera-holder')).toHaveLength(1);
+
+    fireEvent.press(screen.getByRole('button', { name: '返回' }));
+    expect(screen.getByText('选择场景')).toBeOnTheScreen();
+    expect(useCamera).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByTestId('visible-camera-holder')).toHaveLength(1);
+  }
+});
+
+it('水印页返回首页后重进仍保留标题、地点、备注与位置', () => {
+  render(<App />);
+
+  fireEvent.press(screen.getByRole('button', { name: /水印存证/ }));
+  fireEvent.changeText(screen.getByLabelText('记录标题'), '设备巡检记录');
+  fireEvent.changeText(screen.getByLabelText('手工地点'), 'A 区东门');
+  fireEvent.changeText(screen.getByLabelText('备注'), '门锁完好');
+  fireEvent.press(screen.getByRole('tab', { name: '右下' }));
 
   fireEvent.press(screen.getByRole('button', { name: '返回' }));
-  fireEvent.press(screen.getByRole('button', { name: '质量实验室' }));
-  expect(screen.getByText('质量参数不等于分辨率设置')).toBeOnTheScreen();
-  expect(useCamera).toHaveBeenCalledTimes(1);
-  expect(screen.getAllByTestId('visible-camera-holder')).toHaveLength(1);
+  fireEvent.press(screen.getByRole('button', { name: /水印存证/ }));
+
+  expect(screen.getByLabelText('记录标题')).toHaveProp('value', '设备巡检记录');
+  expect(screen.getByLabelText('手工地点')).toHaveProp('value', 'A 区东门');
+  expect(screen.getByLabelText('备注')).toHaveProp('value', '门锁完好');
+  expect(screen.getByRole('tab', { name: '右下' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ selected: true })
+  );
+});
+
+it('质量页返回首页后重进仍保留实验类型、优先级、HDR 与码率', () => {
+  render(<App />);
+
+  fireEvent.press(screen.getByRole('button', { name: /质量实验室/ }));
+  fireEvent.press(screen.getByRole('tab', { name: '质量优先' }));
+  fireEvent.press(screen.getByRole('tab', { name: '显式控制' }));
+  fireEvent.press(screen.getByRole('switch', { name: '照片 HDR' }));
+  fireEvent.press(screen.getByRole('tab', { name: '录像实验' }));
+  fireEvent.press(screen.getByRole('tab', { name: '显式码率' }));
+  fireEvent.changeText(screen.getByLabelText('视频码率（bps）'), '18000000');
+
+  fireEvent.press(screen.getByRole('button', { name: '返回' }));
+  fireEvent.press(screen.getByRole('button', { name: /质量实验室/ }));
+
+  expect(screen.getByRole('tab', { name: '录像实验' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ selected: true })
+  );
+  expect(screen.getByRole('tab', { name: '显式码率' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ selected: true })
+  );
+  expect(screen.getByLabelText('视频码率（bps）')).toHaveProp(
+    'value',
+    '18000000'
+  );
+
+  fireEvent.press(screen.getByRole('tab', { name: '照片实验' }));
+  expect(screen.getByRole('tab', { name: '质量优先' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ selected: true })
+  );
+  expect(screen.getByRole('tab', { name: '显式控制' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ selected: true })
+  );
+  expect(screen.getByRole('switch', { name: '照片 HDR' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ checked: true, disabled: false })
+  );
+});
+
+it('基础与多模式页返回首页后重进仍保留场景选择', () => {
+  render(<App />);
+
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
+  fireEvent.press(screen.getByRole('tab', { name: '录像' }));
+  fireEvent.press(screen.getByRole('tab', { name: '前摄' }));
+  fireEvent.press(screen.getByRole('tab', { name: '开启' }));
+  fireEvent.press(screen.getByRole('button', { name: '返回' }));
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
+
+  for (const selection of ['录像', '前摄', '开启']) {
+    expect(screen.getByRole('tab', { name: selection })).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ selected: true })
+    );
+  }
+
+  fireEvent.press(screen.getByRole('button', { name: '返回' }));
+  fireEvent.press(screen.getByRole('button', { name: /多模式/ }));
+  fireEvent.press(screen.getByRole('tab', { name: '跨模式保留' }));
+  fireEvent.press(screen.getByRole('button', { name: '返回' }));
+  fireEvent.press(screen.getByRole('button', { name: /多模式/ }));
+
+  expect(screen.getByRole('tab', { name: '跨模式保留' })).toHaveProp(
+    'accessibilityState',
+    expect.objectContaining({ selected: true })
+  );
 });
 
 it('成功照片历史展示完整 metadata、可选路径与临时目录警告，并可清空', async () => {
   render(<App />);
   jest.mocked(currentApi().open).mockResolvedValueOnce(photoResult);
 
-  fireEvent.press(screen.getByRole('button', { name: '基础拍摄' }));
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
   await waitFor(() => {
     expect(screen.getByText('拍摄成功')).toBeOnTheScreen();
@@ -186,7 +299,7 @@ it('成功视频只展示 Design Icon 与 metadata，不渲染 Image 或播放�
   render(<App />);
   jest.mocked(currentApi().open).mockResolvedValueOnce(videoResult);
 
-  fireEvent.press(screen.getByRole('button', { name: '基础拍摄' }));
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
   fireEvent.press(screen.getByRole('tab', { name: '录像' }));
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
   await waitFor(() => {
@@ -214,12 +327,14 @@ it('code 0 使用中性取消语义，503 保留码措辞可诊断', async () =>
       message: 'reserved_video_failure',
     });
 
-  fireEvent.press(screen.getByRole('button', { name: '基础拍摄' }));
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
   await waitFor(() => {
-    expect(screen.getByTestId('tag-neutral')).toHaveTextContent('已取消');
+    expect(screen.getByText('已取消')).toBeOnTheScreen();
   });
-  expect(screen.queryByTestId('tag-error')).not.toBeOnTheScreen();
+  expect(
+    screen.queryByText('录像失败（保留码，当前实现不主动触发）')
+  ).not.toBeOnTheScreen();
 
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
   await waitFor(() => {

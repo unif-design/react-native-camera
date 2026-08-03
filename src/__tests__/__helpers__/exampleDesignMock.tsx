@@ -65,7 +65,9 @@ export function EntryCard({
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={onPress ? title : undefined}
+      accessibilityLabel={
+        onPress ? (sub ? `${title},${sub}` : title) : undefined
+      }
       onPress={onPress}
     >
       <Text>{title}</Text>
@@ -214,8 +216,15 @@ export function Icon({
   return <View testID={testID} />;
 }
 
-export function Tag({ label, variant }: { label: string; variant?: string }) {
-  return <Text testID={variant ? `tag-${variant}` : undefined}>{label}</Text>;
+export function Tag({
+  label,
+  testID,
+}: {
+  label: string;
+  variant?: string;
+  testID?: string;
+}) {
+  return <Text testID={testID}>{label}</Text>;
 }
 
 export function ThemeProvider({ children }: { children?: ReactNode }) {

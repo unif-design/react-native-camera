@@ -1,4 +1,4 @@
-import { useReducer, type ReactElement } from 'react';
+import { useReducer, useState, type ReactElement } from 'react';
 
 import type { CameraRunController } from '../domain/cameraRun';
 import {
@@ -6,11 +6,23 @@ import {
   type NavigationState,
   type ShowcaseRoute,
 } from '../navigation/localNavigation';
-import { BasicCaptureScreen } from '../screens/BasicCaptureScreen';
+import {
+  BasicCaptureScreen,
+  initialBasicCaptureDraft,
+} from '../screens/BasicCaptureScreen';
 import { HomeScreen } from '../screens/HomeScreen';
-import { MultiModeScreen } from '../screens/MultiModeScreen';
-import { QualityLabScreen } from '../screens/QualityLabScreen';
-import { WatermarkEvidenceScreen } from '../screens/WatermarkEvidenceScreen';
+import {
+  initialMultiModeDraft,
+  MultiModeScreen,
+} from '../screens/MultiModeScreen';
+import {
+  initialQualityLabDraft,
+  QualityLabScreen,
+} from '../screens/QualityLabScreen';
+import {
+  initialWatermarkEvidenceDraft,
+  WatermarkEvidenceScreen,
+} from '../screens/WatermarkEvidenceScreen';
 
 export type ShowcaseAppProps = {
   run: CameraRunController;
@@ -31,6 +43,12 @@ export function ShowcaseApp({
     navigationReducer,
     initialNavigationState
   );
+  const [watermarkDraft, setWatermarkDraft] = useState(
+    initialWatermarkEvidenceDraft
+  );
+  const [qualityDraft, setQualityDraft] = useState(initialQualityLabDraft);
+  const [basicDraft, setBasicDraft] = useState(initialBasicCaptureDraft);
+  const [multiDraft, setMultiDraft] = useState(initialMultiModeDraft);
   const route =
     navigation.stack[navigation.stack.length - 1] ??
     initialNavigationState.stack[0]!;
@@ -45,13 +63,42 @@ export function ShowcaseApp({
     case 'home':
       return <HomeScreen run={run} onNavigate={onNavigate} />;
     case 'basic-capture':
-      return <BasicCaptureScreen run={run} onBack={onBack} />;
+      return (
+        <BasicCaptureScreen
+          run={run}
+          draft={basicDraft}
+          onDraftChange={setBasicDraft}
+          onBack={onBack}
+        />
+      );
     case 'multi-mode':
-      return <MultiModeScreen run={run} onBack={onBack} />;
+      return (
+        <MultiModeScreen
+          run={run}
+          draft={multiDraft}
+          onDraftChange={setMultiDraft}
+          onBack={onBack}
+        />
+      );
     case 'watermark-evidence':
-      return <WatermarkEvidenceScreen run={run} now={now} onBack={onBack} />;
+      return (
+        <WatermarkEvidenceScreen
+          run={run}
+          now={now}
+          draft={watermarkDraft}
+          onDraftChange={setWatermarkDraft}
+          onBack={onBack}
+        />
+      );
     case 'quality-lab':
-      return <QualityLabScreen run={run} onBack={onBack} />;
+      return (
+        <QualityLabScreen
+          run={run}
+          draft={qualityDraft}
+          onDraftChange={setQualityDraft}
+          onBack={onBack}
+        />
+      );
     default: {
       const exhaustiveRoute: never = route;
       return exhaustiveRoute;

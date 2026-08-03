@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Button,
@@ -26,12 +26,40 @@ import { buildQualityConfig } from '../domain/scenarioConfigs';
 
 export type QualityLabScreenProps = {
   run: CameraRunController;
+  draft: QualityLabDraft;
+  onDraftChange: (draft: QualityLabDraft) => void;
   onBack: () => void;
 };
 
-type ExperimentKind = 'photo' | 'video';
-type PhotoPrioritization = 'sdk-default' | 'speed' | 'balanced' | 'quality';
-type ExplicitPolicy = 'sdk-default' | 'explicit';
+export type ExperimentKind = 'photo' | 'video';
+export type PhotoPrioritization =
+  | 'sdk-default'
+  | 'speed'
+  | 'balanced'
+  | 'quality';
+export type ExplicitPolicy = 'sdk-default' | 'explicit';
+
+export type QualityLabDraft = {
+  kind: ExperimentKind;
+  photoQualityText: string;
+  prioritization: PhotoPrioritization;
+  hdrPolicy: ExplicitPolicy;
+  hdrEnabled: boolean;
+  recTime: number;
+  bitRatePolicy: ExplicitPolicy;
+  videoBitRateText: string;
+};
+
+export const initialQualityLabDraft: QualityLabDraft = {
+  kind: 'photo',
+  photoQualityText: '0.9',
+  prioritization: 'sdk-default',
+  hdrPolicy: 'sdk-default',
+  hdrEnabled: false,
+  recTime: 15,
+  bitRatePolicy: 'sdk-default',
+  videoBitRateText: '24000000',
+};
 
 const experimentItems: { id: ExperimentKind; label: string }[] = [
   { id: 'photo', label: '照片实验' },
@@ -110,19 +138,21 @@ const makeStyles = (colors: ColorTokens) =>
 
 export function QualityLabScreen({
   run,
+  draft,
+  onDraftChange,
   onBack,
 }: QualityLabScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
-  const [kind, setKind] = useState<ExperimentKind>('photo');
-  const [photoQualityText, setPhotoQualityText] = useState('0.9');
-  const [prioritization, setPrioritization] =
-    useState<PhotoPrioritization>('sdk-default');
-  const [hdrPolicy, setHdrPolicy] = useState<ExplicitPolicy>('sdk-default');
-  const [hdrEnabled, setHdrEnabled] = useState(false);
-  const [recTime, setRecTime] = useState(15);
-  const [bitRatePolicy, setBitRatePolicy] =
-    useState<ExplicitPolicy>('sdk-default');
-  const [videoBitRateText, setVideoBitRateText] = useState('24000000');
+  const {
+    kind,
+    photoQualityText,
+    prioritization,
+    hdrPolicy,
+    hdrEnabled,
+    recTime,
+    bitRatePolicy,
+    videoBitRateText,
+  } = draft;
   const snapshot = useCameraRunSnapshot(run);
   const opening = snapshot.phase === 'opening';
   const photoQuality = parseFiniteNumber(photoQualityText);
@@ -184,7 +214,7 @@ export function QualityLabScreen({
               items={experimentItems}
               onChange={(value) => {
                 if (isExperimentKind(value)) {
-                  setKind(value);
+                  onDraftChange({ ...draft, kind: value });
                 }
               }}
             />
@@ -196,7 +226,9 @@ export function QualityLabScreen({
                 <Text style={styles.label}>JPEG quality（0 到 1）</Text>
                 <Input
                   value={photoQualityText}
-                  onChangeText={setPhotoQualityText}
+                  onChangeText={(value) => {
+                    onDraftChange({ ...draft, photoQualityText: value });
+                  }}
                   accessibilityLabel="JPEG quality"
                   keyboardType="decimal-pad"
                   error={
@@ -211,7 +243,7 @@ export function QualityLabScreen({
                   items={prioritizationItems}
                   onChange={(value) => {
                     if (isPhotoPrioritization(value)) {
-                      setPrioritization(value);
+                      onDraftChange({ ...draft, prioritization: value });
                     }
                   }}
                 />
@@ -223,14 +255,16 @@ export function QualityLabScreen({
                   items={hdrPolicyItems}
                   onChange={(value) => {
                     if (isExplicitPolicy(value)) {
-                      setHdrPolicy(value);
+                      onDraftChange({ ...draft, hdrPolicy: value });
                     }
                   }}
                 />
                 <View style={styles.inline}>
                   <Switch
                     value={hdrEnabled}
-                    onChange={setHdrEnabled}
+                    onChange={(value) => {
+                      onDraftChange({ ...draft, hdrEnabled: value });
+                    }}
                     disabled={hdrPolicy === 'sdk-default'}
                     accessibilityLabel="照片 HDR"
                   />
@@ -246,7 +280,9 @@ export function QualityLabScreen({
                 <Text style={styles.label}>最长录制秒数</Text>
                 <Stepper
                   value={recTime}
-                  onChange={setRecTime}
+                  onChange={(value) => {
+                    onDraftChange({ ...draft, recTime: value });
+                  }}
                   min={5}
                   max={120}
                   step={5}
@@ -259,13 +295,15 @@ export function QualityLabScreen({
                   items={bitRatePolicyItems}
                   onChange={(value) => {
                     if (isExplicitPolicy(value)) {
-                      setBitRatePolicy(value);
+                      onDraftChange({ ...draft, bitRatePolicy: value });
                     }
                   }}
                 />
                 <Input
                   value={videoBitRateText}
-                  onChangeText={setVideoBitRateText}
+                  onChangeText={(value) => {
+                    onDraftChange({ ...draft, videoBitRateText: value });
+                  }}
                   accessibilityLabel="视频码率（bps）"
                   keyboardType="number-pad"
                   disabled={bitRatePolicy === 'sdk-default'}

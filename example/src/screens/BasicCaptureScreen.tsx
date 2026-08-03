@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Button,
@@ -27,7 +27,21 @@ import { buildBasicConfig } from '../domain/scenarioConfigs';
 
 export type BasicCaptureScreenProps = {
   run: CameraRunController;
+  draft: BasicCaptureDraft;
+  onDraftChange: (draft: BasicCaptureDraft) => void;
   onBack: () => void;
+};
+
+export type BasicCaptureDraft = {
+  mode: CameraModeName;
+  cameraType: CameraType;
+  flashMode: FlashMode;
+};
+
+export const initialBasicCaptureDraft: BasicCaptureDraft = {
+  mode: 'single',
+  cameraType: 'back',
+  flashMode: 'auto',
 };
 
 const modeItems: { id: CameraModeName; label: string }[] = [
@@ -86,12 +100,12 @@ const makeStyles = (colors: ColorTokens) =>
 
 export function BasicCaptureScreen({
   run,
+  draft,
+  onDraftChange,
   onBack,
 }: BasicCaptureScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
-  const [mode, setMode] = useState<CameraModeName>('single');
-  const [cameraType, setCameraType] = useState<CameraType>('back');
-  const [flashMode, setFlashMode] = useState<FlashMode>('auto');
+  const { mode, cameraType, flashMode } = draft;
   const snapshot = useCameraRunSnapshot(run);
   const opening = snapshot.phase === 'opening';
   const config = buildBasicConfig({
@@ -128,7 +142,7 @@ export function BasicCaptureScreen({
               items={modeItems}
               onChange={(value) => {
                 if (isCameraMode(value)) {
-                  setMode(value);
+                  onDraftChange({ ...draft, mode: value });
                 }
               }}
             />
@@ -140,7 +154,7 @@ export function BasicCaptureScreen({
               items={cameraTypeItems}
               onChange={(value) => {
                 if (isCameraType(value)) {
-                  setCameraType(value);
+                  onDraftChange({ ...draft, cameraType: value });
                 }
               }}
             />
@@ -152,7 +166,7 @@ export function BasicCaptureScreen({
               items={flashItems}
               onChange={(value) => {
                 if (isFlashMode(value)) {
-                  setFlashMode(value);
+                  onDraftChange({ ...draft, flashMode: value });
                 }
               }}
             />

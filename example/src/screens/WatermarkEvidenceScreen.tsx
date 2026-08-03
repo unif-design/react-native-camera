@@ -26,12 +26,28 @@ import { buildWatermarkConfig } from '../domain/scenarioConfigs';
 export type WatermarkEvidenceScreenProps = {
   run: CameraRunController;
   now: () => Date;
+  draft: WatermarkEvidenceDraft;
+  onDraftChange: (draft: WatermarkEvidenceDraft) => void;
   onBack: () => void;
 };
 
-type WatermarkPosition = NonNullable<
+export type WatermarkPosition = NonNullable<
   NonNullable<OpenConfig['watermark']>['position']
 >;
+
+export type WatermarkEvidenceDraft = {
+  title: string;
+  location: string;
+  note: string;
+  position: WatermarkPosition;
+};
+
+export const initialWatermarkEvidenceDraft: WatermarkEvidenceDraft = {
+  title: '',
+  location: '',
+  note: '',
+  position: 'top-right',
+};
 
 const topPositions: { id: WatermarkPosition; label: string }[] = [
   { id: 'top-left', label: '左上' },
@@ -87,17 +103,16 @@ const makeStyles = (colors: ColorTokens) =>
 export function WatermarkEvidenceScreen({
   run,
   now,
+  draft,
+  onDraftChange,
   onBack,
 }: WatermarkEvidenceScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
-  const [title, setTitle] = useState('');
-  const [location, setLocation] = useState('');
-  const [note, setNote] = useState('');
-  const [position, setPosition] = useState<WatermarkPosition>('top-right');
   const [titleError, setTitleError] = useState<string | undefined>();
   const [submittedConfig, setSubmittedConfig] = useState<OpenConfig | null>(
     null
   );
+  const { title, location, note, position } = draft;
   const snapshot = useCameraRunSnapshot(run);
   const opening = snapshot.phase === 'opening';
   const latestRecord = [...snapshot.records]
@@ -138,7 +153,9 @@ export function WatermarkEvidenceScreen({
             <Text style={styles.label}>记录标题（必填）</Text>
             <Input
               value={title}
-              onChangeText={setTitle}
+              onChangeText={(value) => {
+                onDraftChange({ ...draft, title: value });
+              }}
               accessibilityLabel="记录标题"
               placeholder="例如：设备巡检记录"
               error={titleError}
@@ -148,7 +165,9 @@ export function WatermarkEvidenceScreen({
             <Text style={styles.label}>手工地点</Text>
             <Input
               value={location}
-              onChangeText={setLocation}
+              onChangeText={(value) => {
+                onDraftChange({ ...draft, location: value });
+              }}
               accessibilityLabel="手工地点"
               placeholder="例如：A 区东门"
             />
@@ -157,7 +176,9 @@ export function WatermarkEvidenceScreen({
             <Text style={styles.label}>备注</Text>
             <Textarea
               value={note}
-              onChangeText={setNote}
+              onChangeText={(value) => {
+                onDraftChange({ ...draft, note: value });
+              }}
               accessibilityLabel="备注"
               placeholder="补充现场信息"
               maxLength={200}
@@ -171,7 +192,7 @@ export function WatermarkEvidenceScreen({
                 items={topPositions}
                 onChange={(value) => {
                   if (isWatermarkPosition(value)) {
-                    setPosition(value);
+                    onDraftChange({ ...draft, position: value });
                   }
                 }}
               />
@@ -180,7 +201,7 @@ export function WatermarkEvidenceScreen({
                 items={bottomPositions}
                 onChange={(value) => {
                   if (isWatermarkPosition(value)) {
-                    setPosition(value);
+                    onDraftChange({ ...draft, position: value });
                   }
                 }}
               />

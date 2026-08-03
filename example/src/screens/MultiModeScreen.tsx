@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Button,
@@ -23,7 +23,17 @@ import { buildMultiModeConfig } from '../domain/scenarioConfigs';
 
 export type MultiModeScreenProps = {
   run: CameraRunController;
+  draft: MultiModeDraft;
+  onDraftChange: (draft: MultiModeDraft) => void;
   onBack: () => void;
+};
+
+export type MultiModeDraft = {
+  retainedMode: DataRetainedMode;
+};
+
+export const initialMultiModeDraft: MultiModeDraft = {
+  retainedMode: 'clear',
 };
 
 const retainedModeItems: {
@@ -62,10 +72,12 @@ const makeStyles = (colors: ColorTokens) =>
 
 export function MultiModeScreen({
   run,
+  draft,
+  onDraftChange,
   onBack,
 }: MultiModeScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
-  const [retainedMode, setRetainedMode] = useState<DataRetainedMode>('clear');
+  const { retainedMode } = draft;
   const snapshot = useCameraRunSnapshot(run);
   const opening = snapshot.phase === 'opening';
   const config = buildMultiModeConfig(retainedMode);
@@ -95,7 +107,7 @@ export function MultiModeScreen({
             items={retainedModeItems}
             onChange={(value) => {
               if (isRetainedMode(value)) {
-                setRetainedMode(value);
+                onDraftChange({ retainedMode: value });
               }
             }}
           />
