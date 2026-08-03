@@ -197,6 +197,39 @@ it('crop + watermark 恰好一次 decode / surface / snapshot / JPEG encode / wr
   expect(unlink).not.toHaveBeenCalled();
 });
 
+it('相同 session/capture 的不同 raw 生成独立 final path', async () => {
+  installNativeHarness();
+  const firstRaw = makePhotoFile({
+    ...makeRaw(),
+    id: 'raw-a',
+    path: '/native/a.jpg',
+    uri: 'file:///native/a.jpg',
+  });
+  const secondRaw = makePhotoFile({
+    ...makeRaw(),
+    id: 'raw-b',
+    path: '/native/b.jpg',
+    uri: 'file:///native/b.jpg',
+  });
+  const firstRegistry = createFileRegistry(jest.fn(async () => {}));
+  const secondRegistry = createFileRegistry(jest.fn(async () => {}));
+
+  firstRegistry.register(firstRaw.path);
+  secondRegistry.register(secondRaw.path);
+  const first = await processPhoto(firstRaw, makeOperation(), firstRegistry);
+  const second = await processPhoto(secondRaw, makeOperation(), secondRegistry);
+
+  expect(first.path).toBe('/tmp/camera_raw-a_42_capture-7.jpg');
+  expect(second.path).toBe('/tmp/camera_raw-b_42_capture-7.jpg');
+  expect(first.path).not.toBe(second.path);
+  expect(firstRegistry.stateOf(first.path)).toBe('owned');
+  expect(secondRegistry.stateOf(second.path)).toBe('owned');
+  expect(RNFS.writeFile.mock.calls.map(([path]) => path)).toEqual([
+    first.path,
+    second.path,
+  ]);
+});
+
 it.each([
   { quality: undefined, expected: 90 },
   { quality: 0.734, expected: 73 },
