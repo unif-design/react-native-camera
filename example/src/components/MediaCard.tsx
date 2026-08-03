@@ -1,7 +1,8 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import {
   Card,
+  Empty,
   Icon,
   fw,
   r,
@@ -27,6 +28,10 @@ const makeStyles = (colors: ColorTokens) =>
       height: r(180),
       borderRadius: r(8),
       backgroundColor: colors.surfaceContainer,
+    },
+    imageEmpty: {
+      minHeight: r(180),
+      justifyContent: 'center',
     },
     videoPreview: {
       minHeight: r(112),
@@ -68,6 +73,7 @@ const makeStyles = (colors: ColorTokens) =>
   });
 
 export function MediaCard({ media }: MediaCardProps): ReactElement {
+  const [previewFailed, setPreviewFailed] = useState(false);
   const colors = useColors();
   const styles = useThemedStyles(makeStyles);
   const isPhoto = media.mime === 'image/jpeg';
@@ -75,13 +81,22 @@ export function MediaCard({ media }: MediaCardProps): ReactElement {
   return (
     <Card variant="plain">
       <View style={styles.content}>
-        {isPhoto ? (
+        {isPhoto && previewFailed ? (
+          <Empty
+            title="临时照片预览已失效"
+            desc="文件可能已被系统清理；生产业务应及时复制或上传。"
+            icon="image"
+            style={styles.imageEmpty}
+            testID={`media-empty-${media.id}`}
+          />
+        ) : isPhoto ? (
           <Image
             testID={`media-image-${media.id}`}
             accessibilityLabel={`照片 ${media.id}`}
             source={{ uri: media.uri }}
             resizeMode="contain"
             style={styles.image}
+            onError={() => setPreviewFailed(true)}
           />
         ) : (
           <View style={styles.videoPreview}>

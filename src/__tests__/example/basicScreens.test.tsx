@@ -125,6 +125,8 @@ jest.mock(
         ),
       Tag: ({ label }: { label: string }) =>
         React.createElement(Text, null, label),
+      Icon: ({ testID }: { testID?: string }) =>
+        React.createElement(View, { testID }),
       fw: {
         regular: '400',
         semi: '600',

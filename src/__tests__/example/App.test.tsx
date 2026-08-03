@@ -1,9 +1,11 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { BackHandler } from 'react-native';
 import type { CameraApi, CameraResult } from '@unif/react-native-camera';
 import { useCamera } from '@unif/react-native-camera';
 
@@ -131,8 +133,65 @@ function currentApi(): CameraApi {
   return firstResult[0];
 }
 
+type HardwareBackHandler = Parameters<typeof BackHandler.addEventListener>[1];
+
+const hardwareBackEvent: Parameters<HardwareBackHandler>[0] = {
+  type: 'hardwareBackPress',
+  timeStamp: 1,
+};
+
+let hardwareBackHandler: HardwareBackHandler | undefined;
+let removeHardwareBackHandler: jest.Mock;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  removeHardwareBackHandler = jest.fn();
+  jest
+    .spyOn(BackHandler, 'addEventListener')
+    .mockImplementation((eventName, handler) => {
+      if (eventName === 'hardwareBackPress') {
+        hardwareBackHandler = handler;
+      }
+      return { remove: removeHardwareBackHandler };
+    });
+});
+
+afterEach(() => {
+  hardwareBackHandler = undefined;
+  jest.restoreAllMocks();
+});
+
+it('Android hardware back 在 Home 不消费事件', () => {
+  render(<App />);
+
+  expect(hardwareBackHandler).toBeDefined();
+  expect(hardwareBackHandler?.(hardwareBackEvent)).toBe(false);
+  expect(screen.getByText('选择场景')).toBeOnTheScreen();
+});
+
+it('Android hardware back 在子 route 消费事件并返回 Home', () => {
+  render(<App />);
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
+
+  expect(hardwareBackHandler).toBeDefined();
+  let consumed: boolean | null | undefined;
+  act(() => {
+    consumed = hardwareBackHandler?.(hardwareBackEvent);
+  });
+  expect(consumed).toBe(true);
+  expect(screen.getByText('选择场景')).toBeOnTheScreen();
+});
+
+it('Showcase navigator unmount 时取消 Android hardware back 订阅', () => {
+  const { unmount } = render(<App />);
+
+  expect(BackHandler.addEventListener).toHaveBeenCalledWith(
+    'hardwareBackPress',
+    expect.any(Function)
+  );
+  unmount();
+
+  expect(removeHardwareBackHandler).toHaveBeenCalledTimes(1);
 });
 
 it('四个场景往返时始终只调用一次公开 useCamera，并只渲染一个可见 holder', () => {
@@ -295,6 +354,66 @@ it('成功照片历史展示完整 metadata、可选路径与临时目录警告�
   expect(screen.queryByText('photo-1')).not.toBeOnTheScreen();
 });
 
+it('临时照片 URI 失效时切换为明确的 Design Empty 空态', async () => {
+  render(<App />);
+  jest.mocked(currentApi().open).mockResolvedValueOnce(photoResult);
+
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
+  fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
+  await waitFor(() => {
+    expect(screen.getByTestId('media-image-photo-1')).toBeOnTheScreen();
+  });
+
+  fireEvent(screen.getByTestId('media-image-photo-1'), 'error');
+
+  expect(screen.queryByTestId('media-image-photo-1')).not.toBeOnTheScreen();
+  expect(screen.getByTestId('media-empty-photo-1')).toBeOnTheScreen();
+  expect(screen.getByText('临时照片预览已失效')).toBeOnTheScreen();
+  expect(
+    screen.getByText('文件可能已被系统清理；生产业务应及时复制或上传。')
+  ).toBeOnTheScreen();
+});
+
+it('历史仅默认展开最新记录，旧记录按需展开和收起媒体与 JSON', async () => {
+  render(<App />);
+  jest
+    .mocked(currentApi().open)
+    .mockResolvedValueOnce(photoResult)
+    .mockResolvedValueOnce({
+      ...photoResult,
+      data: [
+        {
+          ...photoResult.data[0]!,
+          id: 'photo-2',
+          path: '/tmp/photo-2.jpg',
+          uri: 'file:///tmp/photo-2.jpg',
+        },
+      ],
+    });
+
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
+  fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
+  await waitFor(() => {
+    expect(screen.getByText('photo-1')).toBeOnTheScreen();
+  });
+  fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
+  await waitFor(() => {
+    expect(screen.getByText('photo-2')).toBeOnTheScreen();
+  });
+  fireEvent.press(screen.getByRole('button', { name: '返回' }));
+
+  expect(screen.getByText('photo-2')).toBeOnTheScreen();
+  expect(screen.queryByText('photo-1')).not.toBeOnTheScreen();
+
+  fireEvent.press(screen.getByRole('button', { name: '展开详情' }));
+  expect(screen.getByText('photo-1')).toBeOnTheScreen();
+  expect(screen.getAllByText(/"code": 200/)).toHaveLength(2);
+
+  fireEvent.press(screen.getByRole('button', { name: '收起详情' }));
+  expect(screen.queryByText('photo-1')).not.toBeOnTheScreen();
+  expect(screen.getAllByText(/"code": 200/)).toHaveLength(1);
+});
+
 it('成功视频只展示 Design Icon 与 metadata，不渲染 Image 或播放器', async () => {
   render(<App />);
   jest.mocked(currentApi().open).mockResolvedValueOnce(videoResult);
@@ -313,6 +432,56 @@ it('成功视频只展示 Design Icon 与 metadata，不渲染 Image 或播放�
   expect(screen.getByText('video · front')).toBeOnTheScreen();
   expect(screen.getByText('时长 12.5 秒')).toBeOnTheScreen();
   expect(screen.getByText('示例不内置视频播放器')).toBeOnTheScreen();
+});
+
+it.each(['基础拍摄', '多模式', '水印存证', '质量实验室'])(
+  '%s 的 api.open unexpected reject 展示可访问的 runtime diagnostic 且不伪造结果码',
+  async (entryName) => {
+    render(<App />);
+    jest
+      .mocked(currentApi().open)
+      .mockRejectedValueOnce(new Error('native bridge unavailable'));
+
+    fireEvent.press(
+      screen.getByRole('button', { name: new RegExp(entryName) })
+    );
+    if (entryName === '水印存证') {
+      fireEvent.changeText(screen.getByLabelText('记录标题'), '巡检记录');
+    }
+    fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('alert', {
+          name: /相机运行异常.*native bridge unavailable/,
+        })
+      ).toBeOnTheScreen();
+    });
+    expect(screen.getByText('native bridge unavailable')).toBeOnTheScreen();
+    expect(screen.queryByText(/结果码 500/)).not.toBeOnTheScreen();
+  }
+);
+
+it('code 403 展示 message、diagnostic、状态 Icon 与系统设置恢复指引', async () => {
+  render(<App />);
+  jest.mocked(currentApi().open).mockResolvedValueOnce({
+    code: 403,
+    data: [],
+    message: 'permission_denied',
+  });
+
+  fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
+  fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
+
+  await waitFor(() => {
+    expect(screen.getByText('相机权限被拒绝')).toBeOnTheScreen();
+  });
+  expect(screen.getByText('message：permission_denied')).toBeOnTheScreen();
+  expect(screen.getByText('diagnostic：permission_denied')).toBeOnTheScreen();
+  expect(
+    screen.getByText('请到系统设置授权或恢复相机权限后重试。')
+  ).toBeOnTheScreen();
+  expect(screen.getByTestId('result-status-icon-403')).toBeOnTheScreen();
 });
 
 it('code 0 使用中性取消语义，503 保留码措辞可诊断', async () => {

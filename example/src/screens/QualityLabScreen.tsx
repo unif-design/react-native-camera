@@ -20,6 +20,7 @@ import {
   ResultSummary,
   useCameraRunSnapshot,
 } from '../components/ResultSummary';
+import { RuntimeDiagnosticNotice } from '../components/RuntimeDiagnosticNotice';
 import { ShowcaseScaffold } from '../components/ShowcaseScaffold';
 import type { CameraRunController } from '../domain/cameraRun';
 import { buildQualityConfig } from '../domain/scenarioConfigs';
@@ -327,6 +328,10 @@ export function QualityLabScreen({
         onPress={openCamera}
       />
 
+      <RuntimeDiagnosticNotice
+        diagnostics={snapshot.diagnostics}
+        scenario="quality-lab"
+      />
       <Text style={styles.sectionTitle}>最近结果</Text>
       <ResultSummary record={latestRecord} />
     </ShowcaseScaffold>

@@ -17,6 +17,7 @@ import {
   ResultSummary,
   useCameraRunSnapshot,
 } from '../components/ResultSummary';
+import { RuntimeDiagnosticNotice } from '../components/RuntimeDiagnosticNotice';
 import { ShowcaseScaffold } from '../components/ShowcaseScaffold';
 import type { CameraRunController } from '../domain/cameraRun';
 import { buildMultiModeConfig } from '../domain/scenarioConfigs';
@@ -129,6 +130,10 @@ export function MultiModeScreen({
         onPress={openCamera}
       />
 
+      <RuntimeDiagnosticNotice
+        diagnostics={snapshot.diagnostics}
+        scenario="multi-mode"
+      />
       <Text style={styles.sectionTitle}>最近结果</Text>
       <ResultSummary record={latestRecord} />
     </ShowcaseScaffold>

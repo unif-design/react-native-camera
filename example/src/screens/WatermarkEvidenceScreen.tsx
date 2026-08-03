@@ -19,6 +19,7 @@ import {
   ResultSummary,
   useCameraRunSnapshot,
 } from '../components/ResultSummary';
+import { RuntimeDiagnosticNotice } from '../components/RuntimeDiagnosticNotice';
 import { ShowcaseScaffold } from '../components/ShowcaseScaffold';
 import type { CameraRunController } from '../domain/cameraRun';
 import { buildWatermarkConfig } from '../domain/scenarioConfigs';
@@ -228,6 +229,10 @@ export function WatermarkEvidenceScreen({
         onPress={openCamera}
       />
 
+      <RuntimeDiagnosticNotice
+        diagnostics={snapshot.diagnostics}
+        scenario="watermark-evidence"
+      />
       <Text style={styles.sectionTitle}>最近结果</Text>
       <ResultSummary record={latestRecord} />
     </ShowcaseScaffold>

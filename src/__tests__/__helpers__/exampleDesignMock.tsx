@@ -53,6 +53,24 @@ export function Card({ children }: { children?: ReactNode }) {
   return <View>{children}</View>;
 }
 
+export function Empty({
+  title,
+  desc,
+  testID,
+}: {
+  title: string;
+  desc?: string;
+  icon?: string;
+  testID?: string;
+}) {
+  return (
+    <View testID={testID}>
+      <Text>{title}</Text>
+      {desc ? <Text>{desc}</Text> : null}
+    </View>
+  );
+}
+
 export function EntryCard({
   title,
   sub,

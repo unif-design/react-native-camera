@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Button,
@@ -37,6 +37,9 @@ const makeStyles = (colors: ColorTokens) =>
   });
 
 export function ResultHistory({ run }: ResultHistoryProps): ReactElement {
+  const [expandedRecordIds, setExpandedRecordIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const styles = useThemedStyles(makeStyles);
   const snapshot = useCameraRunSnapshot(run);
   const records = [...snapshot.records].reverse();
@@ -57,9 +60,34 @@ export function ResultHistory({ run }: ResultHistoryProps): ReactElement {
       </View>
       <View style={styles.records}>
         {records.length > 0 ? (
-          records.map((record) => (
-            <ResultSummary key={record.id} record={record} />
-          ))
+          records.map((record, index) => {
+            const isLatest = index === 0;
+            const detailsExpanded =
+              isLatest || expandedRecordIds.has(record.id);
+
+            return (
+              <ResultSummary
+                key={record.id}
+                record={record}
+                detailsExpanded={detailsExpanded}
+                onToggleDetails={
+                  isLatest
+                    ? undefined
+                    : () => {
+                        setExpandedRecordIds((currentIds) => {
+                          const nextIds = new Set(currentIds);
+                          if (nextIds.has(record.id)) {
+                            nextIds.delete(record.id);
+                          } else {
+                            nextIds.add(record.id);
+                          }
+                          return nextIds;
+                        });
+                      }
+                }
+              />
+            );
+          })
         ) : (
           <ResultSummary />
         )}

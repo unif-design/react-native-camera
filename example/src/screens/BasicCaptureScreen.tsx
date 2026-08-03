@@ -21,6 +21,7 @@ import {
   ResultSummary,
   useCameraRunSnapshot,
 } from '../components/ResultSummary';
+import { RuntimeDiagnosticNotice } from '../components/RuntimeDiagnosticNotice';
 import { ShowcaseScaffold } from '../components/ShowcaseScaffold';
 import type { CameraRunController } from '../domain/cameraRun';
 import { buildBasicConfig } from '../domain/scenarioConfigs';
@@ -187,6 +188,10 @@ export function BasicCaptureScreen({
         onPress={openCamera}
       />
 
+      <RuntimeDiagnosticNotice
+        diagnostics={snapshot.diagnostics}
+        scenario="basic-capture"
+      />
       <Text style={styles.sectionTitle}>最近结果</Text>
       <ResultSummary record={latestRecord} />
     </ShowcaseScaffold>

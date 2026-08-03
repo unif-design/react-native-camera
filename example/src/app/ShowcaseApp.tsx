@@ -1,4 +1,11 @@
-import { useReducer, useState, type ReactElement } from 'react';
+import {
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
+import { BackHandler } from 'react-native';
 
 import type { CameraRunController } from '../domain/cameraRun';
 import {
@@ -52,6 +59,26 @@ export function ShowcaseApp({
   const route =
     navigation.stack[navigation.stack.length - 1] ??
     initialNavigationState.stack[0]!;
+  const routeNameRef = useRef(route.name);
+  routeNameRef.current = route.name;
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (routeNameRef.current === 'home') {
+          return false;
+        }
+        dispatch({ type: 'back' });
+        return true;
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   const onBack = (): void => {
     dispatch({ type: 'back' });
   };
