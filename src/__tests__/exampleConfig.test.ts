@@ -160,4 +160,9 @@ it('根、example 与 website 使用统一 RN 0.86.2 图且公共 RN peer 不收
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();
+  expect(
+    Object.keys(rootPkg.resolutions ?? {}).filter((key) =>
+      key.includes('eslint-plugin-ft-flow')
+    )
+  ).toEqual([]);
 });
