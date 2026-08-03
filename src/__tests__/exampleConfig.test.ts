@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -11,6 +11,20 @@ function readExample(relativePath: string): string {
 
 function readWebsite(relativePath: string): string {
   return readFileSync(join(websiteRoot, relativePath), 'utf8');
+}
+
+function readSourceTree(directory: string): string {
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        return readSourceTree(path);
+      }
+      return entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')
+        ? readFileSync(path, 'utf8')
+        : '';
+    })
+    .join('\n');
 }
 
 function pluginName(plugin: unknown): unknown {
@@ -46,18 +60,31 @@ it('example Babel 最后加载 Worklets plugin', () => {
   expect(pluginName(plugins.at(-1))).toBe('react-native-worklets/plugin');
 });
 
-it('example App 以 flex:1 GestureHandlerRootView 为根', () => {
+it('example App 以固定 Provider 顺序装配唯一 camera hook 与 holder', () => {
   const source = readExample('src/App.tsx');
+  const allSource = readSourceTree(join(exampleRoot, 'src'));
 
   expect(source).toContain(
     "import { GestureHandlerRootView } from 'react-native-gesture-handler';"
   );
   expect(source).toMatch(
-    /return\s*\(\s*<GestureHandlerRootView\s+style=\{rootStyles\.root\}>/
+    /return\s*\(\s*<GestureHandlerRootView\s+style=\{rootStyles\.root\}>\s*<ThemeProvider>\s*<SafeAreaProvider>\s*<CameraShowcase\s*\/>\s*<\/SafeAreaProvider>\s*<\/ThemeProvider>\s*<\/GestureHandlerRootView>/
   );
   expect(source).toMatch(
     /const rootStyles = StyleSheet\.create\(\{\s*root: \{ flex: 1 \}/
   );
+  expect(
+    allSource.match(/\bconst\s+\[[^\]]+\]\s*=\s*useCamera\s*\(\)/g) ?? []
+  ).toHaveLength(1);
+  expect(allSource.match(/\{holder\}/g) ?? []).toHaveLength(1);
+  expect(source).toMatch(
+    /useMemo\(\s*\(\)\s*=>\s*createCameraRunController\(\{[\s\S]*?\bapi\b[\s\S]*?\}\),\s*\[api\]\s*\)/
+  );
+  expect(source).toMatch(
+    /useEffect\(\s*\(\)\s*=>\s*\(\)\s*=>\s*\{\s*api\.close\(\);\s*\},\s*\[api\]\s*\)/
+  );
+  expect(source).toMatch(/<ShowcaseApp\s+run=\{run\}\s*\/>\s*\{holder\}/);
+  expect(source).not.toMatch(/\bConfirmHost\b|\bToastHost\b/);
 });
 
 it('example 显式安装 workspace camera 与照片处理、录像 native peers', () => {

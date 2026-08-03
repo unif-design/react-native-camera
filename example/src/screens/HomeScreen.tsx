@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
-  Button,
   EntryCard,
   fw,
   r,
@@ -11,10 +10,7 @@ import {
   type IconName,
 } from '@unif/react-native-design';
 
-import {
-  ResultSummary,
-  useCameraRunSnapshot,
-} from '../components/ResultSummary';
+import { ResultHistory } from '../components/ResultHistory';
 import { ShowcaseScaffold } from '../components/ShowcaseScaffold';
 import type { CameraRunController } from '../domain/cameraRun';
 import type { ShowcaseRoute } from '../navigation/localNavigation';
@@ -74,25 +70,15 @@ const makeStyles = (colors: ColorTokens) =>
       flexBasis: '47%',
       flexGrow: 1,
     },
-    history: {
-      gap: r(10),
-    },
-    historyHeader: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
   });
 
 export function HomeScreen({ run, onNavigate }: HomeScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
-  const snapshot = useCameraRunSnapshot(run);
-  const records = [...snapshot.records].reverse();
 
   return (
     <ShowcaseScaffold
       title="Camera 能力展厅"
-      description="四个场景都通过同一个进程内 controller 调用公开 useCamera()，返回文件只在临时目录中保留。"
+      description="四个场景共享同一个根级 camera API 与进程内 controller，返回文件只在临时目录中保留。"
     >
       <Text style={styles.sectionTitle}>选择场景</Text>
       <View style={styles.entryGrid}>
@@ -108,27 +94,7 @@ export function HomeScreen({ run, onNavigate }: HomeScreenProps): ReactElement {
         ))}
       </View>
 
-      <View style={styles.history}>
-        <View style={styles.historyHeader}>
-          <Text style={styles.sectionTitle}>本进程历史</Text>
-          {records.length > 0 ? (
-            <Button
-              label="清空历史"
-              variant="text"
-              size="sm"
-              onPress={run.clear}
-              accessibilityHint="清除本次 App 进程内的拍摄记录"
-            />
-          ) : null}
-        </View>
-        {records.length > 0 ? (
-          records.map((record) => (
-            <ResultSummary key={record.id} record={record} />
-          ))
-        ) : (
-          <ResultSummary />
-        )}
-      </View>
+      <ResultHistory run={run} />
     </ShowcaseScaffold>
   );
 }
