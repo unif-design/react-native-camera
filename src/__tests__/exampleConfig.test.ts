@@ -113,20 +113,20 @@ it('安装后的 RN Gradle included build 使用兼容 Gradle 9 的 Foojay 1.0.0
   );
 });
 
-it('根 package 只为 RN Gradle plugin 0.85.0 保存 exact Yarn patch resolution', () => {
-  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
-    resolutions?: Record<string, string>;
-  };
-  const gradlePluginResolutions = Object.entries(pkg.resolutions ?? {}).filter(
-    ([descriptor]) => descriptor.startsWith('@react-native/gradle-plugin@')
-  );
+it('根与 example 使用 RN 0.86.2 且公共 RN peer 不收紧', () => {
+  const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  const examplePkg = JSON.parse(readExample('package.json'));
 
-  expect(gradlePluginResolutions).toEqual([
-    [
-      '@react-native/gradle-plugin@npm:0.85.0',
-      expect.stringMatching(
-        /^patch:@react-native\/gradle-plugin@npm%3A0\.85\.0#~\/\.yarn\/patches\/@react-native-gradle-plugin-npm-0\.85\.0-[a-f0-9]+\.patch$/
-      ),
-    ],
-  ]);
+  expect(rootPkg.devDependencies['react-native']).toBe('0.86.2');
+  expect(examplePkg.dependencies['react-native']).toBe('0.86.2');
+  expect(examplePkg.devDependencies['@react-native/metro-config']).toBe(
+    '0.86.2'
+  );
+  expect(examplePkg.devDependencies['@react-native-community/cli']).toBe(
+    '20.1.0'
+  );
+  expect(rootPkg.peerDependencies['react-native']).toBe('>=0.85.0');
+  expect(
+    rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
+  ).toBeUndefined();
 });
