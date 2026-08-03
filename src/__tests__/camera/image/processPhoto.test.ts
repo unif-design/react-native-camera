@@ -186,8 +186,8 @@ it('crop + watermark 恰好一次 decode / surface / snapshot / JPEG encode / wr
   );
   expect(native.paragraph.paint).toHaveBeenCalledTimes(1);
   expect(result).toMatchObject({
-    path: '/tmp/camera_42_capture-7.jpg',
-    uri: 'file:///tmp/camera_42_capture-7.jpg',
+    path: '/tmp/camera_capture-7_42_capture-7.jpg',
+    uri: 'file:///tmp/camera_capture-7_42_capture-7.jpg',
     width: 2250,
     height: 4000,
     cameraType: 'front',
@@ -273,8 +273,12 @@ it.each<HarnessFailure>(['decode', 'surface', 'encode', 'write'])(
     expect(registry.stateOf(raw.path)).toBe('deleted');
     expect(unlink).toHaveBeenCalledWith(raw.path);
     if (failure === 'write') {
-      expect(registry.stateOf('/tmp/camera_42_capture-7.jpg')).toBe('deleted');
-      expect(unlink).toHaveBeenCalledWith('/tmp/camera_42_capture-7.jpg');
+      expect(
+        registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')
+      ).toBe('deleted');
+      expect(unlink).toHaveBeenCalledWith(
+        '/tmp/camera_capture-7_42_capture-7.jpg'
+      );
     }
   }
 );
@@ -333,10 +337,12 @@ it('成功只登记 final 并立即返回，不删除 raw 或等待慢 unlink', 
 
   expect(outcome).toBe('resolved');
   await expect(processing).resolves.toMatchObject({
-    path: '/tmp/camera_42_capture-7.jpg',
+    path: '/tmp/camera_capture-7_42_capture-7.jpg',
   });
 
-  expect(registry.stateOf('/tmp/camera_42_capture-7.jpg')).toBe('owned');
+  expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
+    'owned'
+  );
   expect(registry.stateOf(raw.path)).toBe('owned');
   expect(unlink).not.toHaveBeenCalled();
   expect(native.order).toEqual([
@@ -456,7 +462,7 @@ it('write 后先登记 final 再检查过期，并且每个 path 最多 unlink �
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
-  const outputPath = '/tmp/camera_42_capture-7.jpg';
+  const outputPath = '/tmp/camera_capture-7_42_capture-7.jpg';
   registry.register(raw.path);
   const isCurrent = jest
     .fn<boolean, []>()
@@ -502,10 +508,14 @@ it('write 失败会立即 reject 并同步摘除所有权，不等待慢 unlink'
 
   expect(outcome).toBe('rejected');
   expect(registry.stateOf(raw.path)).toBe('deleted');
-  expect(registry.stateOf('/tmp/camera_42_capture-7.jpg')).toBe('deleted');
+  expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
+    'deleted'
+  );
   expect(unlink).toHaveBeenCalledTimes(2);
   expect(unlink).toHaveBeenCalledWith(raw.path);
-  expect(unlink).toHaveBeenCalledWith('/tmp/camera_42_capture-7.jpg');
+  expect(unlink).toHaveBeenCalledWith(
+    '/tmp/camera_capture-7_42_capture-7.jpg'
+  );
 });
 
 it('有 cleanup delegate 时交还 raw/partial final，由调用方决定删除时机', async () => {
@@ -513,7 +523,7 @@ it('有 cleanup delegate 时交还 raw/partial final，由调用方决定删除�
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
-  const outputPath = '/tmp/camera_42_capture-7.jpg';
+  const outputPath = '/tmp/camera_capture-7_42_capture-7.jpg';
   registry.register(raw.path);
   const onCleanupRequired = jest.fn<void, [readonly string[]]>();
   const context = {
@@ -536,8 +546,8 @@ it('有 cleanup delegate 时交还 raw/partial final，由调用方决定删除�
 
 it('显式处理不得覆盖 raw；same-path 直接失败且只清理一次', async () => {
   const raw = makeRaw();
-  raw.path = '/tmp/camera_42_capture-7.jpg';
-  raw.uri = 'file:///tmp/camera_42_capture-7.jpg';
+  raw.path = '/tmp/camera_capture-7_42_capture-7.jpg';
+  raw.uri = 'file:///tmp/camera_capture-7_42_capture-7.jpg';
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
   registry.register(raw.path);

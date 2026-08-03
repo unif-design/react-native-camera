@@ -154,6 +154,7 @@ export async function processPhoto(
     (captured.aspectRatio === '16:9' || watermark != null);
   const outputPath =
     `${RNFS.TemporaryDirectoryPath}/camera_` +
+    `${safePathSegment(raw.id)}_` +
     `${safePathSegment(captured.sessionId)}_${safePathSegment(captured.captureId)}.jpg`;
   let data: SkData | null = null;
   let image: SkImage | null = null;
