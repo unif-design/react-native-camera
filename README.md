@@ -69,7 +69,7 @@ function PhotoScreen() {
     if (res.code === 200) {
       // 成功:res.data 为 CustomPhotoFile[],每项含 .uri / .path / .width / .height / .mime
     }
-    // 0 取消 / 403 无权限 / 404 无设备 / 500 配置非法 / 503 保留码
+    // 0 取消 / 403 相机权限 / 404 无设备 / 500 配置非法 / 503 保留码
   };
 
   return (
@@ -89,12 +89,35 @@ function PhotoScreen() {
 
 > 相机 + 水印需真机(摄像头硬件 + Skia GPU);模拟器 / web 跑不起来,属预期行为。
 
+## Example 场景展厅
+
+仓库内的 [`example`](example/README.md) 是基于 React Native 0.86.2、React 19.2.3 与
+Design 0.20.0 的中文消费方参考实现。它在根部只装配一次 `useCamera()` 与 holder，并提供
+四个可往返比较的场景：
+
+- **基础拍摄**：单拍、连拍或录像的最小 `OpenConfig`，可选择初始镜头与闪光。
+- **多模式**：一次传入三种 mode，对比 `dataRetainedMode` 的 `clear` / `retain`。
+- **水印存证**：把标题、手工地点、备注与当前时间烧入 JPEG；不请求定位。
+- **质量实验室**：区分 SDK 默认与显式照片质量、HDR、录像时长和码率。
+
+从仓库根目录安装并启动 Metro：
+
+```sh
+yarn install --immutable
+yarn example start
+```
+
+Pods、真机运行、公开 `OpenConfig` 边界、六种结果码、临时文件所有权及复制步骤见
+[`example/README.md`](example/README.md)。模拟器可用于检查普通 React Native 界面和
+mock 测试，但不能验收真实摄像头、录像或 Skia 水印。
+
 ## 原生接入门禁
 
 - Babel 必须启用 `react-native-worklets/plugin`，并把它放在 `plugins` **最后一项**；相机的 pinch / 动画依赖 worklet runtime。
 - 相机 Modal 内部已自带 `flex: 1` 的 `GestureHandlerRootView`，相机手势不依赖宿主 App 根；只有消费者其它页面也使用 Gesture Handler 时，才按自身需求配置宿主 root。
 - 安装所有 native peer 后，iOS 必须执行 `cd ios && bundle exec pod install`。
 - 权限只按实际能力配置：`CAMERA` / `NSCameraUsageDescription` 必需；只有使用 `video` 时才加 `RECORD_AUDIO` / `NSMicrophoneUsageDescription`。本库不写系统相册，因此不无条件要求 `NSPhotoLibraryAddUsageDescription` 或 `READ_MEDIA_IMAGES`。
+- Camera 权限拒绝才对应结果 `403`；Microphone 拒绝会留在当前录像 session 显示可重试错误，不会被映射成 `403` 或 `503`。`503` 是兼容保留码，当前 production 没有触发路径，只在 official mock / 结果展示层验证。
 
 ## 文档
 
@@ -106,8 +129,9 @@ function PhotoScreen() {
 
 | 项 | 要求 |
 | --- | --- |
-| React Native | **0.85+**(仅新架构 Fabric + Nitro;旧架构不支持) |
-| React | 19+ |
+| 当前仓库开发 / example 验证 | React Native **0.86.2**、React **19.2.3**、Design **0.20.0** |
+| 发布包 React Native peer | **>=0.85.0**(仅新架构 Fabric + Nitro;旧架构不支持) |
+| 发布包 React peer | >=19.0.0 |
 | iOS / Android | iOS 15.1+ / Android API 24+ |
 
 ## 许可

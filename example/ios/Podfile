@@ -15,7 +15,11 @@ if linkage != nil
 end
 
 target 'ReactNativeCameraExample' do
-  config = use_native_modules!
+  config = use_native_modules!([
+    'node',
+    '-e',
+    "process.chdir(#{File.dirname(__FILE__).to_json}); process.argv=['', '', 'config']; require(require.resolve('@react-native-community/cli', { paths: [process.cwd()] })).run()",
+  ])
 
   use_react_native!(
     :path => config[:reactNativePath],
