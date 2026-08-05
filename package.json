@@ -191,6 +191,10 @@
   },
   "jest": {
     "preset": "@react-native/jest-preset",
+    "moduleNameMapper": {
+      "^@unif/react-native-camera$": "<rootDir>/src/index.tsx",
+      "^@unif/react-native-camera/mock$": "<rootDir>/src/mock.ts"
+    },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
