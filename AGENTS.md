@@ -31,7 +31,7 @@ npx skills add unif-design/skills --skill rn-library --skill camera --global --a
 `@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / Skia 水印。
 
 当前仓库开发与 example 的验证基线是 **React Native 0.86.2 新架构**(Fabric + Nitro
-Modules)、**React 19.2.3**、**@unif/react-native-design 0.20.0** 与 TypeScript 6。
+Modules)、**React 19.2.3**、**@unif/react-native-design 0.23.1** 与 TypeScript 6。
 发布包面向消费者的公共 contract 仍是
 `peerDependencies.react-native: ">=0.85.0"`；不得把当前验证版本误写成公共下限，也不得
 为同步文档收紧该 peer。

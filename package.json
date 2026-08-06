@@ -88,7 +88,7 @@
     "@types/jest": "^29.5.0",
     "@types/react": "^19.2.0",
     "@types/react-test-renderer": "^19",
-    "@unif/react-native-design": "0.20.0",
+    "@unif/react-native-design": "0.23.1",
     "commitlint": "^20.5.0",
     "del-cli": "^7.0.0",
     "eslint": "^8.57.1",
