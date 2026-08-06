@@ -287,6 +287,7 @@ export function QualityLabScreen({
                   min={5}
                   max={120}
                   step={5}
+                  accessibilityLabel="最长录制秒数"
                 />
               </View>
               <View style={styles.field}>

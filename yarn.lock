@@ -6235,7 +6235,7 @@ __metadata:
     "@shopify/react-native-skia": "npm:^2.6.4"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.20.0"
+    "@unif/react-native-design": "npm:0.23.1"
     react: "npm:19.2.3"
     react-native: "npm:0.86.2"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6270,7 +6270,7 @@ __metadata:
     "@sbaiahmed1/react-native-blur": "npm:^4.6.2"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.20.0"
+    "@unif/react-native-design": "npm:0.23.1"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:19.2.3"
@@ -6309,7 +6309,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:0.20.0"
+    "@unif/react-native-design": "npm:0.23.1"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^8.57.1"
@@ -6361,20 +6361,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:0.20.0":
-  version: 0.20.0
-  resolution: "@unif/react-native-design@npm:0.20.0"
+"@unif/react-native-design@npm:0.23.1":
+  version: 0.23.1
+  resolution: "@unif/react-native-design@npm:0.23.1"
   peerDependencies:
     "@sbaiahmed1/react-native-blur": ">=4"
-    react: "*"
-    react-native: "*"
+    react: ">=19.2.3 <20.0.0"
+    react-native: ">=0.86.0 <0.87.0"
     react-native-gesture-handler: ">=3.0.0 <4.0.0"
-    react-native-reanimated: ">=4.1.0"
+    react-native-reanimated: ">=4.5.2 <4.6.0"
     react-native-reanimated-carousel: ">=5.0.0 <6.0.0"
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
-    react-native-worklets: ">=0.9"
-  checksum: 10c0/f21b9a5050c26586676ddd4a6180cd4a586384a75f52bc538cfda9cad04063a2bc2bd42e85efaae8201c80bd2a452fbdd75b47bd8d25b4374198862997ef5410
+    react-native-worklets: ">=0.11.0 <0.12.0"
+  checksum: 10c0/cf0f06de6968db04a6369247125198a888be388bf71505643b7f0e6c4752dd600e6af2ed6d00c566dce324869087b007ef90c9214f2f9fa9abe716f04976fbbf
   languageName: node
   linkType: hard
 
