@@ -31,7 +31,7 @@ npx skills add unif-design/skills --skill rn-library --skill camera --global --a
 `@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / Skia 水印。
 
 当前仓库开发与 example 的验证基线是 **React Native 0.86.2 新架构**(Fabric + Nitro
-Modules)、**React 19.2.3**、**@unif/react-native-design 0.23.1** 与 TypeScript 6。
+Modules)、**React 19.2.3**、**@unif/react-native-design 0.24.0** 与 TypeScript 6。
 发布包面向消费者的公共 contract 仍是
 `peerDependencies.react-native: ">=0.85.0"`；不得把当前验证版本误写成公共下限，也不得
 为同步文档收紧该 peer。
@@ -220,7 +220,8 @@ design 是必装 peer,本库从它取这些(不自造):
 
 ## 测试
 
-- jest 用 `@react-native/jest-preset`(RN env,**不是** design 那种 node 覆盖)。`jest.setup.ts` mock 掉 vision-camera 的 hooks(`useCameraPermission`/`useCameraDevice`/`usePhotoOutput`/`useVideoOutput`…)、nitro modules,使纯逻辑/组件测试能在无原生环境下跑。
+- jest 用 `@unif/react-native-design/jest-preset`(它 = `@react-native/jest-preset` + 组合 resolver + transform 放行清单 + `@unif/react-native-design/jest-setup`,仍是 RN env,**不是** design 仓根那种 node 覆盖)。reanimated / worklets / RNGH / safe-area 四个 peer 的接线由该入口统一提供:RNGH 官方 jestSetup + Pressable/GestureDetector 壳、worklets 官方 mock、safe-area 官方 mock,**reanimated 是真实模块** + `setUpTests()` —— 不要在本仓重新 mock 这四个包(入口挂 `setupFilesAfterEnv`,会盖掉 `setupFiles` 里的同名 mock)。真实 reanimated 需要 babel 的 `react-native-worklets/plugin`,已加在根 `babel.config.js`(只影响 jest,bob 用 `configFile: false` 不读它)。
+- `jest.setup.ts` 只留本仓自己的桩:vision-camera 的 hooks(`useCameraPermission`/`useCameraDevice`/`usePhotoOutput`/`useVideoOutput`…)、nitro、skia、fs、video、svg、RNRC(本仓 `src/components/Carousel` 直接消费)与 design barrel,使纯逻辑/组件测试能在无原生环境下跑。个别用例需要**驱动**手势或监视 reanimated 导出时,在该测试文件内 spread 真实模块再叠一层(见 `Camera.focus.test.tsx` / `Camera.aspectTransition.test.tsx`),不要改全局接线。
 - 测试**统一在 `src/__tests__/`,镜像源码结构**(不再与源码 colocate)—— 如 `src/camera/footer/Shutter.tsx` → `src/__tests__/camera/footer/Shutter.test.tsx`,根级 `src/__tests__/{useCamera,mock,contract,types,...}.test.tsx`。覆盖 hook 行为、组件渲染、水印 layout、纯工具函数 —— 不测真实相机(那要真机)。
 - **消费者用包内官方 mock**(给下游,不是本仓测试):
   ```ts

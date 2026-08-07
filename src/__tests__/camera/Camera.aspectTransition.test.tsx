@@ -14,6 +14,20 @@ import type { CameraMode } from '../../utils';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
+// 真实 reanimated(接线来自 `@unif/react-native-design/jest-setup`)的导出是 babel 编译出的
+// 不可配置 getter,`jest.spyOn(Reanimated, 'withTiming')` 会抛 "Cannot redefine property"。
+// 故本文件只把 withTiming 包一层直通 jest.fn(其余导出保持真实),用来断言 rect 动画的四个
+// 目标值与时长。`__esModule: true` 必须显式补:它在真实模块上是不可枚举的,spread 会丢,
+// 丢了 Camera.tsx 的 `import Animated from 'react-native-reanimated'` 默认导入就拿不到 Animated。
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  return {
+    __esModule: true,
+    ...actual,
+    withTiming: jest.fn(actual.withTiming),
+  };
+});
+
 jest.mock('react-native-vision-camera', () => {
   const vc = require('../__helpers__/visionCameraMock');
   return vc.makeVisionCameraMock({
@@ -88,7 +102,7 @@ it('frame resize 更新完整 rect，且保持同一 Camera/native instance', ()
     width: 693.3333333333333,
     height: 390,
   };
-  const withTiming = jest.spyOn(Reanimated, 'withTiming');
+  const withTiming = jest.mocked(Reanimated.withTiming);
   withTiming.mockClear();
 
   rendered.rerender(element(nextFrame));
@@ -106,7 +120,7 @@ it('frame resize 更新完整 rect，且保持同一 Camera/native instance', ()
   expect(
     withTiming.mock.calls.every(([, options]) => options?.duration === 250)
   ).toBe(true);
-  withTiming.mockRestore();
+  withTiming.mockClear();
 });
 
 it("VisionCamera resizeMode='cover'", () => {

@@ -1,3 +1,15 @@
+// reanimated / worklets / RNGH / safe-area 四个 peer 的 jest 接线**不在本文件** ——
+// 由 `@unif/react-native-design/jest-preset`(package.json#jest.preset)挂进
+// setupFilesAfterEnv 的 `@unif/react-native-design/jest-setup` 统一提供:RNGH 官方
+// jestSetup + Pressable/GestureDetector 壳、worklets 官方 mock、safe-area 官方 mock,
+// reanimated 走**真实模块** + `setUpTests()`。这四段此前是本仓手写的,与 design 的接线
+// 各写各的很容易分叉(本仓那份 reanimated 桩就缺 useReducedMotion / useComposedEventHandler)。
+// 本文件只留 camera 自己的 native peer 桩(vision-camera / nitro / skia / fs / video / svg)
+// 与 design barrel 本身的桩。
+//
+// 注意接线顺序:本文件在 `setupFiles`,design 入口在 `setupFilesAfterEnv` —— 同一模块两边
+// 都 jest.mock 时后者胜出,所以不要在这里再覆盖上面那四个包。
+
 // Mock vision-camera 给 jest 环境(官方未提供 mock,见 visionCameraMock helper)。
 // 全局默认:device=undefined、permission=false;需要 device/granted 的测试各自 jest.mock 覆盖。
 jest.mock('react-native-vision-camera', () =>
@@ -10,74 +22,11 @@ jest.mock('react-native-nitro-image', () => ({ NitroImage: () => null }), {
   virtual: true,
 });
 
-// Mock reanimated（gesture handler 也需要）
-jest.mock('react-native-reanimated', () => {
-  const React = require('react');
-  const { View, Text } = require('react-native');
-  // Animated.View / Animated.Text / createAnimatedComponent 桩:ZoomChips 用
-  // Animated.View(档位高亮底色)、createAnimatedComponent(TextInput)(高亮档实时倍数文字);
-  // jest 下渲染成普通 RN 组件(动画不跑,挂载/逻辑可测)。
-  const Animated = Object.assign(View, {
-    View,
-    Text,
-    createAnimatedComponent: (Comp: unknown) => Comp,
-  });
-  return {
-    __esModule: true,
-    default: Animated,
-    // useRef 持久化 SharedValue 对象:对齐真实 reanimated(跨重渲身份稳定),否则
-    // `shared.value = x` 的写入会被下次重渲的新对象丢掉 —— 点击跳档后读 zoomShared 的断言要靠它。
-    useSharedValue: (init: unknown) => {
-      const ref = React.useRef(null) as { current: { value: unknown } | null };
-      if (ref.current === null) ref.current = { value: init };
-      return ref.current;
-    },
-    useAnimatedStyle: (fn: () => unknown) => fn(),
-    useAnimatedProps: (fn: () => unknown) => fn(),
-    useDerivedValue: (fn: () => unknown) => ({ value: fn() }),
-    // jest 下无 SharedValue 更新,reaction 不触发回调 → no-op 即可。
-    useAnimatedReaction: () => {},
-    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
-    runOnUI: (fn: (...args: unknown[]) => unknown) => fn,
-    withTiming: (v: unknown) => v,
-    withSpring: (v: unknown) => v,
-    // withSequence 桩:jest 下无动画时钟,取**最后一步的目标值**作为静止终态(对齐
-    // withTiming=v=>v 的「直接返回终值」语义),逻辑/挂载可测。
-    withSequence: (...steps: unknown[]) => steps[steps.length - 1],
-    // withDelay 桩:忽略延时,直接返回被包裹动画的终值(同上,无时钟)。
-    withDelay: (_delay: number, anim: unknown) => anim,
-  };
-});
-
-// Mock gesture handler
-jest.mock('react-native-gesture-handler', () => {
-  const { View } = require('react-native');
-  // hook API(v3):useTapGesture/usePinchGesture/useSimultaneousGestures 返回稳定 gesture
-  // 占位;GestureDetector 桩直接渲 children、不消费 gesture,故占位空对象即可。
-  const gesture = {};
-  let latestTapConfig: any;
-  return {
-    useTapGesture: jest.fn((config: any) => {
-      latestTapConfig = config;
-      return gesture;
-    }),
-    usePinchGesture: () => gesture,
-    useSimultaneousGestures: () => gesture,
-    GestureDetector: ({ children }: any) => children,
-    GestureHandlerRootView: View,
-    PinchGestureHandler: View,
-    TapGestureHandler: View,
-    __gestureMock: {
-      deactivateTap: (event: { x: number; y: number }) =>
-        latestTapConfig?.onDeactivate?.(event),
-      reset: () => {
-        latestTapConfig = undefined;
-      },
-    },
-  };
-});
-
-// Mock reanimated-carousel
+// Mock reanimated-carousel。
+// 这段**不是**为了让 design 的 barrel 能 import 才存在(那类接线已随四个 peer 一起交给 design
+// 入口):本仓自己有 `src/components/Carousel/Carousel.tsx` 直接消费 RNRC v5,Carousel 与
+// PreviewOverlay 两个 suite 用下面的 `__carouselRenderSpy` 断言传参、并显式驱动
+// onSnapToItem / onScrollStart。迁移时实测删掉本段 → 这两个 suite 7 条红,故保留。
 jest.mock('react-native-reanimated-carousel', () => {
   const React = require('react');
   const { Pressable, View } = require('react-native');
@@ -153,9 +102,6 @@ jest.mock('react-native-reanimated-carousel', () => {
     __carouselRenderSpy: carouselRenderSpy,
   };
 });
-
-// Worklets
-jest.mock('react-native-worklets', () => ({}), { virtual: true });
 
 // Mock @unif/react-native-design
 jest.mock(
@@ -265,16 +211,6 @@ jest.mock('react-native-svg', () => {
     Line: p,
     G: p,
     Rect: p,
-  };
-});
-
-// safe-area:jest 下 insets 归零、Provider/View 直通,避免 Container 取景态崩
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: ({ children }: any) => children,
-    SafeAreaView: View,
   };
 });
 

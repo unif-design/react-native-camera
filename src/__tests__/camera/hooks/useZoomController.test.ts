@@ -9,8 +9,9 @@ import { makeDeviceStub } from '../../__helpers__/visionCameraMock';
 type DeviceProps = { device: CameraDevice | undefined };
 
 // useZoomController 只用 device 的 minZoom/maxZoom/zoomLensSwitchFactors,造最小桩即可。
-// 这里不依赖 vision-camera mock(直接传 device 对象),只复用全局 reanimated 桩
-// (useSharedValue→{value}):故重点测 displayMul 数学 + 设备切换 clamp。
+// 这里不依赖 vision-camera mock(直接传 device 对象),故重点测 displayMul 数学 + 设备切换 clamp。
+// zoomShared 是**真实** SharedValue(接线来自 `@unif/react-native-design/jest-setup`),不是
+// 普通 `{ value }` 对象 —— 断言一律读 `.value`,不要对整个对象做 toEqual。
 // 注:pinch 实时回写已不走 useAnimatedReaction→setZoom(性能根治,见 useZoomController),
 // zoom state 仅手势结束/点击档/设备切换更新。
 // 薄适配:把本测试的 switchFactors 映射到 makeDeviceStub 的 zoomLensSwitchFactors;
@@ -73,7 +74,7 @@ describe('displayMul / min-maxDisplay 推导', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
     // 默认档 = 用户 1x:dual(displayMul=0.5)→ device effect 设 vzf 2.0(=用户 1x),zoomShared=2。
-    expect(result.current.zoomShared).toEqual({ value: 2 });
+    expect(result.current.zoomShared.value).toBe(2);
     // pinching 已从对外链路彻底移除(倍数挪进高亮档药丸文字,不再有外部「大号浮层」读它)。
     expect((result.current as { pinching?: unknown }).pinching).toBeUndefined();
   });
@@ -85,14 +86,14 @@ describe('zoom state + 设备切换重置', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [2] });
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.zoom).toBe(2);
-    expect(result.current.zoomShared).toEqual({ value: 2 });
+    expect(result.current.zoomShared.value).toBe(2);
   });
 
   it('默认档 = 用户 1x:无超广角(displayMul=1)→ vzf=1(用户 1x)', () => {
     const dev = makeDevice({ minZoom: 1, maxZoom: 8, switchFactors: [] });
     const { result } = renderHook(() => useZoomController(dev));
     expect(result.current.zoom).toBe(1);
-    expect(result.current.zoomShared).toEqual({ value: 1 });
+    expect(result.current.zoomShared.value).toBe(1);
   });
 
   it('setZoom 写入 zoom state', () => {
@@ -115,7 +116,7 @@ describe('zoom state + 设备切换重置', () => {
     expect(result.current.zoom).toBe(6);
     rerender({ device: front });
     expect(result.current.zoom).toBe(1);
-    expect(result.current.zoomShared).toEqual({ value: 1 });
+    expect(result.current.zoomShared.value).toBe(1);
   });
 
   it('翻转到 minZoom>1 的设备 → 默认档 clamp 兜底到该设备 minZoom', () => {
@@ -129,7 +130,7 @@ describe('zoom state + 设备切换重置', () => {
     act(() => result.current.setZoom(6));
     rerender({ device: teleOnly });
     expect(result.current.zoom).toBe(3);
-    expect(result.current.zoomShared).toEqual({ value: 3 });
+    expect(result.current.zoomShared.value).toBe(3);
   });
 
   it('翻转设备即使原 zoom 在新设备范围内也重置默认档(回默认取景)', () => {

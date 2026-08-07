@@ -36,6 +36,32 @@ jest.mock('../../camera/FocusIndicator', () => {
   };
 });
 
+// 点击对焦是唯一需要在测试里**驱动**手势的用例。`@unif/react-native-design/jest-setup`
+// 给的是真实 RNGH(只把 Pressable / GestureDetector 换成不依赖手势的壳),而真实 gesture 在
+// jest 下没有触摸事件源可驱动 —— 故只在本文件把 `useTapGesture` 包一层:仍调真实 hook
+// (useSimultaneousGestures 的组合保持真实),额外记下 config 供测试回放 onDeactivate。
+// 其余导出与入口同形(spread 真实模块 + 两个壳),不要在这里改动入口负责的接线。
+jest.mock('react-native-gesture-handler', () => {
+  const actual = jest.requireActual('react-native-gesture-handler');
+  let latestTapConfig: any;
+  return {
+    ...actual,
+    Pressable: require('react-native').Pressable,
+    GestureDetector: ({ children }: any) => children,
+    useTapGesture: (config: any) => {
+      latestTapConfig = config;
+      return actual.useTapGesture(config);
+    },
+    __gestureMock: {
+      deactivateTap: (event: { x: number; y: number }) =>
+        latestTapConfig?.onDeactivate?.(event),
+      reset: () => {
+        latestTapConfig = undefined;
+      },
+    },
+  };
+});
+
 type FocusProps = {
   requestId: number;
   onAnimationEnd: (requestId: number) => void;
@@ -85,12 +111,20 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-it('同一点连续 tap 分配递增 requestId 并 remount indicator', () => {
+// tap 回放要 await:`onDeactivate` 是 worklet,里面 `runOnJS(handleFocus)` 走 worklets 官方
+// mock 的 `queueMicrotask` 异步派发(对齐真实实现「UI runtime → JS runtime」是一次跨线程跳转,
+// 不是同步调用)。同步 act 返回时 microtask 还没跑,断言会读到空的 focus 状态。
+const tapAt = (point: { x: number; y: number }) =>
+  act(async () => {
+    gestureMock.deactivateTap(point);
+  });
+
+it('同一点连续 tap 分配递增 requestId 并 remount indicator', async () => {
   renderCamera();
 
-  act(() => gestureMock.deactivateTap({ x: 100, y: 200 }));
+  await tapAt({ x: 100, y: 200 });
   const first = focusMock.state.props.at(-1)!;
-  act(() => gestureMock.deactivateTap({ x: 100, y: 200 }));
+  await tapAt({ x: 100, y: 200 });
   const second = focusMock.state.props.at(-1)!;
 
   expect([first.requestId, second.requestId]).toEqual([1, 2]);
@@ -98,12 +132,12 @@ it('同一点连续 tap 分配递增 requestId 并 remount indicator', () => {
   expect(focusMock.state.unmounts).toEqual([1]);
 });
 
-it('旧 request 的动画结束不能清除新 request', () => {
+it('旧 request 的动画结束不能清除新 request', async () => {
   const { queryByTestId } = renderCamera();
 
-  act(() => gestureMock.deactivateTap({ x: 100, y: 200 }));
+  await tapAt({ x: 100, y: 200 });
   const first = focusMock.state.props.at(-1)!;
-  act(() => gestureMock.deactivateTap({ x: 100, y: 200 }));
+  await tapAt({ x: 100, y: 200 });
   const second = focusMock.state.props.at(-1)!;
 
   act(() => first.onAnimationEnd(first.requestId));
@@ -113,9 +147,9 @@ it('旧 request 的动画结束不能清除新 request', () => {
   expect(queryByTestId('focus-indicator')).toBeNull();
 });
 
-it('无关 render 不改变 onAnimationEnd callback identity', () => {
+it('无关 render 不改变 onAnimationEnd callback identity', async () => {
   const { rerender } = renderCamera();
-  act(() => gestureMock.deactivateTap({ x: 100, y: 200 }));
+  await tapAt({ x: 100, y: 200 });
   const callback = focusMock.state.props.at(-1)!.onAnimationEnd;
 
   rerender(
