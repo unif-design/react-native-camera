@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
 
 import type {
   CameraRunController,
@@ -14,16 +15,10 @@ import {
   WatermarkEvidenceScreen,
 } from '../../../example/src/screens/WatermarkEvidenceScreen';
 
-// 根 Jest renderer 与 example workspace 必须共享同一 React hook dispatcher。
-jest.mock('../../../example/node_modules/react', () =>
-  jest.requireActual('react')
-);
-
-jest.mock(
-  '@unif/react-native-design',
-  () => require('../__helpers__/exampleDesignMock'),
-  { virtual: true }
-);
+// 屏幕跑的是真实 design 组件,真 useTheme 找不到 Provider 会 warn;这里的 ThemeProvider
+// 对齐 example/src/App.tsx 的真实装配(默认跟随系统 scheme)。
+const renderScreen = (ui: ReactElement) =>
+  render(ui, { wrapper: ThemeProvider });
 
 function createRun(): CameraRunController {
   const snapshot: CameraRunSnapshot = {
@@ -85,7 +80,7 @@ function QualityLabHarness({
 it('水印页在点击时注入当前时间、trim 手工字段并提交所选位置', () => {
   const run = createRun();
   const now = jest.fn(() => new Date('2026-08-03T10:20:30.000Z'));
-  render(<WatermarkEvidenceHarness run={run} now={now} />);
+  renderScreen(<WatermarkEvidenceHarness run={run} now={now} />);
 
   fireEvent.changeText(screen.getByLabelText('记录标题'), '  设备巡检记录  ');
   fireEvent.changeText(screen.getByLabelText('手工地点'), '  A 区东门  ');
@@ -113,7 +108,7 @@ it('水印页在点击时注入当前时间、trim 手工字段并提交所选�
 
 it('水印页阻止空标题提交，并显示字段错误', () => {
   const run = createRun();
-  render(
+  renderScreen(
     <WatermarkEvidenceHarness
       run={run}
       now={() => new Date('2026-08-03T10:20:30.000Z')}
@@ -129,7 +124,7 @@ it('水印页阻止空标题提交，并显示字段错误', () => {
 
 it('质量页照片默认值从 OpenConfig 完全省略 SDK 可选 key', () => {
   const run = createRun();
-  render(<QualityLabHarness run={run} />);
+  renderScreen(<QualityLabHarness run={run} />);
 
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
 
@@ -146,7 +141,7 @@ it('质量页照片默认值从 OpenConfig 完全省略 SDK 可选 key', () => {
 
 it('质量页提交精确照片 quality、prioritization 与 HDR 配置', () => {
   const run = createRun();
-  render(<QualityLabHarness run={run} />);
+  renderScreen(<QualityLabHarness run={run} />);
 
   fireEvent.changeText(screen.getByLabelText('JPEG quality'), '0.85');
   fireEvent.press(screen.getByRole('tab', { name: '质量优先' }));
@@ -164,7 +159,7 @@ it('质量页提交精确照片 quality、prioritization 与 HDR 配置', () => 
 
 it('质量页录像实验只提交 recTime 与显式 24Mbps', () => {
   const run = createRun();
-  render(<QualityLabHarness run={run} />);
+  renderScreen(<QualityLabHarness run={run} />);
 
   fireEvent.press(screen.getByRole('tab', { name: '录像实验' }));
   fireEvent.press(screen.getByRole('tab', { name: '显式码率' }));

@@ -193,7 +193,14 @@
     "preset": "@unif/react-native-design/jest-preset",
     "moduleNameMapper": {
       "^@unif/react-native-camera$": "<rootDir>/src/index.tsx",
-      "^@unif/react-native-camera/mock$": "<rootDir>/src/mock.ts"
+      "^@unif/react-native-camera/mock$": "<rootDir>/src/mock.ts",
+      "^react$": "<rootDir>/node_modules/react",
+      "^react/(.*)$": "<rootDir>/node_modules/react/$1",
+      "^@unif/react-native-design$": "<rootDir>/node_modules/@unif/react-native-design",
+      "^react-native-gesture-handler$": "<rootDir>/node_modules/react-native-gesture-handler",
+      "^react-native-safe-area-context$": "<rootDir>/node_modules/react-native-safe-area-context",
+      "^react-native-reanimated$": "<rootDir>/node_modules/react-native-reanimated",
+      "^react-native-worklets$": "<rootDir>/node_modules/react-native-worklets"
     },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",

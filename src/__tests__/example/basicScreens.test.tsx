@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { ThemeProvider } from '@unif/react-native-design';
 import type {
   CameraRunController,
   CameraRunRecord,
@@ -15,131 +16,10 @@ import {
   MultiModeScreen,
 } from '../../../example/src/screens/MultiModeScreen';
 
-// 根 Jest renderer 与 example workspace 必须共享同一 React hook dispatcher。
-jest.mock('../../../example/node_modules/react', () =>
-  jest.requireActual('react')
-);
-
-jest.mock(
-  '@unif/react-native-design',
-  () => {
-    const React = require('react');
-    const { Pressable, Text, View } = require('react-native');
-    const passthrough = ({ children }: { children?: unknown }) =>
-      React.createElement(View, null, children);
-
-    return {
-      Button: ({
-        label,
-        onPress,
-        disabled,
-        loading,
-      }: {
-        label: string;
-        onPress?: () => void;
-        disabled?: boolean;
-        loading?: boolean;
-      }) =>
-        React.createElement(
-          Pressable,
-          {
-            accessibilityRole: 'button',
-            accessibilityLabel: label,
-            accessibilityState: { disabled: Boolean(disabled || loading) },
-            disabled: disabled || loading,
-            onPress,
-          },
-          React.createElement(Text, null, label)
-        ),
-      Card: passthrough,
-      EntryCard: ({
-        title,
-        sub,
-        onPress,
-      }: {
-        title: string;
-        sub?: string;
-        onPress?: () => void;
-      }) =>
-        React.createElement(
-          Pressable,
-          {
-            accessibilityRole: onPress ? 'button' : undefined,
-            accessibilityLabel: onPress
-              ? sub
-                ? `${title},${sub}`
-                : title
-              : undefined,
-            onPress,
-          },
-          React.createElement(Text, null, title),
-          sub ? React.createElement(Text, null, sub) : null
-        ),
-      NavBar: ({
-        title,
-        left,
-      }: {
-        title: string;
-        left?: {
-          onPress: () => void;
-          accessibilityLabel?: string;
-        };
-      }) =>
-        React.createElement(
-          View,
-          null,
-          left
-            ? React.createElement(Pressable, {
-                accessibilityRole: 'button',
-                accessibilityLabel: left.accessibilityLabel,
-                onPress: left.onPress,
-              })
-            : null,
-          React.createElement(Text, null, title)
-        ),
-      Segmented: ({
-        value,
-        onChange,
-        items,
-      }: {
-        value: string;
-        onChange: (id: string) => void;
-        items: readonly { id: string; label: string }[];
-      }) =>
-        React.createElement(
-          View,
-          null,
-          ...items.map((item) =>
-            React.createElement(
-              Pressable,
-              {
-                key: item.id,
-                accessibilityRole: 'tab',
-                accessibilityLabel: item.label,
-                accessibilityState: { selected: item.id === value },
-                onPress: () => onChange(item.id),
-              },
-              React.createElement(Text, null, item.label)
-            )
-          )
-        ),
-      Tag: ({ label }: { label: string }) =>
-        React.createElement(Text, null, label),
-      Icon: ({ testID }: { testID?: string }) =>
-        React.createElement(View, { testID }),
-      fw: {
-        regular: '400',
-        semi: '600',
-      },
-      r: (value: number) => value,
-      rf: (value: number) => value,
-      useColors: () => new Proxy({}, { get: () => 'transparent' }),
-      useThemedStyles: (maker: (colors: object, shadow: object) => object) =>
-        maker(new Proxy({}, { get: () => 'transparent' }), {}),
-    };
-  },
-  { virtual: true }
-);
+// 屏幕跑的是真实 design 组件,真 useTheme 找不到 Provider 会 warn;这里的 ThemeProvider
+// 对齐 example/src/App.tsx 的真实装配(默认跟随系统 scheme)。
+const renderScreen = (ui: ReactElement) =>
+  render(ui, { wrapper: ThemeProvider });
 
 const historyRecord: CameraRunRecord = {
   id: 'run-1',
@@ -229,7 +109,7 @@ function MultiModeHarness({ run, onBack }: ScreenHarnessProps): ReactElement {
 it('首页暴露四个场景入口并展示本进程拍摄历史', () => {
   const run = createRun({ records: [historyRecord] });
   const onNavigate = jest.fn();
-  render(<HomeScreen run={run} onNavigate={onNavigate} />);
+  renderScreen(<HomeScreen run={run} onNavigate={onNavigate} />);
 
   const entries = [
     ['基础拍摄', { name: 'basic-capture' }],
@@ -249,7 +129,7 @@ it('首页暴露四个场景入口并展示本进程拍摄历史', () => {
 
 it('基础拍摄切换录像、前摄与关闭闪光后只提交录像字段', () => {
   const run = createRun();
-  render(<BasicCaptureHarness run={run} onBack={jest.fn()} />);
+  renderScreen(<BasicCaptureHarness run={run} onBack={jest.fn()} />);
 
   expect(screen.getByText('照片质量：0.9')).toBeOnTheScreen();
   fireEvent.press(screen.getByRole('tab', { name: '录像' }));
@@ -270,7 +150,7 @@ it('基础拍摄切换录像、前摄与关闭闪光后只提交录像字段', (
 
 it('多模式 retain 同时更新解释、实际 JSON 与 controller 参数', () => {
   const run = createRun();
-  render(<MultiModeHarness run={run} onBack={jest.fn()} />);
+  renderScreen(<MultiModeHarness run={run} onBack={jest.fn()} />);
 
   expect(
     screen.getByText('切换拍摄模式时先确认，再清理已有文件。')
@@ -298,7 +178,7 @@ it.each([
   ['多模式', MultiModeHarness],
 ] as const)('%s opening 时禁用主按钮', (_name, ScreenComponent) => {
   const run = createRun({ phase: 'opening' });
-  render(<ScreenComponent run={run} onBack={jest.fn()} />);
+  renderScreen(<ScreenComponent run={run} onBack={jest.fn()} />);
 
   const openButton = screen.getByRole('button', { name: '打开相机' });
   expect(openButton).toBeDisabled();
