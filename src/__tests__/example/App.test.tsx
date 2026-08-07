@@ -11,60 +11,9 @@ import { useCamera } from '@unif/react-native-camera';
 
 import App from '../../../example/src/App';
 
-// 根 Jest renderer 与 example workspace 必须共享同一 React hook dispatcher。
-jest.mock('../../../example/node_modules/react', () =>
-  jest.requireActual('react')
-);
-
-jest.mock(
-  '@unif/react-native-design',
-  () => require('../__helpers__/exampleDesignMock'),
-  { virtual: true }
-);
-
-jest.mock('react-native-gesture-handler', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    GestureHandlerRootView: ({ children }: { children?: unknown }) =>
-      React.createElement(View, null, children),
-  };
-});
-
-jest.mock('../../../example/node_modules/react-native-gesture-handler', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    GestureHandlerRootView: ({ children }: { children?: unknown }) =>
-      React.createElement(View, null, children),
-  };
-});
-
-jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const passthrough = ({ children }: { children?: unknown }) =>
-    React.createElement(View, null, children);
-  return {
-    SafeAreaProvider: passthrough,
-    SafeAreaView: passthrough,
-  };
-});
-
-jest.mock(
-  '../../../example/node_modules/react-native-safe-area-context',
-  () => {
-    const React = require('react');
-    const { View } = require('react-native');
-    const passthrough = ({ children }: { children?: unknown }) =>
-      React.createElement(View, null, children);
-    return {
-      SafeAreaProvider: passthrough,
-      SafeAreaView: passthrough,
-    };
-  }
-);
-
+// App 自带 GestureHandlerRootView / ThemeProvider / SafeAreaProvider 三层真实装配,
+// RNGH 与 safe-area 的接线由 `@unif/react-native-design/jest-setup` 统一提供,
+// 这里只替换相机 holder —— 用例断言的是 showcase 路由与结果呈现,不是原生相机。
 jest.mock('@unif/react-native-camera', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -426,8 +375,17 @@ it('成功视频只展示 Design Icon 与 metadata，不渲染 Image 或播放�
   });
   fireEvent.press(screen.getByRole('button', { name: '返回' }));
 
-  expect(screen.getByTestId('media-video-icon-video-1')).toBeOnTheScreen();
-  expect(screen.queryByTestId('media-image-video-1')).not.toBeOnTheScreen();
+  // 真 Design Icon 是装饰件,整棵 a11y 子树隐藏(accessibilityElementsHidden +
+  // importantForAccessibility="no-hide-descendants"),默认查询看不到它 —— 这正是
+  // 期望的无障碍行为,故按 testID 查时显式带上隐藏元素。
+  expect(
+    screen.getByTestId('media-video-icon-video-1', {
+      includeHiddenElements: true,
+    })
+  ).toBeOnTheScreen();
+  expect(
+    screen.queryByTestId('media-image-video-1', { includeHiddenElements: true })
+  ).not.toBeOnTheScreen();
   expect(screen.getByText('video/mp4')).toBeOnTheScreen();
   expect(screen.getByText('video · front')).toBeOnTheScreen();
   expect(screen.getByText('时长 12.5 秒')).toBeOnTheScreen();
@@ -481,7 +439,12 @@ it('code 403 展示 message、diagnostic、状态 Icon 与系统设置恢复指�
   expect(
     screen.getByText('请到系统设置授权或恢复相机权限后重试。')
   ).toBeOnTheScreen();
-  expect(screen.getByTestId('result-status-icon-403')).toBeOnTheScreen();
+  // 状态 Icon 同样是装饰件、a11y 子树隐藏(语义由同排 Tag 文案承担)。
+  expect(
+    screen.getByTestId('result-status-icon-403', {
+      includeHiddenElements: true,
+    })
+  ).toBeOnTheScreen();
 });
 
 it('code 0 使用中性取消语义，503 保留码措辞可诊断', async () => {

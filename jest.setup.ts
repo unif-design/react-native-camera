@@ -5,7 +5,11 @@
 // reanimated 走**真实模块** + `setUpTests()`。这四段此前是本仓手写的,与 design 的接线
 // 各写各的很容易分叉(本仓那份 reanimated 桩就缺 useReducedMotion / useComposedEventHandler)。
 // 本文件只留 camera 自己的 native peer 桩(vision-camera / nitro / skia / fs / video / svg)
-// 与 design barrel 本身的桩。
+// 与本仓直接消费的 RNRC。
+//
+// design **整包不桩** —— 接线由上面那个入口提供后,桩就没有存在理由了:测试跑真实 design
+// 组件,断言按真实 a11y 语义写。装饰件(Icon 等)整棵 a11y 子树隐藏,按 testID 查要带
+// `{ includeHiddenElements: true }`;有 useTheme/useColors 的渲染树要补 ThemeProvider。
 //
 // 注意接线顺序:本文件在 `setupFiles`,design 入口在 `setupFilesAfterEnv` —— 同一模块两边
 // 都 jest.mock 时后者胜出,所以不要在这里再覆盖上面那四个包。
@@ -102,101 +106,6 @@ jest.mock('react-native-reanimated-carousel', () => {
     __carouselRenderSpy: carouselRenderSpy,
   };
 });
-
-// Mock @unif/react-native-design
-jest.mock(
-  '@unif/react-native-design',
-  () => {
-    const React = require('react');
-    const {
-      Text,
-      TouchableOpacity,
-      ActivityIndicator,
-    } = require('react-native');
-    const passthrough = ({ children }: any) => children ?? null;
-    const noop = () => null;
-    return {
-      // theme
-      ThemeProvider: passthrough,
-      useTheme: () => ({ scheme: 'light', colors: {}, shadow: {} }),
-      useColors: () => new Proxy({}, { get: () => 'transparent' }),
-      useShadow: () => new Proxy({}, { get: () => ({}) }),
-      useThemedStyles: (maker: any) => maker({}, {}),
-      r: (n: number) => n,
-      rf: (n: number) => n,
-      fw: { regular: '400', medium: '500', semibold: '600', bold: '700' },
-      type: new Proxy({}, { get: () => 14 }),
-      fixed: { hitTarget: 44, navbarH: 56, tabbarH: 56, hairline: 1 },
-      // icons
-      Icon: passthrough,
-      ICONS: {},
-      // components
-      Avatar: passthrough,
-      BlurLayer: passthrough,
-      Button: ({ children, ...props }: any) =>
-        React.createElement(
-          TouchableOpacity,
-          props,
-          React.createElement(Text, null, children)
-        ),
-      Card: passthrough,
-      Carousel: passthrough,
-      Cell: passthrough,
-      Checkbox: passthrough,
-      Chip: passthrough,
-      Confirm: passthrough,
-      confirm: () => Promise.resolve(false),
-      ConfirmHost: noop,
-      DrawerHeader: passthrough,
-      Empty: passthrough,
-      EntryCard: passthrough,
-      Form: passthrough,
-      FormGroup: passthrough,
-      FormRow: passthrough,
-      Grid: passthrough,
-      IconButton: passthrough,
-      Input: passthrough,
-      List: passthrough,
-      Logo: passthrough,
-      NavBar: passthrough,
-      PasswordInput: passthrough,
-      Pulse: passthrough,
-      PulseDot: passthrough,
-      usePulse: () => ({ value: 0 }),
-      Radio: passthrough,
-      Search: passthrough,
-      Segmented: passthrough,
-      Skeleton: passthrough,
-      Spinner: () => React.createElement(ActivityIndicator),
-      StatusDot: passthrough,
-      Stepper: passthrough,
-      Switch: passthrough,
-      TabBar: passthrough,
-      Tabs: passthrough,
-      Tag: passthrough,
-      Textarea: passthrough,
-      TextField: passthrough,
-      Thumbnail: passthrough,
-      Toast: passthrough,
-      toast: Object.assign(() => null, {
-        info: () => null,
-        success: () => null,
-        error: () => null,
-      }),
-      ToastHost: noop,
-      // utils
-      createLogger: () => ({
-        debug: noop,
-        info: noop,
-        warn: noop,
-        error: noop,
-      }),
-      childTestID: (parent: string, id: string, override?: string) =>
-        override ?? `${parent}-${id}`,
-    };
-  },
-  { virtual: true }
-);
 
 // react-native-svg:jest 渲染成占位,组件挂载测试用
 jest.mock('react-native-svg', () => {
