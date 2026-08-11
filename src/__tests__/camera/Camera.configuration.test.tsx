@@ -10,32 +10,44 @@ import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
 type NativeConfigurationRequest = {
   device: CameraDevice;
+  output: object;
   complete: () => void;
 };
 
 const mockNativeConfigurationRequests: NativeConfigurationRequest[] = [];
+let mockPhotoOutputSequence = 0;
 
 jest.mock('react-native-vision-camera', () => {
   const React = require('react') as typeof import('react');
   const ReactNative = require('react-native') as typeof import('react-native');
   const vc = require('../__helpers__/visionCameraMock');
-  const photoOutput = {
-    capturePhoto: jest.fn(),
-    capturePhotoToFile: jest.fn(),
-  };
-  const videoOutput = {
-    createRecorder: jest.fn(),
-  };
-
   return vc.makeVisionCameraMock({
     ...vc.grantedPermissionOverrides(),
-    usePhotoOutput: jest.fn(() => photoOutput),
-    useVideoOutput: jest.fn(() => videoOutput),
+    usePhotoOutput: jest.fn(() =>
+      React.useMemo(
+        () => ({
+          id: `photo-output-${++mockPhotoOutputSequence}`,
+          capturePhoto: jest.fn(),
+          capturePhotoToFile: jest.fn(),
+        }),
+        []
+      )
+    ),
+    useVideoOutput: jest.fn(() =>
+      React.useMemo(
+        () => ({
+          createRecorder: jest.fn(),
+        }),
+        []
+      )
+    ),
     Camera: ({
       device,
+      outputs,
       onConfigured,
     }: {
       device: CameraDevice;
+      outputs: object[];
       onConfigured?: () => void;
     }) => {
       // 对齐 VisionCamera 5.0.11 useStableCallback：旧 configure continuation
@@ -50,9 +62,10 @@ jest.mock('react-native-vision-camera', () => {
       React.useEffect(() => {
         mockNativeConfigurationRequests.push({
           device,
+          output: outputs[0] as object,
           complete: stableOnConfigured,
         });
-      }, [device, stableOnConfigured]);
+      }, [device, outputs, stableOnConfigured]);
 
       return (
         <ReactNative.View
@@ -75,12 +88,12 @@ function cameraElement(
 ) {
   return (
     <Camera
+      key={configurationGeneration}
       device={device}
       currentMode={mode}
       frame={frame}
       animatedFrame={animatedFrame}
       isActive={false}
-      configurationGeneration={configurationGeneration}
       onConfigured={onConfigured}
     />
   );
@@ -88,9 +101,10 @@ function cameraElement(
 
 beforeEach(() => {
   mockNativeConfigurationRequests.length = 0;
+  mockPhotoOutputSequence = 0;
 });
 
-it('binds each deferred native completion to the configuration request that started it', () => {
+it('binds deferred completions and native outputs to the generation that created them', () => {
   const firstDevice = makeDeviceStub({
     id: 'same-public-id',
     position: 'back',
@@ -131,6 +145,9 @@ it('binds each deferred native completion to the configuration request that star
 
   rendered.rerender(cameraElement(replacementDevice, 2, replacementConfigured));
   expect(mockNativeConfigurationRequests).toHaveLength(2);
+  expect(mockNativeConfigurationRequests[1]?.output).not.toBe(
+    mockNativeConfigurationRequests[0]?.output
+  );
 
   // 旧 native Promise 在新 render 替换 callback 后才完成。若共享同一个
   // useStableCallback ref，它会错误调用 replacementConfigured。
