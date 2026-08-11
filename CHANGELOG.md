@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.5](https://github.com/unif-design/react-native-camera/compare/v3.0.4...v3.0.5) (2026-08-11)
+
+
+### Bug Fixes
+
+* **camera:** 隔离原生会话的 output 所有权 ([#113](https://github.com/unif-design/react-native-camera/issues/113)) ([cdafd91](https://github.com/unif-design/react-native-camera/commit/cdafd914895e53f383485e6c929e86d91381dbd1))
+
 ## [3.0.4](https://github.com/unif-design/react-native-camera/compare/v3.0.3...v3.0.4) (2026-08-07)
 
 ## [3.0.3](https://github.com/unif-design/react-native-camera/compare/v3.0.2...v3.0.3) (2026-08-07)
