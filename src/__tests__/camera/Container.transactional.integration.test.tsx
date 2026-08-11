@@ -308,7 +308,7 @@ it('keeps native-dependent controls truly disabled until the current configurati
   expect(latestCamera().props.enableZoom).toBe(true);
 });
 
-it('keeps same-key photo UI changes ready, rejects stale generations, and never remounts Camera', () => {
+it('keeps same-key photo UI changes mounted, then remounts the next native generation and rejects stale callbacks', () => {
   const harness = renderContainer(photoModes());
   const initialConfigured = latestCamera().props.onConfigured;
   if (initialConfigured == null) throw new Error('missing initial callback');
@@ -318,10 +318,12 @@ it('keeps same-key photo UI changes ready, rejects stale generations, and never 
   fireEvent.press(harness.getByTestId('aspect-btn'));
   expect(latestCamera().props.enableFocus).toBe(true);
   expect(latestCamera().props.aspectRatio).toBe('4:3');
+  expect(latestCamera().instanceId).toBe(initialInstance);
 
   fireEvent.press(harness.getByTestId('mode-pill-1'));
   expect(latestCamera().props.enableFocus).toBe(true);
   expect(latestCamera().props.currentMode.mode).toBe('continuous');
+  expect(latestCamera().instanceId).toBe(initialInstance);
 
   fireEvent.press(harness.getByTestId('mode-pill-2'));
   const currentConfigured = latestCamera().props.onConfigured;
@@ -333,8 +335,8 @@ it('keeps same-key photo UI changes ready, rejects stale generations, and never 
 
   act(() => currentConfigured());
   expect(latestCamera().props.enableFocus).toBe(true);
-  expect(latestCamera().instanceId).toBe(initialInstance);
-  expect(mockCameraMounts).toBe(1);
+  expect(latestCamera().instanceId).not.toBe(initialInstance);
+  expect(mockCameraMounts).toBe(2);
 });
 
 it('enters configuring only for real photo quality and device changes', () => {

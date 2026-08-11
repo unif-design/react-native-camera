@@ -26,7 +26,6 @@ type MockCameraProps = {
   isActive?: boolean;
   enableZoom?: boolean;
   enableFocus?: boolean;
-  configurationGeneration?: number;
   onConfigured?: () => void;
 };
 
@@ -222,7 +221,7 @@ it('requested front 缺失时 fallback 到实际 back，并保留后摄 zoom 行
   ).toBe(true);
 });
 
-it('两侧都有设备时 flip 启用，切换到另一实际设备并等待新 generation', () => {
+it('两侧都有设备时 flip 为新 generation 重建 output owner，避免跨 session 复用 native output', () => {
   mockInventory = {
     back: cameraDevice('back'),
     front: cameraDevice('front'),
@@ -241,7 +240,7 @@ it('两侧都有设备时 flip 启用，切换到另一实际设备并等待新 
   expect(latestCamera().props.enableFocus).toBe(false);
   configureLatest();
   expect(latestCamera().props.enableFocus).toBe(true);
-  expect(latestCamera().instanceId).toBe(instanceId);
+  expect(latestCamera().instanceId).not.toBe(instanceId);
 });
 
 it('只有 back/front 都缺失时进入唯一 404 分支', () => {
@@ -350,6 +349,7 @@ it('same-id device object replacement still starts a gated native generation', (
   const harness = renderContainer('back');
   layoutCameraViewport(harness);
   configureLatest();
+  const originalInstance = latestCamera().instanceId;
   const replacement = cameraDevice('back', 'stable-public-id');
 
   mockInventory = { back: replacement };
@@ -357,7 +357,7 @@ it('same-id device object replacement still starts a gated native generation', (
 
   expect(latestCamera().props.device).toBe(replacement);
   expect(latestCamera().props.enableFocus).toBe(false);
-  expect(latestCamera().props.configurationGeneration).toBe(1);
+  expect(latestCamera().instanceId).not.toBe(originalInstance);
 });
 
 it('preview 期间冻结 committed selection，退出后再配置最新 inventory', async () => {

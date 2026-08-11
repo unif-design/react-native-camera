@@ -414,7 +414,12 @@ export function Container({
               <>
                 {/* 取景铺满整屏 → 画面相对整屏垂直居中(上下黑边对称,系统相机式布局)。
                     控件全部 absolute 浮在取景之上,所以这里不再用纵向 flex 分割。 */}
+                {/* generation 边界必须包住 output hooks 的 owner。只 remount 内层
+                    VisionCamera 会把同一个 AVCaptureOutput 交给新旧两个 session，iOS
+                    会在 attachToFigCaptureSession 直接 SIGABRT；外层重建可同时隔离
+                    native output identity 与旧 onConfigured callback。 */}
                 <Camera
+                  key={session.configurationGeneration}
                   ref={cameraRef}
                   device={committedSelection.device}
                   currentMode={currentMode}
@@ -447,7 +452,6 @@ export function Container({
                   onCameraError={(e) =>
                     showError(e?.message || '相机会话异常,请重试')
                   }
-                  configurationGeneration={session.configurationGeneration}
                   onConfigured={() =>
                     configured(session.configurationGeneration)
                   }
