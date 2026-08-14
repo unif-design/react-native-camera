@@ -130,8 +130,9 @@ mock 测试，但不能验收真实摄像头、录像或 Skia 水印。
 | 项 | 要求 |
 | --- | --- |
 | 当前仓库开发 / example 验证 | React Native **0.86.2**、React **19.2.3**、Design **0.24.0** |
-| 发布包 React Native peer | **>=0.85.0**(仅新架构 Fabric + Nitro;旧架构不支持) |
+| 发布包 React Native peer | **>=0.86.0**(仅新架构 Fabric + Nitro;旧架构不支持) |
 | 发布包 React peer | >=19.0.0 |
+| 发布包 Design peer | **>=0.26.0** |
 | iOS / Android | iOS 15.1+ / Android API 24+ |
 
 ## 许可

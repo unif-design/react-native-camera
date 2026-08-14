@@ -12,13 +12,13 @@ description: "安装 @unif/react-native-camera 及全部必装 peerDependencies�
 
 | 要求 | 版本 |
 | --- | --- |
-| React Native | **0.85+**(仅新架构 Fabric + TurboModules) |
+| React Native | **0.86+**(仅新架构 Fabric + TurboModules) |
 | React | 19+ |
 | iOS | 15.1+ |
 | Android | API 24+(Android 7.0) |
 
 :::note 为什么最低 iOS 是 15.1
-本库是纯 JS 库,最低 iOS 由 peerDependencies 的原生库决定,取各 peer 最低 iOS 的**最高**值。React Native 0.85 core 的 `min_ios_version_supported` 为 `15.1`(RN 0.80+ 抬升),`react-native-vision-camera` / `react-native-nitro-modules` / `react-native-nitro-image` / `react-native-video` / `@dr.pogodin/react-native-fs` / `@sbaiahmed1/react-native-blur` 的 podspec 都继承这个值;`@shopify/react-native-skia` 写死 14.0、`react-native-reanimated` / `react-native-worklets` 为 13.4,均更低。故整体最低为 **iOS 15.1**。
+本库是纯 JS 库,最低 iOS 由 peerDependencies 的原生库决定,取各 peer 最低 iOS 的**最高**值。React Native 0.86 core 的 `min_ios_version_supported` 为 `15.1`(RN 0.80+ 抬升),`react-native-vision-camera` / `react-native-nitro-modules` / `react-native-nitro-image` / `react-native-video` / `@dr.pogodin/react-native-fs` / `@sbaiahmed1/react-native-blur` 的 podspec 都继承这个值;`@shopify/react-native-skia` 写死 14.0、`react-native-reanimated` / `react-native-worklets` 为 13.4,均更低。故整体最低为 **iOS 15.1**。
 :::
 
 :::danger 仅支持新架构
@@ -61,7 +61,7 @@ yarn add @unif/react-native-camera \
 | `react-native-safe-area-context` | `>=5.0.0` | 安全区适配 |
 | `react-native-svg` | `>=15` | 矢量绘制(design `Icon` 等) |
 | `@sbaiahmed1/react-native-blur` | `>=4` | 界面毛玻璃 |
-| `@unif/react-native-design` | `>=0.20.0` | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()` |
+| `@unif/react-native-design` | `>=0.26.0` | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()` |
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,

@@ -69,7 +69,7 @@ if (res.code === 200) { /* res.data 是拍到的文件 */ }
 :::
 
 :::info 仅支持新架构
-本库依赖 Nitro Modules 与 vision-camera 5.x,**仅支持 React Native 0.85+ 新架构(Fabric + TurboModules)**。旧架构(Bridge)不受支持。
+本库依赖 Nitro Modules 与 vision-camera 5.x,**仅支持 React Native 0.86+ 新架构(Fabric + TurboModules)**。旧架构(Bridge)不受支持。
 :::
 
 ## 下一步
