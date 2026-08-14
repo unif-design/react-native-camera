@@ -415,12 +415,17 @@ it('根、example 与 website 使用统一 RN 0.86.2 图且公共 peer 下限锁
   expect(installedWebsiteReact.version).toBe('19.2.3');
   expect(installedWebsiteReactDom.version).toBe('19.2.3');
   expect(installedWebsiteReactNative.version).toBe('0.86.2');
-  // 公共下限是 owner 决定的支持基线,和上面的验证版本(0.86.2 / design 0.24.0)是两回事:
-  // 既不能为对齐验证版本顺手收紧,也不能被无意放宽。改这两行 = 破坏性变更,要走 major。
+  // 公共下限是 owner 决定的支持基线,和上面的验证版本是两回事:既不能为对齐验证版本
+  // 顺手收紧,也不能被无意放宽。改这两行 = 破坏性变更,要走 major。
   expect(rootPkg.peerDependencies['react-native']).toBe('>=0.86.0');
   expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe(
     '>=0.26.0'
   );
+  // 反向约束:三个 workspace 实际装的 design 必须就是公共下限那一版,
+  // 否则 CI 跑的是一份自己从不验证的契约,下限那侧的破坏性变更发现不了。
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.26.0');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.26.0');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.26.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();

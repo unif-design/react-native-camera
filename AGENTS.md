@@ -31,14 +31,14 @@ npx skills add unif-design/skills --skill rn-library --skill camera --global --a
 `@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / Skia 水印。
 
 当前仓库开发与 example 的验证基线是 **React Native 0.86.2 新架构**(Fabric + Nitro
-Modules)、**React 19.2.3**、**@unif/react-native-design 0.24.0** 与 TypeScript 6。
+Modules)、**React 19.2.3**、**@unif/react-native-design 0.26.0** 与 TypeScript 6。
 发布包面向消费者的公共 contract 是 `peerDependencies.react-native: ">=0.86.0"` 与
 `@unif/react-native-design: ">=0.26.0"` —— owner 已把支持基线抬到这里,RN 0.80–0.85 与
 design 0.20–0.25 的消费者不再受支持。
 「当前验证版本」与「公共下限」仍是两回事:下限只随 owner 的支持基线决策变动(那是破坏性
 变更,要走 major),不得把当前验证版本误写成公共下限,也不得为同步文档收紧任一 peer。
-注意 design 的公共下限目前**高于**仓库实际装的 0.24.0 —— 把 devDependencies / example /
-website 抬到 0.26.x 之前,CI 验证不到自己宣称的下限。
+反过来也不许 —— **下限不得高于仓库实际装的版本**,否则 CI 跑的是一份自己从不验证的契约,
+下限那一侧的破坏性变更根本发现不了。
 
 **纯 JS 库**(无 `android/` `ios/` `cpp/` 原生源码) —— 原生能力全部来自 peerDependencies(vision-camera / nitro / skia / fs / video),本库只编排 JS/TS。`package.json#files` 里列了 `android/ios/cpp/*.podspec` 是模板的防御性写法,实际不打进包。
 

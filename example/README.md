@@ -7,7 +7,7 @@
 
 - React Native `0.86.2`（New Architecture）
 - React `19.2.3`
-- `@unif/react-native-design` `0.24.0`
+- `@unif/react-native-design` `0.26.0`
 - Yarn `4.11.0`、Node `24.13.0`
 
 这不是发布包兼容下限。`@unif/react-native-camera` 的公共

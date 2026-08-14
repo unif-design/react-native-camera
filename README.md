@@ -92,7 +92,7 @@ function PhotoScreen() {
 ## Example 场景展厅
 
 仓库内的 [`example`](example/README.md) 是基于 React Native 0.86.2、React 19.2.3 与
-Design 0.24.0 的中文消费方参考实现。它在根部只装配一次 `useCamera()` 与 holder，并提供
+Design 0.26.0 的中文消费方参考实现。它在根部只装配一次 `useCamera()` 与 holder，并提供
 四个可往返比较的场景：
 
 - **基础拍摄**：单拍、连拍或录像的最小 `OpenConfig`，可选择初始镜头与闪光。
@@ -129,7 +129,7 @@ mock 测试，但不能验收真实摄像头、录像或 Skia 水印。
 
 | 项 | 要求 |
 | --- | --- |
-| 当前仓库开发 / example 验证 | React Native **0.86.2**、React **19.2.3**、Design **0.24.0** |
+| 当前仓库开发 / example 验证 | React Native **0.86.2**、React **19.2.3**、Design **0.26.0** |
 | 发布包 React Native peer | **>=0.86.0**(仅新架构 Fabric + Nitro;旧架构不支持) |
 | 发布包 React peer | >=19.0.0 |
 | 发布包 Design peer | **>=0.26.0** |
