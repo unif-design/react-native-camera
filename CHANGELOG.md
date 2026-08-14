@@ -1,5 +1,18 @@
 # Changelog
 
+# [4.0.0](https://github.com/unif-design/react-native-camera/compare/v3.0.5...v4.0.0) (2026-08-14)
+
+
+### Features
+
+* 把 RN 与 design 的公共 peer 下限抬到 0.86 / 0.26 ([#114](https://github.com/unif-design/react-native-camera/issues/114)) ([39ffba1](https://github.com/unif-design/react-native-camera/commit/39ffba1e1158360d5af996cd83c29ffc90cce49d))
+
+
+### BREAKING CHANGES
+
+* React Native 0.80–0.85 与 @unif/react-native-design 0.20–0.25 不再受支持,
+这些消费者装不上本版本。留在旧基线的项目请继续使用 @unif/react-native-camera@^3.0.0。
+
 ## [3.0.5](https://github.com/unif-design/react-native-camera/compare/v3.0.4...v3.0.5) (2026-08-11)
 
 
