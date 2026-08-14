@@ -136,16 +136,68 @@ jobs:
       # GITHUB_TOKEN 这里换成 App token —— release-it 的 git push(commit + tag)和建 GitHub Release 都走它。
       # INCREMENT 空 → release-it 根据 conventional-changelog 插件推断 bump;
       # 非空 → 走 workflow_dispatch 强制指定的 patch / minor / major。
+      #
+      # major 闸门(本步骤的核心约束):CI 自动发版只允许 minor 与 patch,auto 推断出
+      # major 就让本步骤失败,不发。起因是 camera 3.0.5 → 4.0.0 —— 一个带 breaking
+      # 标记的 PR 合进 main,push 触发的自动发版当场把 major 推上了 npm,owner 事先不知情。
+      # conventional commits 把「发不发 major」交给了 PR 作者的一行 footer,而 major 意味着
+      # 全部下游都要改代码 —— 这个决定必须回到人手上,不能由合并动作顺带做掉。
+      #
+      # 判定只比首段:剥掉第一个 `.` 之前的数字比是否相等,对 0.x 同样成立
+      # (0.26.0 → 0.27.0 放行,0.26.0 → 1.0.0 拦下)。
+      # workflow_dispatch 一律放行 —— owner 手动按下 Run workflow 本身就是那次同意,
+      # 含在 increment 里显式选 major;下面 on.workflow_dispatch 的 major 选项要一直留着,
+      # 它是加上闸门之后唯一的 major 出口。
       - name: Release
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           INCREMENT: ${{ inputs.increment || 'auto' }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          set -euo pipefail
+
+          # 手动 dispatch 指定了级别 = owner 已同意,任何级别都放行。
           if [ "$INCREMENT" != "auto" ]; then
             npx release-it "$INCREMENT" --ci
-          else
-            npx release-it --ci
+            exit 0
           fi
+
+          CURRENT="$(node -p "require('./package.json').version")"
+          # --release-version 只打印将要发布的版本号,不发布。距上次 tag 没有可发布的 commit
+          # 时它以非零码退出且不打印版本 —— `|| true` 吃掉的正是这种正常情况,别让它把整步
+          # 拖挂;`a | b || c` 里 `||` 结合的是整条管道,所以 pipefail 下 npx 自己挂掉也被兜住。
+          NEXT="$(npx release-it --release-version --ci 2>/dev/null | tail -1 || true)"
+
+          # 算不出下一个版本 —— 不在这里报错,交给 release-it 自己判断(它会得出同一个
+          # 结论:无可发布的 commit,跳过)。
+          if [ -z "$NEXT" ]; then
+            npx release-it --ci
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            # 拿到了输出却不是 x.y.z 形状,说明 --release-version 的输出形态变了,闸门此时
+            # 判不出是不是 major。宁可停下来让人看一眼,也不放一个可能的 major 出去。
+            case "$NEXT" in
+              [0-9]*.[0-9]*.[0-9]*) ;;
+              *)
+                echo "::error::无法解析下一个版本号,拒绝自动发布:${NEXT}"
+                echo "release-it --release-version 的输出不是 x.y.z,major 闸门无法判定。"
+                exit 1
+                ;;
+            esac
+
+            if [ "${CURRENT%%.*}" != "${NEXT%%.*}" ]; then
+              echo "::error::拒绝自动发布 major:${CURRENT} → ${NEXT}"
+              echo "CI 自动发版只允许 minor 与 patch。这次推断出的是 major,需要 owner 确认。"
+              echo "确认后手动发布:"
+              echo "  gh workflow run release.yml --ref main -f increment=major"
+              echo "或在 Actions 页面用 workflow_dispatch 选 major。"
+              exit 1
+            fi
+          fi
+
+          npx release-it --ci
 
       # 发版成功后显式触发文档部署 —— dispatch 跑 main。
       # 不靠 deploy-docs 监听 release event:release 事件的 ref 是 tag(v*),而 GitHub Pages
