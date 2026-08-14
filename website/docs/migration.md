@@ -1,10 +1,34 @@
 ---
 sidebar_position: 7
 title: 版本迁移
-description: "@unif/react-native-camera v3.0.0 的原生动画依赖升级，以及 v1.x → v2.x 的 API 迁移方法。"
+description: "@unif/react-native-camera v4.0.0 的支持基线抬升、v3.0.0 的原生动画依赖升级，以及 v1.x → v2.x 的 API 迁移方法。"
 ---
 
 # 版本迁移
+
+## 从 v3.x 升级到 v4.0
+
+v4.0 只抬支持基线,不改公开 API —— `useCamera()`、`OpenConfig` 与结果类型一律不变。
+破坏性在于两条 peer 下限上移,**React Native 0.80–0.85 与 design 0.20–0.25 的消费者装不上 v4**:
+
+| peer | v3.x | v4.0 |
+| --- | --- | --- |
+| `react-native` | `>=0.85.0` | `>=0.86.0` |
+| `@unif/react-native-design` | `>=0.20.0` | `>=0.26.0` |
+
+留在旧基线上的项目请继续用 `@unif/react-native-camera@^3.0.0`;要升 v4 就先把宿主 App 抬到
+RN 0.86:
+
+```sh
+yarn add @unif/react-native-camera@^4.0.0 \
+  react-native@^0.86.0 \
+  @unif/react-native-design@^0.26.0
+```
+
+RN 主版本升级会动原生工程,iOS 需重新 `bundle exec pod install`,Android 需 clean/build,
+其余 peer 的版本约束与 v3.0 相同(见下)。
+
+---
 
 ## 从 v2.x 升级到 v3.0
 

@@ -7,11 +7,11 @@
 
 - React Native `0.86.2`（New Architecture）
 - React `19.2.3`
-- `@unif/react-native-design` `0.24.0`
+- `@unif/react-native-design` `0.26.0`
 - Yarn `4.11.0`、Node `24.13.0`
 
 这不是发布包兼容下限。`@unif/react-native-camera` 的公共
-`peerDependencies.react-native` 仍为 `>=0.85.0`。
+`peerDependencies.react-native` 为 `>=0.86.0`，`@unif/react-native-design` 为 `>=0.26.0`。
 
 ## 1. 安装
 
