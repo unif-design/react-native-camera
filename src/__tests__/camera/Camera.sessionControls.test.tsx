@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { act } from '@testing-library/react-native';
 import type { CameraMode } from '../../utils';
 import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
@@ -53,12 +54,28 @@ const ANIMATED_FRAME = makeAnimatedFrameStub(FRAME);
 const PHOTO_MODE: CameraMode = { mode: 'single', quality: 0.9 };
 const VIDEO_MODE: CameraMode = { mode: 'video', quality: 0.9 };
 const ZOOM_SHARED = { value: 1 };
+const ORIGINAL_PLATFORM_OS = Object.getOwnPropertyDescriptor(Platform, 'OS');
 
 function currentVisionCameraProps(): Record<string, unknown> {
   if (mockVisionCameraProps.current == null) {
     throw new Error('VisionCamera 尚未渲染');
   }
   return mockVisionCameraProps.current;
+}
+
+function setPlatformOS(os: 'android' | 'ios'): void {
+  Object.defineProperty(Platform, 'OS', {
+    configurable: true,
+    value: os,
+  });
+}
+
+function emitPreviewStarted(): void {
+  (currentVisionCameraProps().onPreviewStarted as () => void)();
+}
+
+function emitPreviewStopped(): void {
+  (currentVisionCameraProps().onPreviewStopped as () => void)();
 }
 
 function cameraElement({
@@ -85,16 +102,23 @@ function cameraElement({
 
 beforeEach(() => {
   mockVisionCameraProps.current = null;
+  setPlatformOS('android');
 });
 
-it('仅在当前 native session started 后下发 zoom/torch，停用与重配后重新等待', () => {
+afterEach(() => {
+  if (ORIGINAL_PLATFORM_OS != null) {
+    Object.defineProperty(Platform, 'OS', ORIGINAL_PLATFORM_OS);
+  }
+});
+
+it('Android 仅在当前预览进入 STREAMING 后下发 zoom/torch，停用与重配后重新等待', () => {
   const screen = renderDark(cameraElement());
 
   expect(currentVisionCameraProps().zoom).toBeUndefined();
   expect(currentVisionCameraProps().torchMode).toBeUndefined();
 
   act(() => {
-    (currentVisionCameraProps().onStarted as () => void)();
+    emitPreviewStarted();
   });
   expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
   expect(currentVisionCameraProps().torchMode).toBe('off');
@@ -104,7 +128,19 @@ it('仅在当前 native session started 后下发 zoom/torch，停用与重配�
   expect(currentVisionCameraProps().torchMode).toBeUndefined();
 
   act(() => {
-    (currentVisionCameraProps().onStarted as () => void)();
+    emitPreviewStarted();
+  });
+  expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
+  expect(currentVisionCameraProps().torchMode).toBe('on');
+
+  act(() => {
+    emitPreviewStopped();
+  });
+  expect(currentVisionCameraProps().zoom).toBeUndefined();
+  expect(currentVisionCameraProps().torchMode).toBeUndefined();
+
+  act(() => {
+    emitPreviewStarted();
   });
   expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
   expect(currentVisionCameraProps().torchMode).toBe('on');
@@ -122,14 +158,32 @@ it('仅在当前 native session started 后下发 zoom/torch，停用与重配�
   expect(currentVisionCameraProps().torchMode).toBeUndefined();
 
   act(() => {
-    (currentVisionCameraProps().onStarted as () => void)();
+    emitPreviewStarted();
   });
   expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
   expect(currentVisionCameraProps().torchMode).toBe('on');
 
   act(() => {
-    (currentVisionCameraProps().onStopped as () => void)();
+    emitPreviewStopped();
   });
   expect(currentVisionCameraProps().zoom).toBeUndefined();
   expect(currentVisionCameraProps().torchMode).toBeUndefined();
+});
+
+it('iOS 保持原生 session 重配期间立即下发 zoom/torch', () => {
+  setPlatformOS('ios');
+  const screen = renderDark(cameraElement());
+
+  expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
+  expect(currentVisionCameraProps().torchMode).toBe('off');
+
+  screen.rerender(cameraElement({ currentMode: VIDEO_MODE, flash: 'on' }));
+  expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
+  expect(currentVisionCameraProps().torchMode).toBe('on');
+
+  screen.rerender(
+    cameraElement({ currentMode: VIDEO_MODE, flash: 'on', isActive: false })
+  );
+  expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
+  expect(currentVisionCameraProps().torchMode).toBe('on');
 });

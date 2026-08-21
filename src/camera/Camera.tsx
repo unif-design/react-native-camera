@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -207,23 +207,26 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
   const activeOutput = currentMode.mode === 'video' ? videoOutput : photoOutput;
-  // CameraX 在 native session 仅 configured、尚未 started 的窗口拒绝 setZoom/setTorchMode
-  // (VisionCamera #3898/#3909)。用本次配置身份而非 boolean 记 started：output/active/HDR
-  // 一换，当前 render 就同步关门，不等待 effect 才清旧状态，避免把上一会话的 started 泄给新会话。
+  // Android CameraX 在 native session 已 configured、Preview 尚未进入 STREAMING 的窗口拒绝
+  // setZoom/setTorchMode(VisionCamera #3898/#3909)。用本次配置身份而非 boolean 记流就绪：
+  // output/active/HDR 一换，当前 render 就同步关门，不等待 effect 才清旧状态。
+  // iOS 的 AVCaptureSession 重配不会保证再次触发 started/preview started，且原实现没有异常，
+  // 因此只给 Android 加门控，保留 iOS 原有的即时受控参数语义。
   const sessionIdentity = useMemo(
     () => ({ activeOutput, deviceId: device.id, isActive, photoHDR }),
     [activeOutput, device.id, isActive, photoHDR]
   );
-  const [startedSessionIdentity, setStartedSessionIdentity] = useState<
+  const [previewReadyIdentity, setPreviewReadyIdentity] = useState<
     object | null
   >(null);
-  const sessionIsStarted =
-    isActive && startedSessionIdentity === sessionIdentity;
-  const handleSessionStarted = useCallback(() => {
-    setStartedSessionIdentity(sessionIdentity);
+  const sessionControlsAreReady =
+    Platform.OS !== 'android' ||
+    (isActive && previewReadyIdentity === sessionIdentity);
+  const handlePreviewStarted = useCallback(() => {
+    setPreviewReadyIdentity(sessionIdentity);
   }, [sessionIdentity]);
-  const handleSessionStopped = useCallback(() => {
-    setStartedSessionIdentity((current) =>
+  const handlePreviewStopped = useCallback(() => {
+    setPreviewReadyIdentity((current) =>
       current === sessionIdentity ? null : current
     );
   }, [sessionIdentity]);
@@ -428,16 +431,16 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             constraints={
               typeof photoHDR === 'boolean' ? [{ photoHDR }] : undefined
             }
-            zoom={sessionIsStarted ? zoom : undefined}
+            zoom={sessionControlsAreReady ? zoom : undefined}
             torchMode={
-              sessionIsStarted
+              sessionControlsAreReady
                 ? currentMode.mode === 'video' && flash === 'on'
                   ? 'on'
                   : 'off'
                 : undefined
             }
-            onStarted={handleSessionStarted}
-            onStopped={handleSessionStopped}
+            onPreviewStarted={handlePreviewStarted}
+            onPreviewStopped={handlePreviewStopped}
             onError={(error) => {
               // onError = "session 遇到任何错误" 的诊断回调:error 是普通 Error(无 code
               // 可判致命性),且含重开/激活时 session 重启这类**可恢复**瞬时错误 —— vision-camera
