@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1](https://github.com/unif-design/react-native-camera/compare/v4.0.0...v4.0.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **camera:** 等待 Android 预览就绪后下发控制参数 ([c4bc265](https://github.com/unif-design/react-native-camera/commit/c4bc265edcff5ab1311520ace5a488c488fd1223))
+
 # [4.0.0](https://github.com/unif-design/react-native-camera/compare/v3.0.5...v4.0.0) (2026-08-14)
 
 
