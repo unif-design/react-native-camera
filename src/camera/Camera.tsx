@@ -206,6 +206,27 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   );
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
+  const activeOutput = currentMode.mode === 'video' ? videoOutput : photoOutput;
+  // CameraX 在 native session 仅 configured、尚未 started 的窗口拒绝 setZoom/setTorchMode
+  // (VisionCamera #3898/#3909)。用本次配置身份而非 boolean 记 started：output/active/HDR
+  // 一换，当前 render 就同步关门，不等待 effect 才清旧状态，避免把上一会话的 started 泄给新会话。
+  const sessionIdentity = useMemo(
+    () => ({ activeOutput, deviceId: device.id, isActive, photoHDR }),
+    [activeOutput, device.id, isActive, photoHDR]
+  );
+  const [startedSessionIdentity, setStartedSessionIdentity] = useState<
+    object | null
+  >(null);
+  const sessionIsStarted =
+    isActive && startedSessionIdentity === sessionIdentity;
+  const handleSessionStarted = useCallback(() => {
+    setStartedSessionIdentity(sessionIdentity);
+  }, [sessionIdentity]);
+  const handleSessionStopped = useCallback(() => {
+    setStartedSessionIdentity((current) =>
+      current === sessionIdentity ? null : current
+    );
+  }, [sessionIdentity]);
   // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
   const pinchStartZoom = useSharedValue(NEUTRAL_ZOOM);
 
@@ -380,8 +401,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     };
   }, [recorderController]);
 
-  const outputs: CameraOutput[] =
-    currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
+  const outputs: CameraOutput[] = [activeOutput];
 
   // Container 已在 zero viewport 阶段挡住挂载；内部再守一次，避免未来调用方把
   // 无效目标 rect 送入 native Camera。
@@ -408,10 +428,16 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             constraints={
               typeof photoHDR === 'boolean' ? [{ photoHDR }] : undefined
             }
-            zoom={zoom}
+            zoom={sessionIsStarted ? zoom : undefined}
             torchMode={
-              currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
+              sessionIsStarted
+                ? currentMode.mode === 'video' && flash === 'on'
+                  ? 'on'
+                  : 'off'
+                : undefined
             }
+            onStarted={handleSessionStarted}
+            onStopped={handleSessionStopped}
             onError={(error) => {
               // onError = "session 遇到任何错误" 的诊断回调:error 是普通 Error(无 code
               // 可判致命性),且含重开/激活时 session 重启这类**可恢复**瞬时错误 —— vision-camera
