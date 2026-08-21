@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
   useMicrophonePermission,
@@ -206,6 +206,30 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   );
   const internalZoom = useSharedValue(NEUTRAL_ZOOM);
   const zoom = zoomShared ?? internalZoom;
+  const activeOutput = currentMode.mode === 'video' ? videoOutput : photoOutput;
+  // Android CameraX 在 native session 已 configured、Preview 尚未进入 STREAMING 的窗口拒绝
+  // setZoom/setTorchMode(VisionCamera #3898/#3909)。用本次配置身份而非 boolean 记流就绪：
+  // output/active/HDR 一换，当前 render 就同步关门，不等待 effect 才清旧状态。
+  // iOS 的 AVCaptureSession 重配不会保证再次触发 started/preview started，且原实现没有异常，
+  // 因此只给 Android 加门控，保留 iOS 原有的即时受控参数语义。
+  const sessionIdentity = useMemo(
+    () => ({ activeOutput, deviceId: device.id, isActive, photoHDR }),
+    [activeOutput, device.id, isActive, photoHDR]
+  );
+  const [previewReadyIdentity, setPreviewReadyIdentity] = useState<
+    object | null
+  >(null);
+  const sessionControlsAreReady =
+    Platform.OS !== 'android' ||
+    (isActive && previewReadyIdentity === sessionIdentity);
+  const handlePreviewStarted = useCallback(() => {
+    setPreviewReadyIdentity(sessionIdentity);
+  }, [sessionIdentity]);
+  const handlePreviewStopped = useCallback(() => {
+    setPreviewReadyIdentity((current) =>
+      current === sessionIdentity ? null : current
+    );
+  }, [sessionIdentity]);
   // pinch 起点 vzf(onBegin 锁定),onUpdate 据其 × e.scale 算新 vzf。
   const pinchStartZoom = useSharedValue(NEUTRAL_ZOOM);
 
@@ -380,8 +404,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     };
   }, [recorderController]);
 
-  const outputs: CameraOutput[] =
-    currentMode.mode === 'video' ? [videoOutput] : [photoOutput];
+  const outputs: CameraOutput[] = [activeOutput];
 
   // Container 已在 zero viewport 阶段挡住挂载；内部再守一次，避免未来调用方把
   // 无效目标 rect 送入 native Camera。
@@ -408,10 +431,16 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
             constraints={
               typeof photoHDR === 'boolean' ? [{ photoHDR }] : undefined
             }
-            zoom={zoom}
+            zoom={sessionControlsAreReady ? zoom : undefined}
             torchMode={
-              currentMode.mode === 'video' && flash === 'on' ? 'on' : 'off'
+              sessionControlsAreReady
+                ? currentMode.mode === 'video' && flash === 'on'
+                  ? 'on'
+                  : 'off'
+                : undefined
             }
+            onPreviewStarted={handlePreviewStarted}
+            onPreviewStopped={handlePreviewStopped}
             onError={(error) => {
               // onError = "session 遇到任何错误" 的诊断回调:error 是普通 Error(无 code
               // 可判致命性),且含重开/激活时 session 重启这类**可恢复**瞬时错误 —— vision-camera
