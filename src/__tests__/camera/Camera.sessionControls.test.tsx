@@ -80,16 +80,18 @@ function emitPreviewStopped(): void {
 
 function cameraElement({
   currentMode = PHOTO_MODE,
+  device = makeDeviceStub(),
   flash = 'off',
   isActive = true,
 }: {
   currentMode?: CameraMode;
+  device?: ReturnType<typeof makeDeviceStub>;
   flash?: 'auto' | 'on' | 'off';
   isActive?: boolean;
 } = {}) {
   return (
     <Camera
-      device={makeDeviceStub() as never}
+      device={device as never}
       currentMode={currentMode}
       frame={FRAME}
       animatedFrame={ANIMATED_FRAME}
@@ -167,6 +169,18 @@ it('Android 仅在当前预览进入 STREAMING 后下发 zoom/torch，停用与�
     emitPreviewStopped();
   });
   expect(currentVisionCameraProps().zoom).toBeUndefined();
+  expect(currentVisionCameraProps().torchMode).toBeUndefined();
+});
+
+it('Android 无闪光设备进入 STREAMING 后仍不下发 torch', () => {
+  renderDark(cameraElement({ device: makeDeviceStub({ position: 'front' }) }));
+
+  expect(currentVisionCameraProps().torchMode).toBeUndefined();
+
+  act(() => {
+    emitPreviewStarted();
+  });
+  expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
   expect(currentVisionCameraProps().torchMode).toBeUndefined();
 });
 

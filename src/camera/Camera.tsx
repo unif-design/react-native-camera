@@ -432,8 +432,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
               typeof photoHDR === 'boolean' ? [{ photoHDR }] : undefined
             }
             zoom={sessionControlsAreReady ? zoom : undefined}
+            // CameraX 把 `off` 也当作 enableTorch(false) 控制命令；前摄等无闪光设备会因此抛 No flash unit。
             torchMode={
-              sessionControlsAreReady
+              device.hasFlash && sessionControlsAreReady
                 ? currentMode.mode === 'video' && flash === 'on'
                   ? 'on'
                   : 'off'
