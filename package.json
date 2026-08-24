@@ -104,7 +104,7 @@
     "react-native-builder-bob": "^0.41.0",
     "react-native-gesture-handler": "^3.1.0",
     "react-native-nitro-image": "^0.15.0",
-    "react-native-nitro-modules": "^0.35.0",
+    "react-native-nitro-modules": "^0.37.0",
     "react-native-reanimated": "^4.5.3",
     "react-native-reanimated-carousel": "^5.0.0",
     "react-native-safe-area-context": "^5.0.0",
