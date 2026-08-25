@@ -243,7 +243,10 @@ jest.mock('@shopify/react-native-skia', () => {
         fromBase64: jest.fn(() => ({ dispose: noop })),
       },
       Image: { MakeImageFromEncoded: jest.fn(() => mkImage) },
-      Surface: { MakeOffscreen: jest.fn(() => mkSurface) },
+      Surface: {
+        Make: jest.fn(() => mkSurface),
+        MakeOffscreen: jest.fn(() => mkSurface),
+      },
       Font: jest.fn(() => ({
         getTextWidth: () => 100,
         measureText: () => ({ width: 100 }),

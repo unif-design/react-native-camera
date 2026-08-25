@@ -190,7 +190,11 @@ export async function processPhoto(
     );
 
     stage = 'surface';
-    surface = Skia.Surface.MakeOffscreen(crop.width, crop.height);
+    // 照片最终必须同步读回并编码成 JPEG；GPU offscreen surface 会让 iOS Metal
+    // 在 makeImageSnapshot().encodeToBase64() 时跨线程回读纹理，旧设备上可能直接
+    // EXC_BAD_ACCESS。CPU raster surface 不涉及 GPU texture readback，且保持相同
+    // crop / watermark / JPEG 输出契约。
+    surface = Skia.Surface.Make(crop.width, crop.height);
     if (surface == null) throw new PhotoProcessingError(stage);
     const finalWidth = surface.width();
     const finalHeight = surface.height();

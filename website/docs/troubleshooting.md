@@ -88,7 +88,7 @@ await api.open({ cameraMode: [{ mode: 'video' }], dataRetainedMode: 'clear',
 
 ### 因 2:缺水印依赖
 
-水印靠 `@shopify/react-native-skia` 离屏合成、`@dr.pogodin/react-native-fs` 读写临时文件,缺任一都会让水印静默失效:
+水印靠 `@shopify/react-native-skia` 的 CPU raster surface 合成、`@dr.pogodin/react-native-fs` 读写临时文件,缺任一都会让水印处理失败:
 
 ```sh
 yarn add @shopify/react-native-skia @dr.pogodin/react-native-fs
@@ -101,7 +101,7 @@ cd ios && bundle exec pod install
 
 ## 症状:相机 / 水印在模拟器或浏览器里跑不起来
 
-✅ **这是预期行为,不是 bug。** vision-camera 依赖真实相机硬件,模拟器不提供相机访问;水印合成依赖 Skia GPU 渲染,模拟器上可能异常。**相机和水印请始终在真机上验证。**
+✅ **这是预期行为,不是 bug。** vision-camera 依赖真实相机硬件,模拟器不提供相机访问;裁切与水印还依赖原生 Skia 和真实照片文件。**完整相机链路请始终在真机上验证。**
 
 :::tip 在 CI / 模拟器里测逻辑
 不要在模拟器里测真实拍摄。单元测试用[测试(Mock)](/docs/testing)页的 `jest.mock` 方案,在无硬件环境跑通拍照流程逻辑。
