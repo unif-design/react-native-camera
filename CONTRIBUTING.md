@@ -4,7 +4,7 @@ Contributions are always welcome, no matter how large or small!
 
 We want this community to be friendly and respectful to each other. Please follow it in all your interactions with the project. Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md).
 
-> 完整 CI / 发版 / Dependabot / PR review / branch protection 流程
+> 完整 CI / 发版 / 人工依赖升级 / PR review / branch protection 流程
 > 见 org 仓库的 [AUTOMATION.md](https://github.com/unif-design/.github/blob/main/AUTOMATION.md)。
 > 本文档只覆盖 react-native-camera 项目特有的开发流程(example app、vision-camera 5.x 适配、publishing)。
 
