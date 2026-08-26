@@ -65,7 +65,7 @@ if (res.code === 200) { /* res.data 是拍到的文件 */ }
 | Web / 模拟器 | ❌ |
 
 :::warning 必须真机运行
-相机依赖真实摄像头硬件,水印依赖 Skia GPU 渲染。**iOS 模拟器 / Android 模拟器 / Web 都跑不起来,这是预期行为,不是 bug。** 请始终在真机上验证完整行为;各 API 页面提供截图示意。
+完整拍摄链路依赖真实摄像头硬件,照片处理依赖 Skia 原生 CPU raster surface,不再使用 GPU offscreen surface。**iOS 模拟器 / Android 模拟器 / Web 无法覆盖完整行为,这是预期限制,不是 bug。** 请始终在真机上验证完整行为;各 API 页面提供截图示意。
 :::
 
 :::info 仅支持新架构

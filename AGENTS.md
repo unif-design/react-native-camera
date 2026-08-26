@@ -218,7 +218,7 @@ design 是必装 peer,本库从它取这些(不自造):
   - `package.json#peerDependencies` 另声明了 `react-native-webview`(历史保留,`src` 未直接引用),并含 `react` / `react-native`;**完整清单以 `package.json` 为准,以上仅列运行时实际依赖的包**。
 - **升级 native peer 后必须 `pod install`** —— `react-native-video` 7.x / Skia / fs 都有原生代码,升级后不重跑 `cd ios && bundle exec pod install` 会在编译/运行时报原生符号缺失。Android 端 Gradle 自动同步,无需额外配置。
 - **相机弹窗 / toast 自洽,无需为相机挂 host** —— 二次确认 / toast 由相机内部 `CameraDialogHost`(`useCameraDialog()`)在相机 Modal 子树内渲染,不依赖 App 根的 design `<ConfirmHost/>` / `<ToastHost/>`(见上「与 design 的耦合」)。若消费者用 design 其它命令式组件(本库之外),仍按 design 文档自行挂 host。
-- **必须真机调试** —— 相机 + 水印需要真机摄像头硬件 + Skia GPU。iOS 模拟器 / Android 模拟器 / web 都跑不起来,这是**预期行为,不是 bug**。
+- **必须真机调试** —— 完整拍摄链路需要真实摄像头硬件；照片处理依赖 Skia 原生 CPU raster surface,不再使用 GPU offscreen surface。iOS 模拟器 / Android 模拟器 / web 无法覆盖完整行为,这是**预期限制,不是 bug**。
 - **仅新架构** —— 依赖 Nitro / vision-camera 5.x,旧架构(Bridge)不支持。**iOS 15.1+** / Android API 24+。(公共 RN peer 下限 0.86 所在的 RN 0.80+ 已把 `min_ios_version_supported` 抬到 `15.1`;当前仓库实际用 RN 0.86.2 验证。vision-camera / nitro / nitro-image / video / fs / blur 等 RN-core podspec 都继承该下限,Skia 写死 14.0、reanimated/worklets 13.4 更低,取**最高**即 15.1。)
 - **权限按实际能力配置** —— Camera 是拍照 / 录像必需权限:iOS `NSCameraUsageDescription`,Android `android.permission.CAMERA`;用户拒绝后走 `code: 403`。Microphone 只在使用 video 时需要:iOS `NSMicrophoneUsageDescription`,Android `android.permission.RECORD_AUDIO`;本库在开始录像前请求,拒绝时不创建 Recorder、不 settle `403`,而是留在当前 session 显示录像启动错误。库只返回临时文件,不写系统相册,因此 `NSPhotoLibraryAddUsageDescription` / `READ_MEDIA_IMAGES` 不是本库无条件要求;消费者另行保存或读取相册时再按自己的实现配置。
 

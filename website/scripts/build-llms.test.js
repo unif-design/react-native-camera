@@ -108,6 +108,10 @@ const agentsDoc = fs.readFileSync(
   path.join(repositoryRoot, 'AGENTS.md'),
   'utf8'
 );
+const introDoc = fs.readFileSync(
+  path.join(repositoryRoot, 'website', 'docs', 'intro.md'),
+  'utf8'
+);
 const staleAgentFacts = [
   '`processPhoto()` 与 `createFileRegistry()` 当前没有生产调用点',
   '取消 bridge 未由真实 Container 注册',
@@ -134,6 +138,20 @@ for (const currentFact of currentAgentFacts) {
   assert(
     agentsDoc.includes(currentFact),
     `AGENTS.md 缺少当前实现事实:${currentFact}`
+  );
+}
+
+for (const [docName, doc] of [
+  ['AGENTS.md', agentsDoc],
+  ['website/docs/intro.md', introDoc],
+]) {
+  assert(
+    !doc.includes('水印依赖 Skia GPU'),
+    `${docName} 仍把当前照片处理错误描述为 Skia GPU`
+  );
+  assert(
+    doc.includes('Skia 原生 CPU raster surface'),
+    `${docName} 缺少当前 CPU raster surface 契约`
   );
 }
 

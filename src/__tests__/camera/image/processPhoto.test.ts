@@ -108,13 +108,11 @@ function installNativeHarness(
   skia.Skia.Image.MakeImageFromEncoded.mockReturnValue(
     options.failure === 'decode' ? null : image
   );
-  skia.Skia.Surface.MakeOffscreen.mockImplementation(
-    (width: number, height: number) => {
-      surfaceWidth = width;
-      surfaceHeight = height;
-      return options.failure === 'surface' ? null : surface;
-    }
-  );
+  skia.Skia.Surface.Make.mockImplementation((width: number, height: number) => {
+    surfaceWidth = width;
+    surfaceHeight = height;
+    return options.failure === 'surface' ? null : surface;
+  });
   skia.Skia.Paint.mockReturnValue(paint);
   skia.Skia.ParagraphBuilder.Make.mockReturnValue(builder);
   if (options.failure === 'write') {
@@ -158,11 +156,12 @@ it('无裁切且无有效 watermark 时返回 raw，0 decode / encode', async ()
   expect(registry.stateOf(raw.path)).toBe('owned');
   expect(skia.Skia.Data.fromURI).not.toHaveBeenCalled();
   expect(skia.Skia.Image.MakeImageFromEncoded).not.toHaveBeenCalled();
+  expect(skia.Skia.Surface.Make).not.toHaveBeenCalled();
   expect(skia.Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
   expect(RNFS.writeFile).not.toHaveBeenCalled();
 });
 
-it('crop + watermark 恰好一次 decode / surface / snapshot / JPEG encode / write', async () => {
+it('crop + watermark 使用 CPU raster surface，且恰好一次 decode / snapshot / JPEG encode / write', async () => {
   const native = installNativeHarness();
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
@@ -173,11 +172,12 @@ it('crop + watermark 恰好一次 decode / surface / snapshot / JPEG encode / wr
 
   expect(skia.Skia.Data.fromURI).toHaveBeenCalledTimes(1);
   expect(skia.Skia.Image.MakeImageFromEncoded).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Surface.MakeOffscreen).toHaveBeenCalledTimes(1);
+  expect(skia.Skia.Surface.Make).toHaveBeenCalledTimes(1);
+  expect(skia.Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
   expect(native.surface.makeImageSnapshot).toHaveBeenCalledTimes(1);
   expect(native.snapshot.encodeToBase64).toHaveBeenCalledTimes(1);
   expect(RNFS.writeFile).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Surface.MakeOffscreen).toHaveBeenCalledWith(2250, 4000);
+  expect(skia.Skia.Surface.Make).toHaveBeenCalledWith(2250, 4000);
   expect(native.canvas.drawImageRect).toHaveBeenCalledWith(
     native.image,
     { x: 375, y: 0, width: 2250, height: 4000 },
@@ -399,7 +399,8 @@ it('await 期间外部 mode / aspect / watermark / position 改变不影响快�
 
   const result = await processing;
 
-  expect(skia.Skia.Surface.MakeOffscreen).toHaveBeenCalledWith(2250, 4000);
+  expect(skia.Skia.Surface.Make).toHaveBeenCalledWith(2250, 4000);
+  expect(skia.Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
   expect(native.snapshot.encodeToBase64).toHaveBeenCalledWith(
     skia.ImageFormat.JPEG,
     77
