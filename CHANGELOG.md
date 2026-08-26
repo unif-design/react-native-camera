@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/unif-design/react-native-camera/compare/v4.0.2...v4.0.3) (2026-08-26)
+
+
+### Bug Fixes
+
+* **camera:** 改用 CPU surface 处理照片 ([#119](https://github.com/unif-design/react-native-camera/issues/119)) ([6e21755](https://github.com/unif-design/react-native-camera/commit/6e217553e1d24c8618f3f9338c0f7034fb825ff4))
+
 ## [4.0.2](https://github.com/unif-design/react-native-camera/compare/v4.0.1...v4.0.2) (2026-08-22)
 
 
