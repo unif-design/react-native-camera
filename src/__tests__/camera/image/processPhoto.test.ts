@@ -1,4 +1,3 @@
-import type { SkData, SkImage } from '@shopify/react-native-skia';
 import { makePhotoFile } from '../../__helpers__/factories';
 import {
   processPhoto,
@@ -7,8 +6,28 @@ import {
 } from '../../../camera/image/processPhoto';
 import { createFileRegistry } from '../../../camera/session/fileRegistry';
 
+jest.mock('../../../camera/image/nativePhotoProcessor', () => ({
+  processPhotoFile: jest.fn(),
+  nativePhotoProcessingStage: jest.requireActual(
+    '../../../camera/image/nativePhotoProcessor'
+  ).nativePhotoProcessingStage,
+}));
+
 const RNFS = require('@dr.pogodin/react-native-fs');
-const skia = require('@shopify/react-native-skia');
+const nativePhotoProcessor = require('../../../camera/image/nativePhotoProcessor');
+
+type NativeResult = {
+  width: number;
+  height: number;
+  diagnostics: {
+    inputWidth: number;
+    inputHeight: number;
+    outputWidth: number;
+    outputHeight: number;
+    sampled: boolean;
+    durationMs: number;
+  };
+};
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -42,104 +61,33 @@ function makeOperation(
   };
 }
 
-type HarnessFailure = 'decode' | 'surface' | 'encode' | 'write';
-
-function installNativeHarness(
-  options: {
-    failure?: HarnessFailure;
-    dataPromise?: Promise<SkData>;
-    decodedWidth?: number;
-    decodedHeight?: number;
-  } = {}
-) {
-  const order: string[] = [];
-  const data = {
-    dispose: jest.fn(() => order.push('data')),
-  } as unknown as SkData;
-  const image = {
-    width: jest.fn(() => options.decodedWidth ?? 3000),
-    height: jest.fn(() => options.decodedHeight ?? 4000),
-    dispose: jest.fn(() => order.push('image')),
-  } as unknown as SkImage;
-  const paint = {
-    dispose: jest.fn(() => order.push('paint')),
-  };
-  const paragraph = {
-    layout: jest.fn(),
-    paint: jest.fn(),
-    getHeight: jest.fn(() => 120),
-    dispose: jest.fn(() => order.push('paragraph')),
-  };
-  const builder: Record<string, jest.Mock> = {};
-  builder.pushStyle = jest.fn(() => builder);
-  builder.addText = jest.fn(() => builder);
-  builder.pop = jest.fn(() => builder);
-  builder.reset = jest.fn(() => builder);
-  builder.build = jest.fn(() => paragraph);
-  builder.dispose = jest.fn(() => order.push('builder'));
-  const snapshot = {
-    encodeToBase64: jest.fn(() => {
-      if (options.failure === 'encode') throw new Error('encode failed');
-      return 'OUTBASE64';
-    }),
-    dispose: jest.fn(() => order.push('snapshot')),
-  };
-  const canvas = {
-    drawImageRect: jest.fn(),
-    rotate: jest.fn(),
-    scale: jest.fn(),
-    concat: jest.fn(),
-  };
-  let surfaceWidth = 0;
-  let surfaceHeight = 0;
-  const surface = {
-    getCanvas: jest.fn(() => canvas),
-    makeImageSnapshot: jest.fn(() => snapshot),
-    width: jest.fn(() => surfaceWidth),
-    height: jest.fn(() => surfaceHeight),
-    dispose: jest.fn(() => order.push('surface')),
-  };
-
-  if (options.dataPromise) {
-    skia.Skia.Data.fromURI.mockImplementation(() => options.dataPromise);
-  } else {
-    skia.Skia.Data.fromURI.mockResolvedValue(data);
-  }
-  skia.Skia.Image.MakeImageFromEncoded.mockReturnValue(
-    options.failure === 'decode' ? null : image
-  );
-  skia.Skia.Surface.Make.mockImplementation((width: number, height: number) => {
-    surfaceWidth = width;
-    surfaceHeight = height;
-    return options.failure === 'surface' ? null : surface;
-  });
-  skia.Skia.Paint.mockReturnValue(paint);
-  skia.Skia.ParagraphBuilder.Make.mockReturnValue(builder);
-  if (options.failure === 'write') {
-    RNFS.writeFile.mockRejectedValue(new Error('write failed'));
-  } else {
-    RNFS.writeFile.mockResolvedValue(undefined);
-  }
-
+function nativeResult(overrides: Partial<NativeResult> = {}): NativeResult {
   return {
-    order,
-    data,
-    image,
-    paint,
-    paragraph,
-    builder,
-    snapshot,
-    canvas,
-    surface,
+    width: 1080,
+    height: 1920,
+    diagnostics: {
+      inputWidth: 3000,
+      inputHeight: 4000,
+      outputWidth: 1080,
+      outputHeight: 1920,
+      sampled: true,
+      durationMs: 12,
+    },
+    ...overrides,
   };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  nativePhotoProcessor.processPhotoFile.mockResolvedValue(nativeResult());
 });
 
-it('无裁切且无有效 watermark 时返回 raw，0 decode / encode', async () => {
-  const raw = makeRaw();
+it('目标内 4:3 且无有效水印时返回 raw，不重复编码', async () => {
+  const raw = makePhotoFile({
+    ...makeRaw(),
+    width: 1440,
+    height: 1920,
+  });
   const registry = createFileRegistry(jest.fn(async () => {}));
   registry.register(raw.path);
 
@@ -154,51 +102,96 @@ it('无裁切且无有效 watermark 时返回 raw，0 decode / encode', async ()
 
   expect(result).toBe(raw);
   expect(registry.stateOf(raw.path)).toBe('owned');
-  expect(skia.Skia.Data.fromURI).not.toHaveBeenCalled();
-  expect(skia.Skia.Image.MakeImageFromEncoded).not.toHaveBeenCalled();
-  expect(skia.Skia.Surface.Make).not.toHaveBeenCalled();
-  expect(skia.Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
+  expect(nativePhotoProcessor.processPhotoFile).not.toHaveBeenCalled();
   expect(RNFS.writeFile).not.toHaveBeenCalled();
 });
 
-it('crop + watermark 使用 CPU raster surface，且恰好一次 decode / snapshot / JPEG encode / write', async () => {
-  const native = installNativeHarness();
-  const unlink = jest.fn(async () => {});
-  const registry = createFileRegistry(unlink);
+it('目标内 16:9 且无水印时同样不做文件重编码', async () => {
+  const raw = makePhotoFile({
+    ...makeRaw(),
+    width: 1080,
+    height: 1920,
+  });
+  const registry = createFileRegistry(jest.fn(async () => {}));
+
+  await expect(
+    processPhoto(raw, makeOperation({ watermark: undefined }), registry)
+  ).resolves.toBe(raw);
+  expect(nativePhotoProcessor.processPhotoFile).not.toHaveBeenCalled();
+});
+
+it('协商尺寸偏大时，即使 4:3 无水印也会下采样到业务上限', async () => {
+  const registry = createFileRegistry(jest.fn(async () => {}));
+  nativePhotoProcessor.processPhotoFile.mockResolvedValue(
+    nativeResult({ width: 1440, height: 1920 })
+  );
+
+  const result = await processPhoto(
+    makeRaw(),
+    makeOperation({ aspectRatio: '4:3', watermark: undefined }),
+    registry
+  );
+
+  expect(nativePhotoProcessor.processPhotoFile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      aspectRatio: '4:3',
+      targetWidth: 1440,
+      targetHeight: 1920,
+    })
+  );
+  expect(result).toMatchObject({ width: 1440, height: 1920 });
+});
+
+it('双平台后处理只走文件级 native 边界，不创建 Base64/RNFS 写回', async () => {
+  const registry = createFileRegistry(jest.fn(async () => {}));
   const raw = makeRaw();
   registry.register(raw.path);
 
   const result = await processPhoto(raw, makeOperation(), registry);
 
-  expect(skia.Skia.Data.fromURI).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Image.MakeImageFromEncoded).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Surface.Make).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
-  expect(native.surface.makeImageSnapshot).toHaveBeenCalledTimes(1);
-  expect(native.snapshot.encodeToBase64).toHaveBeenCalledTimes(1);
-  expect(RNFS.writeFile).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Surface.Make).toHaveBeenCalledWith(2250, 4000);
-  expect(native.canvas.drawImageRect).toHaveBeenCalledWith(
-    native.image,
-    { x: 375, y: 0, width: 2250, height: 4000 },
-    { x: 0, y: 0, width: 2250, height: 4000 },
-    native.paint
-  );
-  expect(native.paragraph.paint).toHaveBeenCalledTimes(1);
+  expect(nativePhotoProcessor.processPhotoFile).toHaveBeenCalledWith({
+    inputPath: '/raw.jpg',
+    outputPath: '/tmp/camera_capture-7_42_capture-7.jpg',
+    aspectRatio: '16:9',
+    targetWidth: 1080,
+    targetHeight: 1920,
+    quality: 73,
+    watermark: { content: ['标题', '正文'], position: 'bottom-right' },
+  });
+  expect(RNFS.writeFile).not.toHaveBeenCalled();
   expect(result).toMatchObject({
     path: '/tmp/camera_capture-7_42_capture-7.jpg',
     uri: 'file:///tmp/camera_capture-7_42_capture-7.jpg',
-    width: 2250,
-    height: 4000,
+    width: 1080,
+    height: 1920,
     cameraType: 'front',
   });
   expect(registry.stateOf(result.path)).toBe('owned');
   expect(registry.stateOf(raw.path)).toBe('owned');
-  expect(unlink).not.toHaveBeenCalled();
+});
+
+it('横拍按方向交换目标尺寸', async () => {
+  const raw = makePhotoFile({
+    ...makeRaw(),
+    width: 4000,
+    height: 3000,
+  });
+  nativePhotoProcessor.processPhotoFile.mockResolvedValue(
+    nativeResult({ width: 1920, height: 1080 })
+  );
+
+  await processPhoto(
+    raw,
+    makeOperation({ watermark: undefined }),
+    createFileRegistry(jest.fn(async () => {}))
+  );
+
+  expect(nativePhotoProcessor.processPhotoFile).toHaveBeenCalledWith(
+    expect.objectContaining({ targetWidth: 1920, targetHeight: 1080 })
+  );
 });
 
 it('相同 session/capture 的不同 raw 生成独立 final path', async () => {
-  installNativeHarness();
   const firstRaw = makePhotoFile({
     ...makeRaw(),
     id: 'raw-a',
@@ -211,23 +204,20 @@ it('相同 session/capture 的不同 raw 生成独立 final path', async () => {
     path: '/native/b.jpg',
     uri: 'file:///native/b.jpg',
   });
-  const firstRegistry = createFileRegistry(jest.fn(async () => {}));
-  const secondRegistry = createFileRegistry(jest.fn(async () => {}));
 
-  firstRegistry.register(firstRaw.path);
-  secondRegistry.register(secondRaw.path);
-  const first = await processPhoto(firstRaw, makeOperation(), firstRegistry);
-  const second = await processPhoto(secondRaw, makeOperation(), secondRegistry);
+  const first = await processPhoto(
+    firstRaw,
+    makeOperation(),
+    createFileRegistry(jest.fn(async () => {}))
+  );
+  const second = await processPhoto(
+    secondRaw,
+    makeOperation(),
+    createFileRegistry(jest.fn(async () => {}))
+  );
 
   expect(first.path).toBe('/tmp/camera_raw-a_42_capture-7.jpg');
   expect(second.path).toBe('/tmp/camera_raw-b_42_capture-7.jpg');
-  expect(first.path).not.toBe(second.path);
-  expect(firstRegistry.stateOf(first.path)).toBe('owned');
-  expect(secondRegistry.stateOf(second.path)).toBe('owned');
-  const writtenPaths = RNFS.writeFile.mock.calls.map(
-    (call: [string]) => call[0]
-  );
-  expect(writtenPaths).toEqual([first.path, second.path]);
 });
 
 it.each([
@@ -238,26 +228,32 @@ it.each([
 ])(
   'JPEG quality $quality → round(clamp) = $expected',
   async ({ quality, expected }) => {
-    const native = installNativeHarness();
-    const registry = createFileRegistry(jest.fn(async () => {}));
-
     await processPhoto(
       makeRaw(),
       makeOperation({ mode: { quality }, watermark: undefined }),
-      registry
+      createFileRegistry(jest.fn(async () => {}))
     );
 
-    expect(native.snapshot.encodeToBase64).toHaveBeenCalledWith(
-      skia.ImageFormat.JPEG,
-      expected
+    expect(nativePhotoProcessor.processPhotoFile).toHaveBeenCalledWith(
+      expect.objectContaining({ quality: expected })
     );
   }
 );
 
-it.each<HarnessFailure>(['decode', 'surface', 'encode', 'write'])(
-  '%s 失败 reject typed internal error，并清理 raw / 可能的失败产物',
-  async (failure) => {
-    installNativeHarness({ failure });
+it.each([
+  ['E_PHOTO_READ', 'read'],
+  ['E_PHOTO_DECODE', 'decode'],
+  ['E_PHOTO_ALLOCATE', 'surface'],
+  ['E_PHOTO_CROP', 'crop'],
+  ['E_PHOTO_WATERMARK', 'watermark'],
+  ['E_PHOTO_ENCODE', 'encode'],
+  ['E_PHOTO_WRITE', 'write'],
+] as const)(
+  '%s 映射为 typed %s error，并清理 raw 与可能的 partial output',
+  async (code, stage) => {
+    nativePhotoProcessor.processPhotoFile.mockRejectedValue(
+      Object.assign(new Error('native failed'), { code })
+    );
     const unlink = jest.fn(async () => {});
     const registry = createFileRegistry(unlink);
     const raw = makeRaw();
@@ -265,25 +261,22 @@ it.each<HarnessFailure>(['decode', 'surface', 'encode', 'write'])(
 
     const promise = processPhoto(raw, makeOperation(), registry);
 
-    await expect(promise).rejects.toBeInstanceOf(PhotoProcessingError);
     await expect(promise).rejects.toMatchObject({
       code: 'photo_processing_failed',
-      stage: failure,
+      stage,
     });
     expect(registry.stateOf(raw.path)).toBe('deleted');
+    expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
+      'deleted'
+    );
     expect(unlink).toHaveBeenCalledWith(raw.path);
-    if (failure === 'write') {
-      expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
-        'deleted'
-      );
-      expect(unlink).toHaveBeenCalledWith(
-        '/tmp/camera_capture-7_42_capture-7.jpg'
-      );
-    }
+    expect(unlink).toHaveBeenCalledWith(
+      '/tmp/camera_capture-7_42_capture-7.jpg'
+    );
   }
 );
 
-it('video 直接返回且不登记、不调用 processor native 边界', async () => {
+it('video 直接返回且不登记、不调用照片处理器', async () => {
   const raw = makePhotoFile({
     id: 'video-1',
     path: '/video.mp4',
@@ -293,123 +286,44 @@ it('video 直接返回且不登记、不调用 processor native 边界', async (
   });
   const registry = createFileRegistry(jest.fn(async () => {}));
 
-  const result = await processPhoto(raw, makeOperation(), registry);
-
-  expect(result).toBe(raw);
+  await expect(processPhoto(raw, makeOperation(), registry)).resolves.toBe(raw);
   expect(registry.stateOf(raw.path)).toBeUndefined();
-  expect(skia.Skia.Data.fromURI).not.toHaveBeenCalled();
-  expect(RNFS.writeFile).not.toHaveBeenCalled();
+  expect(nativePhotoProcessor.processPhotoFile).not.toHaveBeenCalled();
 });
 
-it('成功后按 snapshot → paragraph → builder → paint → surface → image → data 逆序 dispose', async () => {
-  const native = installNativeHarness();
-  const registry = createFileRegistry(jest.fn(async () => {}));
-
-  await processPhoto(makeRaw(), makeOperation(), registry);
-
-  expect(native.order).toEqual([
-    'snapshot',
-    'paragraph',
-    'builder',
-    'paint',
-    'surface',
-    'image',
-    'data',
-  ]);
-});
-
-it('成功只登记 final 并立即返回，不删除 raw 或等待慢 unlink', async () => {
-  const native = installNativeHarness();
-  const unlinkPending = deferred<void>();
-  const unlink = jest.fn(() => unlinkPending.promise);
-  const registry = createFileRegistry(unlink);
-  const raw = makeRaw();
-  registry.register(raw.path);
-
-  const processing = processPhoto(raw, makeOperation(), registry);
-  const outcome = await Promise.race([
-    processing.then(() => 'resolved'),
-    new Promise<'timeout'>((resolve) =>
-      setTimeout(() => resolve('timeout'), 20)
-    ),
-  ]);
-  unlinkPending.resolve();
-
-  expect(outcome).toBe('resolved');
-  await expect(processing).resolves.toMatchObject({
-    path: '/tmp/camera_capture-7_42_capture-7.jpg',
-  });
-
-  expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
-    'owned'
-  );
-  expect(registry.stateOf(raw.path)).toBe('owned');
-  expect(unlink).not.toHaveBeenCalled();
-  expect(native.order).toEqual([
-    'snapshot',
-    'paragraph',
-    'builder',
-    'paint',
-    'surface',
-    'image',
-    'data',
-  ]);
-});
-
-it.each([{ orientation: 6 }, { orientation: 2, mirrored: true }])(
-  'Skia decoded origin $orientation/$mirrored 直接进入 crop，不做二次 rotate/mirror',
-  async (metadata) => {
-    const native = installNativeHarness({
-      decodedWidth: 3000,
-      decodedHeight: 4000,
-    });
-    const raw = Object.assign(makeRaw(), { metadata });
-    const registry = createFileRegistry(jest.fn(async () => {}));
-
-    await processPhoto(raw, makeOperation({ watermark: undefined }), registry);
-
-    expect(native.canvas.drawImageRect).toHaveBeenCalledWith(
-      native.image,
-      { x: 375, y: 0, width: 2250, height: 4000 },
-      { x: 0, y: 0, width: 2250, height: 4000 },
-      native.paint
-    );
-    expect(native.canvas.rotate).not.toHaveBeenCalled();
-    expect(native.canvas.scale).not.toHaveBeenCalled();
-    expect(native.canvas.concat).not.toHaveBeenCalled();
-  }
-);
-
-it('await 期间外部 mode / aspect / watermark / position 改变不影响快门快照', async () => {
-  const pendingData = deferred<SkData>();
-  const native = installNativeHarness({ dataPromise: pendingData.promise });
-  const registry = createFileRegistry(jest.fn(async () => {}));
+it('await 期间外部 mode/aspect/watermark/position 改变不影响快门快照', async () => {
+  const pending = deferred<NativeResult>();
+  nativePhotoProcessor.processPhotoFile.mockReturnValue(pending.promise);
   const operation = makeOperation({
     mode: { quality: 0.77 },
     watermark: { content: ['原始水印'], position: 'bottom-right' },
   });
 
-  const processing = processPhoto(makeRaw(), operation, registry);
+  const processing = processPhoto(
+    makeRaw(),
+    operation,
+    createFileRegistry(jest.fn(async () => {}))
+  );
   operation.aspectRatio = '4:3';
   operation.mode.quality = 0.1;
   operation.watermark!.content[0] = '变化后水印';
   operation.watermark!.position = 'top-left';
   operation.cameraPosition = 'back';
-  pendingData.resolve(native.data);
+  pending.resolve(nativeResult());
 
   const result = await processing;
 
-  expect(skia.Skia.Surface.Make).toHaveBeenCalledWith(2250, 4000);
-  expect(skia.Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
-  expect(native.snapshot.encodeToBase64).toHaveBeenCalledWith(
-    skia.ImageFormat.JPEG,
-    77
+  expect(nativePhotoProcessor.processPhotoFile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      aspectRatio: '16:9',
+      quality: 77,
+      watermark: { content: ['原始水印'], position: 'bottom-right' },
+    })
   );
-  expect(native.builder.addText).toHaveBeenCalledWith('原始水印');
   expect(result.cameraType).toBe('front');
 });
 
-it('入口已过期时同步摘除 raw 所有权，不读取或等待慢 unlink', async () => {
+it('入口已过期时同步摘除 raw 所有权，不调用 native', async () => {
   const unlinkPending = deferred<void>();
   const unlink = jest.fn(() => unlinkPending.promise);
   const registry = createFileRegistry(unlink);
@@ -433,33 +347,10 @@ it('入口已过期时同步摘除 raw 所有权，不读取或等待慢 unlink'
   expect(outcome).toBe('rejected');
   await expect(processing).rejects.toBeInstanceOf(PhotoProcessingError);
   expect(registry.stateOf(raw.path)).toBe('deleted');
-  expect(unlink).toHaveBeenCalledTimes(1);
-  expect(skia.Skia.Data.fromURI).not.toHaveBeenCalled();
+  expect(nativePhotoProcessor.processPhotoFile).not.toHaveBeenCalled();
 });
 
-it('Data.fromURI 后过期会释放 data、清理 raw，且不继续 decode', async () => {
-  const native = installNativeHarness();
-  const unlink = jest.fn(async () => {});
-  const registry = createFileRegistry(unlink);
-  const raw = makeRaw();
-  registry.register(raw.path);
-  const isCurrent = jest
-    .fn<boolean, []>()
-    .mockReturnValueOnce(true)
-    .mockReturnValueOnce(false);
-
-  await expect(
-    processPhoto(raw, makeOperation(), registry, { isCurrent })
-  ).rejects.toBeInstanceOf(PhotoProcessingError);
-
-  expect(isCurrent).toHaveBeenCalledTimes(2);
-  expect(registry.stateOf(raw.path)).toBe('deleted');
-  expect(skia.Skia.Image.MakeImageFromEncoded).not.toHaveBeenCalled();
-  expect(native.order).toEqual(['data']);
-});
-
-it('write 后先登记 final 再检查过期，并且每个 path 最多 unlink 一次', async () => {
-  installNativeHarness();
+it('native 完成后先登记 final 再检查 token，过期时每个路径只删一次', async () => {
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
@@ -467,7 +358,6 @@ it('write 后先登记 final 再检查过期，并且每个 path 最多 unlink �
   registry.register(raw.path);
   const isCurrent = jest
     .fn<boolean, []>()
-    .mockReturnValueOnce(true)
     .mockReturnValueOnce(true)
     .mockImplementationOnce(() => {
       expect(registry.stateOf(outputPath)).toBe('owned');
@@ -478,24 +368,22 @@ it('write 后先登记 final 再检查过期，并且每个 path 最多 unlink �
     processPhoto(raw, makeOperation(), registry, { isCurrent })
   ).rejects.toBeInstanceOf(PhotoProcessingError);
 
+  expect(unlink).toHaveBeenCalledTimes(2);
   expect(registry.stateOf(raw.path)).toBe('deleted');
   expect(registry.stateOf(outputPath)).toBe('deleted');
-  expect(unlink).toHaveBeenCalledTimes(2);
-  expect(unlink).toHaveBeenCalledWith(raw.path);
-  expect(unlink).toHaveBeenCalledWith(outputPath);
 });
 
-it('write 失败会立即 reject 并同步摘除所有权，不等待慢 unlink', async () => {
-  installNativeHarness({ failure: 'write' });
+it('native 失败会立即 reject 并摘除所有权，不等待慢 unlink', async () => {
+  nativePhotoProcessor.processPhotoFile.mockRejectedValue(
+    Object.assign(new Error('write failed'), { code: 'E_PHOTO_WRITE' })
+  );
   const unlinkPending = deferred<void>();
   const unlink = jest.fn(() => unlinkPending.promise);
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
   registry.register(raw.path);
 
-  const processing = processPhoto(raw, makeOperation(), registry, {
-    isCurrent: () => true,
-  });
+  const processing = processPhoto(raw, makeOperation(), registry);
   const outcome = await Promise.race([
     processing.then(
       () => 'resolved',
@@ -508,35 +396,27 @@ it('write 失败会立即 reject 并同步摘除所有权，不等待慢 unlink'
   unlinkPending.resolve();
 
   expect(outcome).toBe('rejected');
-  expect(registry.stateOf(raw.path)).toBe('deleted');
-  expect(registry.stateOf('/tmp/camera_capture-7_42_capture-7.jpg')).toBe(
-    'deleted'
-  );
   expect(unlink).toHaveBeenCalledTimes(2);
-  expect(unlink).toHaveBeenCalledWith(raw.path);
-  expect(unlink).toHaveBeenCalledWith('/tmp/camera_capture-7_42_capture-7.jpg');
 });
 
-it('有 cleanup delegate 时交还 raw/partial final，由调用方决定删除时机', async () => {
-  installNativeHarness({ failure: 'write' });
+it('有 cleanup delegate 时交还 raw/partial final，由事务层决定冻结帧后的删除时机', async () => {
+  nativePhotoProcessor.processPhotoFile.mockRejectedValue(
+    Object.assign(new Error('write failed'), { code: 'E_PHOTO_WRITE' })
+  );
   const unlink = jest.fn(async () => {});
   const registry = createFileRegistry(unlink);
   const raw = makeRaw();
   const outputPath = '/tmp/camera_capture-7_42_capture-7.jpg';
   registry.register(raw.path);
   const onCleanupRequired = jest.fn<void, [readonly string[]]>();
-  const context = {
-    isCurrent: () => true,
-    onCleanupRequired,
-  } as Parameters<typeof processPhoto>[3] & {
-    onCleanupRequired: (paths: readonly string[]) => void;
-  };
 
   await expect(
-    processPhoto(raw, makeOperation(), registry, context)
+    processPhoto(raw, makeOperation(), registry, {
+      isCurrent: () => true,
+      onCleanupRequired,
+    })
   ).rejects.toBeInstanceOf(PhotoProcessingError);
 
-  expect(onCleanupRequired).toHaveBeenCalledTimes(1);
   expect(onCleanupRequired).toHaveBeenCalledWith([raw.path, outputPath]);
   expect(registry.stateOf(raw.path)).toBe('owned');
   expect(registry.stateOf(outputPath)).toBe('owned');
@@ -552,10 +432,9 @@ it('显式处理不得覆盖 raw；same-path 直接失败且只清理一次', as
   registry.register(raw.path);
 
   await expect(
-    processPhoto(raw, makeOperation(), registry, { isCurrent: () => true })
+    processPhoto(raw, makeOperation(), registry)
   ).rejects.toBeInstanceOf(PhotoProcessingError);
 
-  expect(RNFS.writeFile).not.toHaveBeenCalled();
+  expect(nativePhotoProcessor.processPhotoFile).not.toHaveBeenCalled();
   expect(unlink).toHaveBeenCalledTimes(1);
-  expect(unlink).toHaveBeenCalledWith(raw.path);
 });

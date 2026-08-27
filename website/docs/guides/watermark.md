@@ -80,9 +80,10 @@ watermark: {
 
 ## 内部工作原理 {#internals}
 
-- **快门后逐张合成**：用 `@shopify/react-native-skia` 在全分辨率 CPU raster surface 上画原图 + 逐行画水印文字，编码为 JPEG，再用 `@dr.pogodin/react-native-fs` 写回临时文件；CPU surface 避免 iOS Metal 对 GPU 离屏纹理同步回读；合成期间取景画面中央显示「水印生成中…」遮罩。
-- **串行处理**：一次只烧一张，峰值内存恒定，不受连拍张数影响（Skia 原生对象用后即释放，避免大图反复烧导致 OOM）。
-- **失败留在会话内重试**：解码 / raster surface 分配 / 读写出现任何异常时，不交付未加水印的 raw 或半成品；相机回到可拍状态，保留此前文件并提示“照片处理失败，请重试”。录像不经过照片 processor。
+- **捕获端先限制**：VisionCamera 按最终画幅请求 FHD（4:3 为 1440×1920，16:9 为 1080×1920），并通过 `capturePhotoToFile()` 直接落临时 JPEG；不会先拿 12MP in-memory Photo 再缩。
+- **文件级逐张合成**：iOS 在需要时先用 ImageIO thumbnail 下采样，再用复用的 Core Image context 延迟串联 EXIF 方向、居中裁切、缩放与 CoreText 水印并直接写 JPEG；Android 用 BitmapFactory `inSampleSize` 采样解码，在一个目标 Bitmap 上用 Canvas 完成同样操作并直接压缩到 OutputStream。全程没有 JS Base64、RNFS 图片内容中转或 Skia 全图 Surface。
+- **串行处理**：一次只烧一张，不叠加并发照片事务；源图与目标缓冲都受 FHD 上界约束。真实峰值仍以旧设备 Instruments / Android Profiler 为准，不能只靠像素公式宣称恒定。
+- **失败留在会话内重试**：读取 / 解码 / 目标缓冲分配 / 裁切 / 水印 / 编码 / 写入任一异常时，不交付未加水印的 raw 或半成品；相机回到可拍状态，保留此前文件并提示“照片处理失败，请重试”。录像不经过照片 processor。
 - `res.data` 返回的已是处理后的成片，消费端无需额外处理。
 
 ---
@@ -90,7 +91,7 @@ watermark: {
 ## 截图示意 {#preview}
 
 :::warning 真机查看
-以下为示意占位——水印合成依赖原生 Skia 与真实照片文件，**请在真机上查看实际效果**。模拟器可显示取景器戳记，但最终成片合成需真机验证。
+以下为示意占位——水印成片依赖真实照片文件，**请在真机上查看实际效果**。模拟器可显示取景器戳记，但最终成片、相机内存峰值与文件生命周期需真机验证。
 :::
 
 ```
@@ -120,8 +121,8 @@ watermark: {
 本库只负责把水印**可视化烧入照片**，不提供上述任何加密 / 防伪 / 存证能力。
 :::
 
-:::danger 需安装额外依赖并 pod install
-水印功能依赖以下两个同伴包（已在 `peerDependencies` 中声明），未安装时传入 `watermark` 会导致运行时错误：
+:::danger 需安装同伴包并 pod install
+实时水印预览与 session 文件管理依赖以下两个同伴包（已在 `peerDependencies` 中声明）；成片处理器随本库原生模块一同安装：
 
 ```sh
 yarn add @shopify/react-native-skia @dr.pogodin/react-native-fs

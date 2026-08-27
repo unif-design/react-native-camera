@@ -15,6 +15,7 @@ import type {
 } from '../../utils';
 import type { CameraHandle } from '../Camera';
 import { processPhoto, PhotoProcessingError } from '../image/processPhoto';
+import { needsPhotoFileProcessing } from '../image/photoResolution';
 import type { FileRegistry } from '../session/fileRegistry';
 import { hasVisibleWatermark } from '../watermark/paragraph';
 import type { AspectRatio } from '../setup';
@@ -207,7 +208,7 @@ export function usePhotoCaptureTransaction({
     if (captured == null) return;
 
     // beginPhoto 同步推进 controller shadow；同一 JS call stack 的后续快门立即被拒绝，
-    // 不能依赖 React render 后才更新的视觉 state 来挡 UHD 并发。
+    // 不能依赖 React render 后才更新的视觉 state 来挡照片处理并发。
     const token = controller.beginPhoto();
     if (token == null) return;
     const delegatedCleanupPaths = new Set<string>();
@@ -247,9 +248,11 @@ export function usePhotoCaptureTransaction({
     if (presentRef.current) setFlashNonce((value) => value + 1);
 
     const visibleWatermark = hasVisibleWatermark(captured.watermark);
-    const needsProcessing =
-      normalized.mime === 'image/jpeg' &&
-      (captured.aspectRatio === '16:9' || visibleWatermark);
+    const needsProcessing = needsPhotoFileProcessing(
+      normalized,
+      captured.aspectRatio,
+      visibleWatermark
+    );
     const preview =
       captured.mode.mode === 'single' && captured.dataRetainedMode === 'clear'
         ? { variant: 'confirm' as const, index: captured.previewIndex }

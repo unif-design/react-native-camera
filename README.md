@@ -12,12 +12,12 @@
 - **单拍 / 连拍 / 视频录制** — 一个 `useCamera()` Hook 统一编排
 - **弹窗式交互** — `await api.open(config)`,拍完 / 取消后 Promise resolve `CameraResult`
 - **手势** — 双指 pinch 变焦(`Gesture.Pinch` 乘性:起点倍数 × 手势 scale,clamp 到设备区间与软上限)、0.5x / 1x 档位药丸、点击对焦、前后摄翻转
-- **Skia 水印** — 拍照后将文字水印离屏烧入成片(仅照片,录像无水印)
+- **低内存水印** — Skia 实时预览，iOS ImageIO/Core Image、Android BitmapFactory/Canvas 在文件边界直接烧录 JPEG(仅照片,录像无水印)
 - **公开面极简** — 唯一入口 `useCamera()`,不直接暴露 vision-camera 的 `<Camera>`
 
 ## 安装
 
-本库的原生能力全部来自同伴包,运行时实际用到的 peers 如下,**缺一即崩**:
+本库包含一个只依赖系统图像 API 的原生照片处理模块；相机与 UI 仍依赖以下 peers，**缺一即崩**:
 
 ```sh
 yarn add @unif/react-native-camera \
@@ -51,7 +51,7 @@ yarn add @unif/react-native-camera \
 > ⚠️ **文件系统用 fork**:本库依赖 `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`,装错会冲突。
 > ⚠️ **worklets 必装**:vision-camera 5.x 内部 `require` 了 `react-native-vision-camera-worklets`,缺它 Metro 报 `Unable to resolve module react-native-vision-camera-worklets`。
 
-iOS 升级原生依赖后须重新 `cd ios && bundle exec pod install`。使用相机必须声明 Camera 权限,只有启用录像才需要 Microphone 权限;本库只返回临时文件,不读写系统相册,因此不会无条件要求相册权限。完整原生配置与 peer 清单见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。相机的确认弹窗 / toast 已内部自洽,**无需为相机挂 `<ConfirmHost/>` / `<ToastHost/>`**。
+安装本库或升级原生依赖后须重新 `cd ios && bundle exec pod install`。使用相机必须声明 Camera 权限,只有启用录像才需要 Microphone 权限;本库只返回临时文件,不读写系统相册,因此不会无条件要求相册权限。完整原生配置与 peer 清单见[文档站 · 安装](https://unif-design.github.io/react-native-camera/docs/getting-started/installation)。相机的确认弹窗 / toast 已内部自洽,**无需为相机挂 `<ConfirmHost/>` / `<ToastHost/>`**。
 
 ## 快速开始
 
@@ -83,11 +83,11 @@ function PhotoScreen() {
 
 `open(config)` 会先做运行时校验:非法配置直接 resolve `500/invalid_config`,不会替换当前有效会话;第二次合法 `open()` 会先以 `code: 0` 取消旧会话,再启动新会话。`close()`、Hook 卸载和过期回调都受当前会话门禁保护,同一个 Promise 最多 resolve 一次。
 
-请求的前/后摄不可用时会自动 fallback 到另一侧，返回文件的 `cameraType` 始终是实际选中的设备。显式 `16:9` 裁切或可见水印的照片处理失败时，相机留在当前会话显示“照片处理失败，请重试”，保留此前文件，**不会**以错误 raw / 半成品完成 `open()`；录像不经过照片 processor。
+请求的前/后摄不可用时会自动 fallback 到另一侧，返回文件的 `cameraType` 始终是实际选中的设备。照片按最终画幅请求 FHD，并由 `capturePhotoToFile()` 直接落临时 JPEG；设备协商尺寸仍偏大/偏画幅或存在可见水印时，才进入原生文件 processor。处理失败时相机留在当前会话显示“照片处理失败，请重试”，保留此前文件，**不会**以错误 raw / 半成品完成 `open()`；录像不经过照片 processor。
 
 返回的 `code: 200` 文件仍在临时目录。库会在 resolve 前把这些路径同步 transfer 给消费者，此后取消、删除、重拍、切模式、关闭、supersede、卸载和过期回调会 best-effort 回收其余仍归库所有的临时文件；transfer 不代表已保存到相册或持久化。长期使用请在 `200` 后自行复制到业务目录或上传。
 
-> 完整相机链路需真机(摄像头硬件 + 原生 Skia 照片处理);模拟器 / web 跑不起来,属预期行为。
+> 完整相机链路需真机(摄像头硬件 + 原生文件照片处理);模拟器 / web 不能覆盖 IOSurface、Jetsam 与旧设备峰值内存,属预期限制。
 
 ## Example 场景展厅
 
@@ -109,7 +109,7 @@ yarn example start
 
 Pods、真机运行、公开 `OpenConfig` 边界、六种结果码、临时文件所有权及复制步骤见
 [`example/README.md`](example/README.md)。模拟器可用于检查普通 React Native 界面和
-mock 测试，但不能验收真实摄像头、录像或 Skia 水印。
+mock 测试，但不能验收真实摄像头、录像、水印成片或峰值内存。
 
 ## 原生接入门禁
 

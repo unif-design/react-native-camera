@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: 介绍
-description: "@unif/react-native-camera 是基于 react-native-vision-camera 5.x 的弹窗式相机库：await api.open() 弹出全屏相机，支持单拍 / 连拍 / 录像 / Skia 水印，公开面仅 useCamera()。"
+description: "@unif/react-native-camera 是基于 react-native-vision-camera 5.x 的弹窗式相机库：await api.open() 弹出全屏相机，支持单拍 / 连拍 / 录像 / 低内存文件级水印，公开面仅 useCamera()。"
 ---
 
 # @unif/react-native-camera
@@ -45,7 +45,7 @@ if (res.code === 200) { /* res.data 是拍到的文件 */ }
 - **单拍 / 连拍 / 录像** —— 由 `cameraMode[]` 编排,可在一次会话内提供多个模式 tab
 - **pinch 变焦 · 点击对焦 · 前后摄翻转** —— 取景器内置手势(双指 pinch 缩放,实时显示倍数 + 0.5/1 档位药丸快捷跳档,含 0.5x 超广角档;前置摄像头无变焦)
 - **拍后预览确认** —— 拍完进预览页,用户确认或重拍
-- **Skia 水印** —— 拍照后用 Skia 把多行文字离屏烧入成片(**仅照片,录像无水印**)
+- **低内存水印** —— Skia 实时预览，iOS ImageIO/Core Image、Android BitmapFactory/Canvas 直接把多行文字写入成片(**仅照片,录像无水印**)
 - **公开面极简** —— 唯一入口 `useCamera()`,不暴露底层 vision-camera
 
 ## 何时使用
@@ -65,7 +65,7 @@ if (res.code === 200) { /* res.data 是拍到的文件 */ }
 | Web / 模拟器 | ❌ |
 
 :::warning 必须真机运行
-完整拍摄链路依赖真实摄像头硬件,照片处理依赖 Skia 原生 CPU raster surface,不再使用 GPU offscreen surface。**iOS 模拟器 / Android 模拟器 / Web 无法覆盖完整行为,这是预期限制,不是 bug。** 请始终在真机上验证完整行为;各 API 页面提供截图示意。
+完整拍摄链路依赖真实摄像头硬件。照片处理虽可在模拟器编译，但 **iOS 模拟器 / Android 模拟器 / Web 无法覆盖相机 IOSurface、Jetsam 与旧设备峰值内存,这是预期限制,不是 bug。** 请始终在真机上验证完整行为;各 API 页面提供截图示意。
 :::
 
 :::info 仅支持新架构

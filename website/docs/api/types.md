@@ -41,7 +41,7 @@ import type {
 各字段的运行时行为见 [CameraApi → OpenConfig](/docs/api/camera-api#openconfig)。
 
 :::note 拍摄质量三字段缺省即「不替你做取舍」
-`photoQualityPrioritization` / `photoHDR` / `videoBitRate` 都是**可选**字段，**缺省（不传）时库不写入任何偏好**，完全交给 vision-camera SDK 的默认协商。只有你**显式传值**时才会覆盖默认。照片/录像分辨率是另一回事——已固定为 UHD（4:3 ≈12MP、16:9 4K），不可配置、不随这三字段变化。
+`photoQualityPrioritization` / `photoHDR` / `videoBitRate` 都是**可选**字段，**缺省（不传）时库不写入任何偏好**，完全交给 vision-camera SDK 的默认协商。只有你**显式传值**时才会覆盖默认。照片/录像分辨率是另一回事——照片按最终画幅请求 FHD（4:3 为 1440×1920，16:9 为 1080×1920），录像随画幅请求 UHD；目标不可配置、不随这三字段变化。
 :::
 
 ---

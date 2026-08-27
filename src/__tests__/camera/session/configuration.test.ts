@@ -45,8 +45,8 @@ function device(position: 'back' | 'front'): CameraDevice {
 }
 
 describe('nativeConfigurationKey', () => {
-  it('keeps photo aspect and same-output single/continuous UI changes out of native identity', () => {
-    expect(key({ aspectRatio: '4:3' })).toBe(key());
+  it('changes photo identity for the requested final aspect but not single/continuous UI mode', () => {
+    expect(key({ aspectRatio: '4:3' })).not.toBe(key());
     expect(key({ mode: { mode: 'continuous', quality: 0.9 } })).toBe(key());
   });
 
@@ -86,23 +86,37 @@ describe('nativeConfigurationKey', () => {
 });
 
 describe('configuration generation', () => {
-  it('keeps UI-only photo changes ready without waiting for a callback', () => {
+  it('keeps single/continuous photo changes ready without waiting for a callback', () => {
     const state = makeState();
     const sameKey = key({
       mode: { mode: 'continuous', quality: 0.9 },
-      aspectRatio: '4:3',
     });
     const next = cameraSessionReducer(state, {
       type: 'BEGIN_CONFIGURATION',
       nativeConfigurationKey: sameKey,
-      changes: { modeIndex: 1, aspectRatio: '4:3' },
+      changes: { modeIndex: 1 },
     });
 
     expect(next).toMatchObject({
       phase: 'ready',
       modeIndex: 1,
-      aspectRatio: '4:3',
       configurationGeneration: 0,
+    });
+  });
+
+  it('atomically reconfigures photo output when the requested final aspect changes', () => {
+    const nextKey = key({ aspectRatio: '4:3' });
+    const next = cameraSessionReducer(makeState(), {
+      type: 'BEGIN_CONFIGURATION',
+      nativeConfigurationKey: nextKey,
+      changes: { aspectRatio: '4:3' },
+    });
+
+    expect(next).toMatchObject({
+      phase: 'configuring',
+      aspectRatio: '4:3',
+      nativeConfigurationKey: nextKey,
+      configurationGeneration: 1,
     });
   });
 

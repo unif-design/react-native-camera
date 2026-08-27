@@ -1,12 +1,4 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import {
-  ImageFormat,
-  Skia,
-  type SkData,
-  type SkImage,
-  type SkPaint,
-  type SkSurface,
-} from '@shopify/react-native-skia';
 import type {
   AspectRatio,
   CameraMode,
@@ -16,12 +8,15 @@ import type {
 } from '../../utils';
 import { toFileUri } from '../../utils';
 import type { FileRegistry } from '../session/fileRegistry';
+import { hasVisibleWatermark } from '../watermark/paragraph';
 import {
-  createWatermarkParagraph,
-  hasVisibleWatermark,
-  type WatermarkParagraph,
-} from '../watermark/paragraph';
-import { computeCropRect } from './cropGeometry';
+  nativePhotoProcessingStage,
+  processPhotoFile,
+} from './nativePhotoProcessor';
+import {
+  needsPhotoFileProcessing,
+  orientedPhotoTarget,
+} from './photoResolution';
 
 export type PhotoProcessingStage =
   | 'read'
@@ -30,7 +25,6 @@ export type PhotoProcessingStage =
   | 'surface'
   | 'draw'
   | 'watermark'
-  | 'snapshot'
   | 'encode'
   | 'write';
 
@@ -91,14 +85,6 @@ function safePathSegment(value: string | number): string {
   return String(value).replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-function disposeSafely(resource: { dispose: () => void } | null): void {
-  try {
-    resource?.dispose();
-  } catch {
-    // 释放失败不能遮蔽原始 processor error，也不能阻断其余 native 对象逆序释放。
-  }
-}
-
 function assertCurrent(
   context: PhotoProcessingContext | undefined,
   stage: PhotoProcessingStage
@@ -115,7 +101,7 @@ function assertCurrent(
 function cleanupOwned(registry: FileRegistry, paths: readonly string[]): void {
   for (const path of new Set(paths)) {
     // registry 会在首个 await 前同步把 owned 标成 deleted；processor 不等待磁盘 unlink，
-    // 否则慢 I/O 会延长 UHD Skia/native 事务并阻塞 stale operation 退出。
+    // 否则慢 I/O 会延长文件级 native 事务并阻塞 stale operation 退出。
     registry.delete(path).catch(() => {
       // 正常 registry 已吞掉 unlink/reporter 错误；自定义实现 reject 也不能形成未处理 rejection。
     });
@@ -149,19 +135,15 @@ export async function processPhoto(
   const watermark = hasVisibleWatermark(captured.watermark)
     ? captured.watermark
     : undefined;
-  const needsProcessing =
-    raw.mime === 'image/jpeg' &&
-    (captured.aspectRatio === '16:9' || watermark != null);
+  const needsProcessing = needsPhotoFileProcessing(
+    raw,
+    captured.aspectRatio,
+    watermark != null
+  );
   const outputPath =
     `${RNFS.TemporaryDirectoryPath}/camera_` +
     `${safePathSegment(raw.id)}_` +
     `${safePathSegment(captured.sessionId)}_${safePathSegment(captured.captureId)}.jpg`;
-  let data: SkData | null = null;
-  let image: SkImage | null = null;
-  let surface: SkSurface | null = null;
-  let paint: SkPaint | null = null;
-  let prepared: WatermarkParagraph | null = null;
-  let snapshot: SkImage | null = null;
   let outputMayExist = false;
   let stage: PhotoProcessingStage = 'read';
   let failure: PhotoProcessingError | null = null;
@@ -174,70 +156,27 @@ export async function processPhoto(
       throw new PhotoProcessingError('write');
     }
 
-    data = await Skia.Data.fromURI(raw.uri);
-    assertCurrent(context, stage);
-
-    stage = 'decode';
-    image = Skia.Image.MakeImageFromEncoded(data);
-    if (image == null) throw new PhotoProcessingError(stage);
-
-    stage = 'crop';
-    // MakeImageFromEncoded 已按 encoded origin 给出最终像素方向；这里禁止再套 EXIF rotate/mirror。
-    const crop = computeCropRect(
-      image.width(),
-      image.height(),
-      captured.aspectRatio
+    const target = orientedPhotoTarget(
+      captured.aspectRatio,
+      raw.width,
+      raw.height
     );
-
-    stage = 'surface';
-    // 照片最终必须同步读回并编码成 JPEG；GPU offscreen surface 会让 iOS Metal
-    // 在 makeImageSnapshot().encodeToBase64() 时同步回读纹理，旧设备上可能直接
-    // EXC_BAD_ACCESS。CPU raster surface 不涉及 GPU texture readback，且保持相同
-    // crop / watermark / JPEG 输出契约。
-    surface = Skia.Surface.Make(crop.width, crop.height);
-    if (surface == null) throw new PhotoProcessingError(stage);
-    const finalWidth = surface.width();
-    const finalHeight = surface.height();
-    if (finalWidth <= 0 || finalHeight <= 0) {
-      throw new PhotoProcessingError(stage);
-    }
-
-    stage = 'draw';
-    paint = Skia.Paint();
-    const canvas = surface.getCanvas();
-    canvas.drawImageRect(
-      image,
-      Skia.XYWHRect(crop.x, crop.y, crop.width, crop.height),
-      Skia.XYWHRect(0, 0, finalWidth, finalHeight),
-      paint
-    );
-
-    if (watermark != null) {
-      stage = 'watermark';
-      prepared = createWatermarkParagraph(finalWidth, finalHeight, watermark);
-      prepared.paragraph.paint(
-        canvas,
-        prepared.placement.x,
-        prepared.placement.y
-      );
-    }
-
-    stage = 'snapshot';
-    snapshot = surface.makeImageSnapshot();
-
-    stage = 'encode';
-    const encoded = snapshot.encodeToBase64(
-      ImageFormat.JPEG,
-      jpegQuality(captured.mode.quality)
-    );
-    if (encoded.length === 0) throw new PhotoProcessingError(stage);
-
-    stage = 'write';
+    stage = watermark == null ? 'crop' : 'watermark';
+    // native 可能在 reject 前留下部分文件；调用前即视为 output 可能存在，失败路径统一清理。
     outputMayExist = true;
-    await RNFS.writeFile(outputPath, encoded, 'base64');
-    // write 完成后的第一步先登记 final；随后的 token gate 若判 stale，registry 才有权
-    // 同步摘除 raw/final 所有权并异步清理，且不会遗失已成功落盘的输出。
+    const processed = await processPhotoFile({
+      inputPath: raw.path,
+      outputPath,
+      aspectRatio: captured.aspectRatio,
+      targetWidth: target.width,
+      targetHeight: target.height,
+      quality: jpegQuality(captured.mode.quality),
+      ...(watermark == null ? {} : { watermark }),
+    });
+
+    // native 返回后的第一步登记 final；随后的 token gate 才有权摘除其所有权。
     registry.register(outputPath);
+    stage = 'write';
     assertCurrent(context, stage);
 
     result = {
@@ -245,27 +184,15 @@ export async function processPhoto(
       cameraType: captured.cameraPosition,
       path: outputPath,
       uri: toFileUri(outputPath),
-      width: finalWidth,
-      height: finalHeight,
+      width: processed.width,
+      height: processed.height,
     };
   } catch (error) {
+    const nativeStage = nativePhotoProcessingStage(error);
     failure =
       error instanceof PhotoProcessingError
         ? error
-        : new PhotoProcessingError(stage, error);
-  } finally {
-    // 创建顺序 data → image → surface → paint → builder → paragraph → snapshot；
-    // 逆序释放保证依赖对象仍存活，并在任一步失败时继续收完其余 native 资源。
-    disposeSafely(snapshot);
-    try {
-      prepared?.dispose();
-    } catch {
-      // bundle 自己会用 finally 继续 dispose builder；这里只防止遮蔽 processor error。
-    }
-    disposeSafely(paint);
-    disposeSafely(surface);
-    disposeSafely(image);
-    disposeSafely(data);
+        : new PhotoProcessingError(nativeStage ?? stage, error);
   }
 
   if (failure != null) {

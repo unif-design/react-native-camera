@@ -1,6 +1,6 @@
 import * as VisionCamera from 'react-native-vision-camera';
 import { Camera } from '../../camera/Camera';
-import type { CameraMode } from '../../utils';
+import type { AspectRatio, CameraMode } from '../../utils';
 import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
@@ -26,6 +26,7 @@ type RenderProps = Partial<{
   photoHDR: boolean;
   videoBitRate: number;
   supportsSpeed: boolean;
+  aspectRatio: AspectRatio;
 }>;
 
 function renderCamera(p: RenderProps = {}) {
@@ -44,6 +45,7 @@ function renderCamera(p: RenderProps = {}) {
       photoQualityPrioritization={p.photoQualityPrioritization}
       photoHDR={p.photoHDR}
       videoBitRate={p.videoBitRate}
+      aspectRatio={p.aspectRatio}
     />
   );
 }
@@ -58,6 +60,16 @@ function lastOpts(mock: jest.Mock): Record<string, unknown> {
 beforeEach(() => {
   usePhotoOutputMock.mockClear();
   useVideoOutputMock.mockClear();
+});
+
+describe('照片按最终用途选择 targetResolution', () => {
+  it.each([
+    ['4:3' as const, { width: 1440, height: 1920 }],
+    ['16:9' as const, { width: 1080, height: 1920 }],
+  ])('%s 直接请求对应 FHD 画幅', (aspectRatio, expected) => {
+    renderCamera({ aspectRatio });
+    expect(lastOpts(usePhotoOutputMock).targetResolution).toEqual(expected);
+  });
 });
 
 describe('photoQualityPrioritization 接线', () => {
@@ -140,7 +152,7 @@ describe('videoBitRate 接线', () => {
 
   it('targetResolution(UHD)始终保留(不参数化)', () => {
     renderCamera({ currentMode: videoMode });
-    // helper 的 UHD_4_3 桩 = { width: 3024, height: 4032 }(4:3 缺省 aspectRatio)。
+    // helper 的 FHD_4_3 桩 = { width: 1440, height: 1920 }(4:3 缺省 aspectRatio)。
     expect(lastOpts(useVideoOutputMock).targetResolution).toEqual({
       width: 3024,
       height: 4032,

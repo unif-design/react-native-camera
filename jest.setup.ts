@@ -26,6 +26,16 @@ jest.mock('react-native-nitro-image', () => ({ NitroImage: () => null }), {
   virtual: true,
 });
 
+// camera 自有 TurboModule：各处理器单测可再 mock 高层 wrapper；普通 Camera 渲染只需
+// 让 spec 可加载，不能因 jest native binary 中没有模块而在 import 阶段 getEnforcing 失败。
+jest.mock('./src/NativePhotoProcessor', () => ({
+  __esModule: true,
+  default: {
+    inspectPhotoFile: jest.fn(),
+    processPhoto: jest.fn(),
+  },
+}));
+
 // Mock reanimated-carousel。
 // 这段**不是**为了让 design 的 barrel 能 import 才存在(那类接线已随四个 peer 一起交给 design
 // 入口):本仓自己有 `src/components/Carousel/Carousel.tsx` 直接消费 RNRC v5,Carousel 与

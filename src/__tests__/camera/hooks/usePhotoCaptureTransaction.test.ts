@@ -172,7 +172,12 @@ afterEach(() => {
 
 it('同一 call stack 四次快门只启动一个 capture transaction', async () => {
   const pending = deferred<CustomPhotoFile | null>();
-  const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
+  const raw = makePhotoFile({
+    id: 'raw',
+    path: '/raw.jpg',
+    width: 1440,
+    height: 1920,
+  });
   const harness = setup({
     capture: jest.fn(() => pending.promise),
   });

@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 title: 核心概念
-description: "理解 @unif/react-native-camera 的核心心智模型：模态相机、holder 渲染、api.open(config) 的 Promise 生命周期、cameraMode/dataRetainedMode、CameraResult.code（200/0/403/404/500/503）、Skia 水印（仅 JPEG）。"
+description: "理解 @unif/react-native-camera 的核心心智模型：模态相机、holder 渲染、api.open(config) 的 Promise 生命周期、cameraMode/dataRetainedMode、CameraResult.code（200/0/403/404/500/503）、文件级水印（仅 JPEG）。"
 ---
 
 # 核心概念
@@ -86,7 +86,7 @@ Promise.resolve(CameraResult)
 - **取消也 resolve** —— 用户取消时 `code` 为 `0`,**不会 reject**。
 - **合法重入先取消旧会话** —— 当前会话尚未完成时再次合法 `open()`,旧 Promise 先 resolve `code: 0`,然后新会话开始;非法新配置只返回 `500/invalid_config`,不影响旧会话。
 - **每个 Promise 最多完成一次** —— `close()`、Hook 卸载、保存回调或取消回调同时发生时,只有当前会话的第一个终态生效;旧会话的过期回调会被忽略。
-- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间取景画面中央显示「水印生成中…」遮罩)。显式 `16:9` 裁切或可见水印处理失败时，留在会话内显示“照片处理失败，请重试”，不交付 raw / 半成品，Promise 继续等待用户重试或取消。
+- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间取景画面中央显示「水印生成中…」遮罩)。设备协商输出需精裁或可见水印处理失败时，留在会话内显示“照片处理失败，请重试”，不交付 raw / 半成品，Promise 继续等待用户重试或取消。
 
 ### `config`:`cameraMode` 与 `dataRetainedMode`
 
@@ -123,9 +123,9 @@ Promise.resolve(CameraResult)
 
 ---
 
-## 模型五:Skia 水印(仅照片)
+## 模型五:文件级水印(仅照片)
 
-传入 `watermark` 后,相机在每次快门后用 **Skia** 把多行文字**离屏合成、烧进成片**:
+传入 `watermark` 后,相机在每次快门后由原生文件处理器把多行文字**烧进成片**；Skia 只负责取景器实时预览:
 
 ```ts
 watermark: {
@@ -138,7 +138,7 @@ watermark: {
 
 - **仅对照片(`image/jpeg`)生效** —— 水印烧图把结果编码为 JPEG;**录像(`video/mp4`)没有水印**。
 - **是可视标记,不是防篡改手段** —— 水印只是叠加在像素上的文字,不提供任何加密 / 防伪 / 签名保证。
-- **处理失败可重试** —— 显式 `16:9` 裁切或可见水印的解码 / 绘制 / 编码失败时，不返回原图、不结束会话；相机显示“照片处理失败，请重试”，保留此前文件。录像不经过照片 processor。
+- **处理失败可重试** —— 文件读取 / 下采样解码 / 裁切 / 绘制 / 编码失败时，不返回原图、不结束会话；相机显示“照片处理失败，请重试”，保留此前文件。录像不经过照片 processor。
 
 > 水印用法详解见[指南 → 水印](/docs/guides/watermark)。
 
