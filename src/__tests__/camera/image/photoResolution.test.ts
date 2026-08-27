@@ -5,9 +5,7 @@ function jpeg(width: number, height: number) {
 }
 
 it('允许目标尺寸的一像素协商取整误差直接返回文件', () => {
-  expect(needsPhotoFileProcessing(jpeg(1440, 1919), '4:3', false)).toBe(
-    false
-  );
+  expect(needsPhotoFileProcessing(jpeg(1440, 1919), '4:3', false)).toBe(false);
 });
 
 it('画幅超过一像素协商误差时进入文件处理', () => {

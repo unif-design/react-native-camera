@@ -1,9 +1,7 @@
 import NativePhotoProcessor from '../../../NativePhotoProcessor';
 import { inspectPhotoFile } from '../../../camera/image/nativePhotoProcessor';
 
-const inspectPhotoFileMock = jest.mocked(
-  NativePhotoProcessor.inspectPhotoFile
-);
+const inspectPhotoFileMock = jest.mocked(NativePhotoProcessor.inspectPhotoFile);
 
 beforeEach(() => {
   jest.clearAllMocks();
