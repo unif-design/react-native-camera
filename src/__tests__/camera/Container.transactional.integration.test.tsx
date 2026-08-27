@@ -311,47 +311,44 @@ it('keeps native-dependent controls truly disabled until the current configurati
   expect(latestCamera().props.enableZoom).toBe(true);
 });
 
-it(
-  'remounts the aspect-specific photo output, keeps same-key photo mode mounted, then remounts video',
-  () => {
-    const harness = renderContainer(photoModes());
-    const initialConfigured = latestCamera().props.onConfigured;
-    if (initialConfigured == null) throw new Error('missing initial callback');
-    const initialInstance = latestCamera().instanceId;
-    configureLatest();
+it('remounts the aspect-specific photo output, keeps same-key photo mode mounted, then remounts video', () => {
+  const harness = renderContainer(photoModes());
+  const initialConfigured = latestCamera().props.onConfigured;
+  if (initialConfigured == null) throw new Error('missing initial callback');
+  const initialInstance = latestCamera().instanceId;
+  configureLatest();
 
-    fireEvent.press(harness.getByTestId('aspect-btn'));
-    const aspectConfigured = latestCamera().props.onConfigured;
-    if (aspectConfigured == null) throw new Error('missing aspect callback');
-    expect(latestCamera().props.enableFocus).toBe(false);
-    expect(latestCamera().props.aspectRatio).toBe('4:3');
-    expect(latestCamera().instanceId).not.toBe(initialInstance);
+  fireEvent.press(harness.getByTestId('aspect-btn'));
+  const aspectConfigured = latestCamera().props.onConfigured;
+  if (aspectConfigured == null) throw new Error('missing aspect callback');
+  expect(latestCamera().props.enableFocus).toBe(false);
+  expect(latestCamera().props.aspectRatio).toBe('4:3');
+  expect(latestCamera().instanceId).not.toBe(initialInstance);
 
-    act(() => initialConfigured());
-    expect(latestCamera().props.enableFocus).toBe(false);
-    act(() => aspectConfigured());
-    expect(latestCamera().props.enableFocus).toBe(true);
-    const aspectInstance = latestCamera().instanceId;
+  act(() => initialConfigured());
+  expect(latestCamera().props.enableFocus).toBe(false);
+  act(() => aspectConfigured());
+  expect(latestCamera().props.enableFocus).toBe(true);
+  const aspectInstance = latestCamera().instanceId;
 
-    fireEvent.press(harness.getByTestId('mode-pill-1'));
-    expect(latestCamera().props.enableFocus).toBe(true);
-    expect(latestCamera().props.currentMode.mode).toBe('continuous');
-    expect(latestCamera().instanceId).toBe(aspectInstance);
+  fireEvent.press(harness.getByTestId('mode-pill-1'));
+  expect(latestCamera().props.enableFocus).toBe(true);
+  expect(latestCamera().props.currentMode.mode).toBe('continuous');
+  expect(latestCamera().instanceId).toBe(aspectInstance);
 
-    fireEvent.press(harness.getByTestId('mode-pill-2'));
-    const currentConfigured = latestCamera().props.onConfigured;
-    if (currentConfigured == null) throw new Error('missing current callback');
-    expect(latestCamera().props.enableFocus).toBe(false);
+  fireEvent.press(harness.getByTestId('mode-pill-2'));
+  const currentConfigured = latestCamera().props.onConfigured;
+  if (currentConfigured == null) throw new Error('missing current callback');
+  expect(latestCamera().props.enableFocus).toBe(false);
 
-    act(() => aspectConfigured());
-    expect(latestCamera().props.enableFocus).toBe(false);
+  act(() => aspectConfigured());
+  expect(latestCamera().props.enableFocus).toBe(false);
 
-    act(() => currentConfigured());
-    expect(latestCamera().props.enableFocus).toBe(true);
-    expect(latestCamera().instanceId).not.toBe(aspectInstance);
-    expect(mockCameraMounts).toBe(3);
-  }
-);
+  act(() => currentConfigured());
+  expect(latestCamera().props.enableFocus).toBe(true);
+  expect(latestCamera().instanceId).not.toBe(aspectInstance);
+  expect(mockCameraMounts).toBe(3);
+});
 
 it('enters configuring only for real photo quality and device changes', () => {
   const harness = renderContainer(
