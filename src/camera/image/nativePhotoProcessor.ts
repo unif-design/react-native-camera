@@ -63,6 +63,18 @@ function finiteDuration(value: unknown): number {
     : 0;
 }
 
+function cameraOrientation(value: unknown): CameraOrientation {
+  switch (value) {
+    case 'up':
+    case 'right':
+    case 'down':
+    case 'left':
+      return value;
+    default:
+      throw new Error('Invalid native photo orientation');
+  }
+}
+
 export async function inspectPhotoFile(
   inputPath: string
 ): Promise<PhotoFileMetadata> {
@@ -72,7 +84,7 @@ export async function inspectPhotoFile(
   return {
     width: positiveDimension(parsed.width),
     height: positiveDimension(parsed.height),
-    orientation: String(parsed.orientation) as CameraOrientation,
+    orientation: cameraOrientation(parsed.orientation),
   };
 }
 
