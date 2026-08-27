@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.4](https://github.com/unif-design/react-native-camera/compare/v4.0.3...v4.0.4) (2026-08-27)
+
+
+### Bug Fixes
+
+* **camera:** 重写低内存照片文件处理管线 ([#122](https://github.com/unif-design/react-native-camera/issues/122)) ([e51456b](https://github.com/unif-design/react-native-camera/commit/e51456b9d3730bfd2505080456b96c6f8edeb1ab))
+
 ## [4.0.3](https://github.com/unif-design/react-native-camera/compare/v4.0.2...v4.0.3) (2026-08-26)
 
 
