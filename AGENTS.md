@@ -28,7 +28,7 @@ npx skills add unif-design/skills --skill rn-library --skill camera --global --a
 
 ## 仓库定位
 
-`@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / Skia 水印。
+`@unif/react-native-camera` —— 基于 [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) 5.x 封装的**弹窗式相机**:单拍 / 连拍 / 录像 / 双指 pinch 变焦(+0.5/1 档位)/ 镜头翻转 / 点击对焦 / 水印预览与烧录。
 
 当前仓库开发与 example 的验证基线是 **React Native 0.86.2 新架构**(Fabric + Nitro
 Modules)、**React 19.2.3**、**@unif/react-native-design 0.26.0** 与 TypeScript 6。
@@ -40,7 +40,11 @@ design 0.20–0.25 的消费者不再受支持。
 反过来也不许 —— **下限不得高于仓库实际装的版本**,否则 CI 跑的是一份自己从不验证的契约,
 下限那一侧的破坏性变更根本发现不了。
 
-**纯 JS 库**(无 `android/` `ios/` `cpp/` 原生源码) —— 原生能力全部来自 peerDependencies(vision-camera / nitro / skia / fs / video),本库只编排 JS/TS。`package.json#files` 里列了 `android/ios/cpp/*.podspec` 是模板的防御性写法,实际不打进包。
+本库是 **JS/TS + 轻量原生照片处理模块**。相机捕获仍来自 vision-camera；实时水印预览仍用
+Skia；照片文件后处理由本库 `UnifPhotoProcessor` 完成：iOS 只链接 ImageIO / Core Image /
+CoreText 等系统 framework，Android 只用 BitmapFactory / Canvas / ExifInterface。没有新增第三方
+runtime dependency。改 `ios/`、`android/`、TurboModule spec 或 podspec 后必须同时验证 Codegen
+与两端原生编译，不能只以 Jest 通过代替。
 
 yarn workspaces 单仓库:库本体在根目录,`example/` 是宿主 RN app,通过 `react-native-monorepo-config` 接 Metro 直读根 `src/`,所以改库的 JS 代码在 example 里热更新,不用重新构建原生。`website/` 是 Docusaurus 文档站(同为 workspace)。
 
@@ -97,7 +101,7 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
   - `cameraMode: CameraMode[]` —— 每项 `{ mode: 'single' | 'continuous' | 'video', quality?, type?, flashMode?, recTime? }`。`type` 接线为初始前/后摄(首项生效);`flashMode` 接线为初始闪光(首项生效);`recTime` 接线为 vision-camera `maxDuration`(秒):到点原生自动停、视频自动入已拍列表(缺省不设=不自动停)。`quality` = JPEG 压缩 0~1,缺省 0.9。
   - `dataRetainedMode: 'clear' | 'retain'` —— 用户切换拍摄模式时已拍文件:`clear` 先二次确认(相机内本地 `confirm`,见下)再清空、且「单拍 + clear」拍完直接进确认预览;`retain` 累积不清。
   - `watermark?: WatermarkType` —— 见下。
-  - **拍摄质量(三个可选,全局)** —— `photoQualityPrioritization?: 'speed'|'balanced'|'quality'` / `photoHDR?: boolean` / `videoBitRate?: number`。**核心约定:缺省(不传)= 库不写入任何偏好,完全走 SDK 默认协商**(不替消费者写死取舍);只有显式传值才下发。`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`(不 throw);`'quality'`/`'balanced'` 任何设备直传(质量优先与 speed 能力位无关,见 `Camera.tsx` guard)。**与分辨率无关**:照片/录像分辨率已固定 UHD(见下「画幅」),不随这三字段变。
+  - **拍摄质量(三个可选,全局)** —— `photoQualityPrioritization?: 'speed'|'balanced'|'quality'` / `photoHDR?: boolean` / `videoBitRate?: number`。**核心约定:缺省(不传)= 库不写入任何偏好,完全走 SDK 默认协商**(不替消费者写死取舍);只有显式传值才下发。`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`(不 throw);`'quality'`/`'balanced'` 任何设备直传(质量优先与 speed 能力位无关,见 `Camera.tsx` guard)。**与分辨率无关**:照片按最终画幅请求 FHD(4:3 为 1440×1920，16:9 为 1080×1920)，录像仍按画幅请求 UHD；这三个字段不改变目标尺寸。
 
 ### Result codes(`CameraResult.code`,`useCamera.tsx` + `Container.tsx`)
 
@@ -114,13 +118,15 @@ useCamera()        # 唯一入口(src/hooks/useCamera.tsx)
 
 > **拍照 / 录像 runtime 失败不 settle 关相机**:快门失败、录像启动 / 停止失败走顶部错误条,保留 session 与此前文件。`500` 只用于 `open()` 边界的配置校验;校验覆盖非空 `cameraMode`、所有公开 enum、`quality` 的 finite `0...1`、`recTime` / `videoBitRate` 的 finite 正数、boolean 字段及 watermark shape。空 watermark content 合法。`Container` 的 `currentMode == null` 分支只是防御兜底,不是正常的校验入口;native、录像或照片处理错误不得复用 `500`。`503` 只保留兼容 code,当前无生产触发路径。
 
-### 照片处理 / Skia 水印(`src/camera/image/` + `src/camera/watermark/`)
+### 照片处理 / 水印(`src/camera/image/` + `src/camera/watermark/` + native)
 
 - `WatermarkType`:`content: string[]`(每项一行,第 0 行加粗)+ `position`(六选一,缺省 `'top-right'`)。
-- **`usePhotoCaptureTransaction` 已接入 `processPhoto()`**:native capture 一返回 raw path 就先登记 session 所有权;JPEG 在 16:9 或存在可见水印时进入 processor,其余无需处理的输出才直接交付 normalized raw。
-- **原子 processor 契约**:`processPhoto()` 会快照 session / capture ID、画幅、quality、watermark 与实际 camera position;裁切 + 水印只做一次 decode / draw / JPEG encode,quality 使用当前 mode。处理失败会清理 raw 与可能存在的部分输出,再抛出 `.code === 'photo_processing_failed'` 的 `PhotoProcessingError`,绝不返回未满足请求的照片。
+- **捕获即文件**:`capturePhotoToFile()` 直接返回临时 JPEG path，再由原生只读 ImageIO / BitmapFactory 文件头取得尺寸和 EXIF 方向；禁止把整张照片变成 JS Base64，也不创建需要 `dispose()` 的 in-memory `Photo`。
+- **`usePhotoCaptureTransaction` 已接入 `processPhoto()`**:native capture 一返回 raw path 就先登记 session 所有权；尺寸、画幅已经满足且无可见水印的 JPEG 零重编码直交付；设备协商偏大/偏画幅或有水印时才进入文件 processor。
+- **原子 processor 契约**:`processPhoto()` 会快照 session / capture ID、画幅、quality、watermark 与实际 camera position；iOS 大图先用 ImageIO thumbnail 下采样，再用复用的 CPU/RGBA8 CIContext 延迟串联方向、居中裁切、缩放与水印并直接写 JPEG；Android 用 `inSampleSize` 采样解码，在一个目标 Bitmap 上完成方向/裁切/水印并直接 `compress(OutputStream)`。处理失败会清理 raw 与可能存在的部分输出，再抛出 `.code === 'photo_processing_failed'` 的 `PhotoProcessingError`，绝不返回未满足请求的照片。
 - **失败不降级交付 raw**:当前 operation 会回到可拍状态并显示「照片处理失败,请重试」,此前 files 保持不变;stale operation 只做 owned file 清理,不更新 UI。录像不进入照片 processor。
-- Skia Data、Image、Surface、Paint、Paragraph Builder / Paragraph 与 Snapshot 都是 native 包装对象;所有成功 / 失败路径必须按依赖逆序 dispose,单个 dispose 失败不能遮蔽原错误或阻断其余清理。
+- **实时预览与文件烧录分层**:`WatermarkStamp` 继续用 Skia Paragraph 画取景水印；照片文件不再走 Skia Surface / snapshot / `encodeToBase64`。旧 CPU Surface 补丁解决的是 GPU readback `EXC_BAD_ACCESS`，仍是正确的历史修复；本管线针对的是 IOSurface `kIOReturnNoMemory` 与跨平台峰值内存，两者不能混为一谈。
+- 原生诊断只允许记录阶段、输入/输出尺寸、是否下采样与耗时；禁止记录 path、照片内容、水印文字或 Base64。真实峰值和 snapshot/CI 内部共享行为必须以真机 Instruments Allocations / VM Tracker 为准，不能机械加总推测。
 
 ### 与 `@unif/react-native-design` 的耦合(peer `>=0.26.0`)
 
@@ -151,7 +157,7 @@ design 是必装 peer,本库从它取这些(不自造):
 - **图标全用 design `Icon`,不自绘**(例:音量键 `name={sound ? 'sound' : 'sound-off'}`,`sound-off` 是本库给 design 加的)。**例外** `FocusIndicator`(点击对焦动画环)是动画图形,留 camera。
 - **字体 / 颜色全走 design token** — 字号 `type` / `t.*`、字重 `fw`、颜色 `useColors()`;`ModalView` 套 `forceScheme="dark"` 恒深色。**例外** `src/camera/colors/viewfinder.ts` 几个 design 表达不了的**取景物理常量**(纯黑 letterbox、半透明黑玻璃药丸、iOS 录制红 + tint、水印阴影)。
 - **取景整屏垂直居中** — 系统相机式:取景器铺满居中,控件浮层按 zIndex 叠其上。
-- **画幅比例用文字按钮切换** — `4:3` / `16:9`(非图标,左侧竖栏 `SideRail`),**默认 `16:9`**(`useCameraSessionController` 初始 state)。**切画幅原生式(系统相机同款)**:photo 流**恒固定全幅 `UHD_4_3`**(不随画幅)→ photo outputs 恒定 → **切画幅 session 零重配、取景流不闪断**;取景 `resizeMode="cover"` + 取景框高度 `withTiming` 平滑伸缩 → 切换 = 预览画面平滑放大缩小(16:9 下 cover 裁左右 = 正确 16:9 视野)。**16:9 出图 = `processPhoto()` 拍后居中裁切**:`computeCropRect()` 计算区域,裁切与可见水印在同一个 Skia surface 完成;任一步失败都清理 owned 输出并提示重试,不会交付原图。**video 例外**:`targetResolution` 仍随画幅(视频无法拍后裁,video 模式切画幅会 session 重配,低频已接受)。高度动画 worklet 只读 SharedValue 数字,worklet 内绝不调 design `r()`(见下)。
+- **画幅比例用文字按钮切换** — `4:3` / `16:9`(非图标,左侧竖栏 `SideRail`),**默认 `16:9`**(`useCameraSessionController` 初始 state)。照片按最终用途直接请求 `FHD_4_3` / `FHD_16_9`，所以切画幅会触发一次受控 session 重配；这是为了不先捕获 12MP 再缩。设备无法精确满足目标时由 VisionCamera 画幅优先协商，文件 processor 只对受限尺寸源图做精裁。取景 `resizeMode="cover"` + 取景框高度 `withTiming` 保留平滑伸缩；录像仍随画幅请求 UHD。高度动画 worklet 只读 SharedValue 数字,worklet 内绝不调 design `r()`(见下)。
 - **闪光 / 声音用左侧竖栏切换** — 闪光三态**原地轮换**(点一下 auto→on→off→auto,**无弹出层**);声音开关 `name={sound ? 'sound' : 'sound-off'}`。capture 时 `flashMode` **全模式直传** vision-camera(我们的 `'auto'/'on'/'off'` 取值与其一致),仅 `device.hasFlash` guard(无物理闪光设备一律 `'off'`,否则 throw)。
 - **预览页底部按钮** — 扫一扫式「上 icon 下文字」圆按钮:返回 `undo`、删除 `trash`(放大过、小尺寸糊)、重拍 `refresh`、保存 `check`;配色:返回 · 重拍 = 浅灰白,删除 = 橙,保存 = 红。
 - **无网格** — 不提供九宫格构图叠加。
@@ -189,11 +195,11 @@ design 是必装 peer,本库从它取这些(不自造):
 - **跨 session coordinator 已生效**:`useCamera.tsx` 负责 session ID、配置快照、supersede、exactly-once finish 与 stale callback 门禁。
 - **Container 已注册 session controller 与 container presence bridge**:`registerContainer(sessionId)` 跟踪真实 mount / detach,`useCameraSessionController` 通过 `registerController` 暴露用户取消与强制 teardown。Modal back 走 controller capability / 录像确认;`close()`、supersede、真实 detach 与 unmount 会走强制收尾。
 - **`useCameraSessionController` 已用 reducer 驱动** phase、capabilities、operation token 与 configuration generation;同步 shadow state 让同一 call stack 的重复操作立即被拒绝,async continuation 必须携带当前 token 才能提交。
-- `nativeConfigurationKey` 排除 photo 画幅和相同 photo output 参数的 `single ↔ continuous`;device、photo / video output、photo quality / prioritization / HDR、video 画幅 / bitrate 会改变 key。reducer 只在 key 变化时递增 generation,Container 为 `Camera.onConfigured` 绑定当前 generation,只有最新 generation 能恢复 `ready`。
+- `nativeConfigurationKey` 只排除相同 photo output 参数的 `single ↔ continuous`;device、photo / video output、photo 画幅 / quality / prioritization / HDR、video 画幅 / bitrate 会改变 key。reducer 只在 key 变化时递增 generation,Container 为 `Camera.onConfigured` 绑定当前 generation,只有最新 generation 能恢复 `ready`。
 
 关键行为(都在 controller / transaction hooks / `Camera.tsx`):
 
-- **快门防重入**(`beginPhoto()` 同步推进 controller shadow)—— React state 异步挡不住同帧连点;第二次 operation 会在 native capture 前被拒绝,UI 同时由 `capabilities.capture` 禁用快门,避免多个 UHD + Skia 事务并发导致内存峰值叠加。
+- **快门防重入**(`beginPhoto()` 同步推进 controller shadow)—— React state 异步挡不住同帧连点;第二次 operation 会在 native capture 前被拒绝,UI 同时由 `capabilities.capture` 禁用快门,避免多个文件处理事务并发导致内存峰值叠加。
 - **`isActive = appActive && !photo.burning && preview == null`** —— 烧录或预览时停取景;预览 overlay 保留已配置的 Camera 实例,返回 / 重拍 / 删除末张后无需重新 attach / configure。
 - **`onError` → 顶部非阻塞错误条,绝不关相机** —— `onError` 是「session 遇到任何错误」的诊断回调(`error` 是普通 Error、无 code 判致命性,且含重开/激活时 session 重启这类**可恢复**瞬时错误)。故只 `warn` + 冒泡给 Container 弹错误条(`useCameraDialog().showError`,带去抖 `ERROR_DEDUPE_MS`、4s 自动消失),**绝不据此 `settle(500)`**:早期无条件 settle 会把重开时的瞬时错误误当致命 → 第二次打开即报错关闭。
 - **预览页两种 variant**(`PreviewOverlay`)—— `confirm`(单拍 clear 拍完即进、不分类 tab、显示全 files)/ `gallery`(累积多张、按 `cameraMode` 分类 tab,**单类型也显示其 tab**)。图片 `contain` + **固定灰画布**(`VIEWFINDER.previewCanvas` `#1C1C1E`)：外层容器恒定,只图片比例变 → 不同画幅外层观感一致。
@@ -213,12 +219,12 @@ design 是必装 peer,本库从它取这些(不自造):
 - **只有 `200` 是成功** —— `0` 是取消;别把取消当成功(取消时 `data` 为空)。
 - **peerDeps 必须装齐(缺一即崩)** —— 全部声明在 `package.json#peerDependencies`,以它为准。最易漏的两个:
   - `react-native-vision-camera-worklets`:vision-camera 5.x 把 Frame Processor 拆到这个同伴包并内部 `require`,即使本库不用 Frame Processor,Metro 静态解析仍会命中 → 缺它报 `Unable to resolve module react-native-vision-camera-worklets`。vision-camera 把它当可选 peer,本库已显式声明。
-  - `@dr.pogodin/react-native-fs`(**不是** `react-native-fs`)—— `burnWatermark.ts` 用的是 dr.pogodin 这个 **fork**,装错成原始 `react-native-fs` 会冲突。
+  - `@dr.pogodin/react-native-fs`(**不是** `react-native-fs`)—— session 临时路径与 owned file 清理用的是 dr.pogodin 这个 **fork**,装错成原始 `react-native-fs` 会冲突。
   - 其余实际用到的 peers:`react-native-nitro-modules` / `react-native-nitro-image` / `@shopify/react-native-skia` / `react-native-video`(7.x) / `react-native-reanimated`(4.x) / `react-native-worklets` / `react-native-reanimated-carousel` / `react-native-gesture-handler` / `react-native-safe-area-context` / `react-native-svg` / `@sbaiahmed1/react-native-blur` / `@unif/react-native-design`(`>=0.26.0`)。`@gorhom/bottom-sheet` **已不再是 peer**(design 0.6 起改纯 RN Modal、本库 `src` 本就没直接用,已移除)。
   - `package.json#peerDependencies` 另声明了 `react-native-webview`(历史保留,`src` 未直接引用),并含 `react` / `react-native`;**完整清单以 `package.json` 为准,以上仅列运行时实际依赖的包**。
-- **升级 native peer 后必须 `pod install`** —— `react-native-video` 7.x / Skia / fs 都有原生代码,升级后不重跑 `cd ios && bundle exec pod install` 会在编译/运行时报原生符号缺失。Android 端 Gradle 自动同步,无需额外配置。
+- **安装本库或升级 native peer 后必须 `pod install`** —— 本库自身已有 `ReactNativeCamera.podspec` 和 Codegen TurboModule；`react-native-video` 7.x / Skia / fs 也有原生代码。不重跑 `cd ios && bundle exec pod install` 会在编译/运行时报模块或符号缺失。Android 端由 autolinking + Gradle 自动同步。
 - **相机弹窗 / toast 自洽,无需为相机挂 host** —— 二次确认 / toast 由相机内部 `CameraDialogHost`(`useCameraDialog()`)在相机 Modal 子树内渲染,不依赖 App 根的 design `<ConfirmHost/>` / `<ToastHost/>`(见上「与 design 的耦合」)。若消费者用 design 其它命令式组件(本库之外),仍按 design 文档自行挂 host。
-- **必须真机调试** —— 完整拍摄链路需要真实摄像头硬件；照片处理依赖 Skia 原生 CPU raster surface,不再使用 GPU offscreen surface。iOS 模拟器 / Android 模拟器 / web 无法覆盖完整行为,这是**预期限制,不是 bug**。
+- **必须真机调试** —— 完整拍摄链路需要真实摄像头硬件；iOS 的 ImageIO/Core Image、Android 的 BitmapFactory/Canvas 可在宿主编译中验证，但模拟器 / web 不能证明相机 IOSurface、Jetsam 或旧设备峰值内存安全。iPhone X 回归必须同时看连续拍摄结果、Instruments 高水位与系统日志。
 - **仅新架构** —— 依赖 Nitro / vision-camera 5.x,旧架构(Bridge)不支持。**iOS 15.1+** / Android API 24+。(公共 RN peer 下限 0.86 所在的 RN 0.80+ 已把 `min_ios_version_supported` 抬到 `15.1`;当前仓库实际用 RN 0.86.2 验证。vision-camera / nitro / nitro-image / video / fs / blur 等 RN-core podspec 都继承该下限,Skia 写死 14.0、reanimated/worklets 13.4 更低,取**最高**即 15.1。)
 - **权限按实际能力配置** —— Camera 是拍照 / 录像必需权限:iOS `NSCameraUsageDescription`,Android `android.permission.CAMERA`;用户拒绝后走 `code: 403`。Microphone 只在使用 video 时需要:iOS `NSMicrophoneUsageDescription`,Android `android.permission.RECORD_AUDIO`;本库在开始录像前请求,拒绝时不创建 Recorder、不 settle `403`,而是留在当前 session 显示录像启动错误。库只返回临时文件,不写系统相册,因此 `NSPhotoLibraryAddUsageDescription` / `READ_MEDIA_IMAGES` 不是本库无条件要求;消费者另行保存或读取相册时再按自己的实现配置。
 
@@ -241,4 +247,4 @@ design 是必装 peer,本库从它取这些(不自造):
 
 ## 仓库内注释风格
 
-现有代码用中文记录非显而易见决策的 **why** —— 比如为什么 `requestPermission` 必须 `.catch` 兜底(vision-camera #3834 Android coroutine leak)、为什么启用 `ultra-wide-angle` 超广角后仍要真机验证不复现 iOS #3773、为什么相机弹窗走本地 `CameraDialogHost` 而非 design 全局 host(会被相机 Modal 盖住)、为什么水印 Skia 对象要逆序 dispose、为什么 photo id 用「时间戳 + 计数器」(防同毫秒撞 id)、为什么 worklet 内尺寸必须先在 worklet 外预算成数字常量(design `r()` 是 Remote Function,worklet 里调会 fatal,2.15.1 踩过)、为什么 photo 流恒固定全幅 UHD_4_3 而 16:9 靠拍后 Skia 裁切(targetResolution 不变 → 切画幅 session 零重配不闪断,原生丝滑的根)、为什么 controller shadow 必须同步推进(同一 call stack 拒绝重复 UHD / Skia operation)。保持这个标准:能不写注释就不写,但当读者会想「为什么要这样写」时,就写一句把 why 讲清楚。
+现有代码用中文记录非显而易见决策的 **why** —— 比如为什么 `requestPermission` 必须 `.catch` 兜底(vision-camera #3834 Android coroutine leak)、为什么启用 `ultra-wide-angle` 超广角后仍要真机验证不复现 iOS #3773、为什么相机弹窗走本地 `CameraDialogHost` 而非 design 全局 host(会被相机 Modal 盖住)、为什么 photo id 用「时间戳 + 计数器」(防同毫秒撞 id)、为什么 worklet 内尺寸必须先在 worklet 外预算成数字常量(design `r()` 是 Remote Function,worklet 里调会 fatal,2.15.1 踩过)、为什么照片必须按最终画幅请求 FHD 并在 native 文件边界直接写 JPEG(避免 12MP RGBA + Surface + Base64 峰值)、为什么 controller shadow 必须同步推进(同一 call stack 拒绝重复照片处理 operation)。保持这个标准:能不写注释就不写,但当读者会想「为什么要这样写」时,就写一句把 why 讲清楚。

@@ -1,7 +1,7 @@
 ---
 sidebar_position: 6
 title: 常见问题
-description: "@unif/react-native-camera 排障决策树：相机黑屏（权限 / 缺 holder）、Unable to resolve（缺 peerDeps / worklets）、水印不出现（仅 JPEG）、模拟器 / Web 不工作（须真机 + Skia）、result code 处理。"
+description: "@unif/react-native-camera 排障决策树：相机黑屏（权限 / 缺 holder）、Unable to resolve（缺 peerDeps / worklets）、水印不出现（仅 JPEG）、模拟器 / Web 不工作（须真机）、result code 处理。"
 ---
 
 # 常见问题
@@ -70,7 +70,7 @@ vision-camera 5.x 内部对 `react-native-vision-camera-worklets` 做了懒 `req
 逐项核对[安装 → 完整 peer 清单](/docs/getting-started/installation#安装依赖)是否装齐。两个易错点:
 
 - **文件系统装错包** —— 本库用 fork `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`。装错或两者并存会冲突,先卸 `react-native-fs` 再装 fork。
-- **升级原生包后没 `pod install`** —— vision-camera / Skia / fs / video 含原生代码,升级后 iOS 必须重新 `cd ios && bundle exec pod install`,否则报原生符号缺失。
+- **安装本库或升级原生包后没 `pod install`** —— 本库自身、vision-camera / Skia / fs / video 都含原生代码,iOS 必须重新 `cd ios && bundle exec pod install`,否则报原生模块或符号缺失。
 
 ---
 
@@ -88,20 +88,20 @@ await api.open({ cameraMode: [{ mode: 'video' }], dataRetainedMode: 'clear',
 
 ### 因 2:缺水印依赖
 
-水印靠 `@shopify/react-native-skia` 的 CPU raster surface 合成、`@dr.pogodin/react-native-fs` 读写临时文件,缺任一都会让水印处理失败:
+Skia 负责取景器水印预览，RNFS 负责 session 临时路径/清理；成片由本库原生文件处理器直接写 JPEG。peer 缺失或安装本库后未重新原生构建都会失败:
 
 ```sh
 yarn add @shopify/react-native-skia @dr.pogodin/react-native-fs
 cd ios && bundle exec pod install
 ```
 
-> 显式 `16:9` 裁切或可见水印处理失败时，不会返回 raw / 半成品并以 `200` 成功；相机会保留当前 session 与此前文件，提示“照片处理失败，请重试”。水印仍只是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
+> 设备协商输出需精裁或可见水印处理失败时，不会返回 raw / 半成品并以 `200` 成功；相机会保留当前 session 与此前文件，提示“照片处理失败，请重试”。水印仍只是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
 
 ---
 
 ## 症状:相机 / 水印在模拟器或浏览器里跑不起来
 
-✅ **这是预期行为,不是 bug。** vision-camera 依赖真实相机硬件,模拟器不提供相机访问;裁切与水印还依赖原生 Skia 和真实照片文件。**完整相机链路请始终在真机上验证。**
+✅ **这是预期行为,不是 bug。** vision-camera 依赖真实相机硬件；模拟器可验证部分界面/原生编译，却不能证明真实照片输出、相机 IOSurface 或旧设备峰值内存。**完整相机链路请始终在真机上验证。**
 
 :::tip 在 CI / 模拟器里测逻辑
 不要在模拟器里测真实拍摄。单元测试用[测试(Mock)](/docs/testing)页的 `jest.mock` 方案,在无硬件环境跑通拍照流程逻辑。

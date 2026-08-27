@@ -1984,6 +1984,28 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ReactNativeCamera (4.0.3):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - ReactNativeDependencies (0.86.2)
   - ReactNativeFs (2.38.2):
     - hermes-engine
@@ -2400,6 +2422,7 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "ReactNativeBlur (from `../node_modules/@sbaiahmed1/react-native-blur`)"
+  - "ReactNativeCamera (from `../node_modules/@unif/react-native-camera`)"
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "ReactNativeFs (from `../node_modules/@dr.pogodin/react-native-fs`)"
   - ReactNativeVideo (from `../node_modules/react-native-video`)
@@ -2569,6 +2592,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeBlur:
     :path: "../node_modules/@sbaiahmed1/react-native-blur"
+  ReactNativeCamera:
+    :path: "../node_modules/@unif/react-native-camera"
   ReactNativeDependencies:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   ReactNativeFs:
@@ -2592,7 +2617,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   FBLazyVector: 3c3be9a019176b5699455f7f66c5444b78a411c6
-  hermes-engine: df0e0602136b265b89589808aac3afefe2b06d22
+  hermes-engine: 2e12122637a9aa263bc5fc2478ebd94bcbd7319f
   NitroImage: 1f29caf8d1b31ca9647f0551a25ffcc94ffc5726
   NitroModules: 16bc17a076b12304d608f7c915b9d321f56dfc19
   RCTDeprecation: bccb6545c26db881ecddfd83a3f9ea82aba1605f
@@ -2669,6 +2694,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 3bbb7de19774794a7428ef623a7b777106cf3737
   ReactCommon: 9002f006f571256348994183f7d4387aa7cf84e8
   ReactNativeBlur: 9d4be23d983b57c49c7a171b05bfa08375b05124
+  ReactNativeCamera: 1dd7a5166d4921e645234a7d87d371ddfed7819c
   ReactNativeDependencies: 2bd6854ade79bf1b60586d1ab7813a389df1b6bf
   ReactNativeFs: 21026144ac71a65acf6855c52b1a8eb31012bb5d
   ReactNativeVideo: 3cfa28b8e7e636554e54524f11286cc3b889e1a0

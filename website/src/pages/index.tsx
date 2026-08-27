@@ -223,7 +223,7 @@ const FEATURES: Feature[] = [
   {
     Icon: IconWatermark,
     title: '水印烧录',
-    desc: '基于 Skia 全分辨率离屏合成，把文字水印烧入成片，取景器同步 WYSIWYG 预览。',
+    desc: 'Skia 同步预览，iOS Core Image 与 Android Canvas 在文件边界低内存烧录成片。',
   },
   {
     Icon: IconSpark,
@@ -275,7 +275,7 @@ export default function Home(): React.JSX.Element {
                   <span className="dot" />
                   vision-camera 5.x
                 </span>
-                <span className="hp-chip">Skia 离屏合成</span>
+                <span className="hp-chip">原生文件级处理</span>
                 <span className="hp-chip">iOS · Android</span>
               </div>
             </div>

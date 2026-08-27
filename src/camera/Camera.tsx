@@ -138,14 +138,12 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
     height: animatedFrame.height.value,
   }));
 
-  // photo 流**恒固定全幅 UHD_4_3**(不随 aspectRatio 变):4:3 是传感器原生全幅,16:9 视野 =
-  // 4:3 竖屏裁左右。固定它 → usePhotoOutput 入参不随画幅变 → photo outputs 身份稳定 →
-  // **photo 模式切画幅 session 完全不重配、取景流不闪断**(原生顺滑的关键)。出图 16:9 改由
-  // `usePhotoCaptureTransaction` 调用 `processPhoto` 拍后 Skia 居中裁切，
-  // vision-camera 拍照本身无 crop 参数。
-  // targetResolution 是「目标」,相机 negotiate 时**比例优先于像素数**(见 CameraPhotoOutput d.ts);
-  // UHD_4_3 → 3024×4032(≈12MP),对齐官方 example。
-  const targetResolution = CommonResolutions.UHD_4_3;
+  // 按最终用途请求 FHD：避免先捕获 12MP 再缩到业务画幅。VisionCamera 会以画幅优先协商
+  // 设备支持尺寸；协商仍偏大或有像素取整时，文件处理器只对较小输入做一次精裁/下采样。
+  const targetResolution =
+    (aspectRatio ?? '4:3') === '4:3'
+      ? CommonResolutions.FHD_4_3
+      : CommonResolutions.FHD_16_9;
 
   // 照片质量优先级:**缺省(未传)= 不写入该 option,让 SDK 用默认 'balanced'**(不替消费者写死)。
   // 安全降级**仅对 'speed'**:d.ts 的 `supportsSpeedQualityPrioritization` 能力位**只关 'speed'**
@@ -163,9 +161,7 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
   const photoOutput = usePhotoOutput({
     quality: currentMode.quality ?? 0.9,
     targetResolution,
-    // 强制 JPEG 容器:缺省 'native' 在 iOS 默认出 HEIC,而 Skia 的 MakeImageFromEncoded 解不了 HEIC →
-    // 指定 jpeg 让 processPhoto 能由 Skia 解码并完成裁切/水印，也与
-    // buildPhotoFile 写死的 mime='image/jpeg' 一致。
+    // 文件处理器和公开 mime 契约都输出 JPEG；显式容器也让 ImageIO/BitmapFactory 路径一致。
     containerFormat: 'jpeg',
     // 按需加键:仅在 config 显式传了优先级时写入,缺省不传 → SDK 默认。
     // 用对象展开按需加键(而非 `qualityPrioritization: undefined`):避免把 undefined 灌进 options。
@@ -176,9 +172,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
 
   // enableAudio:true —— 对齐官方 example,录像带声音(docs:启用 audio 需麦克风权限,
   // 已在 startVideo 前 requestMic())。缺它录的是无声视频。
-  // 录像分辨率**仍随 aspectRatio 走 UHD**(与 photo 固定全幅不同):视频无法拍后裁,出流比例
-  // 必须直接对 → video 模式切画幅 session 仍会重配(targetResolution 变),低频可接受;photo 模式
-  // 已固定全幅故零重配。targetResolution 是目标值(比例优先 negotiate,低端机兜底不崩)。
+  // 录像分辨率仍随 aspectRatio 走 UHD；照片则按最终用途直接请求对应 FHD。两种 output
+  // 切画幅都会重新协商，换来捕获端就限制尺寸/画幅，避免先持有 12MP 再拍后缩小。
+  // targetResolution 是目标值(比例优先 negotiate,设备无法精确满足时由 SDK 安全协商)。
   // targetBitRate:**缺省(未传)= 不写入,由编码器按分辨率自适应**(不写死,避免配错码率);
   // config 显式传了才按需加键(下方展开,不传 undefined 进 options)。
   const videoOutput = useVideoOutput({
@@ -417,10 +413,9 @@ export const Camera = forwardRef<CameraHandle, Props>(function Camera(
           <VisionCamera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
-            // resizeMode="cover":photo 流恒 4:3 全幅 → 4:3 frame 下 cover 与 contain 视觉完全相同
-            // (比例匹配、无裁切);16:9 frame 下 cover 裁左右 = **正确呈现 16:9 视野**(与拍后裁切
-            // 的出图一致)。且 frame 高度动画时 cover 让画面**跟随容器平滑放大/缩小** = 原生观感
-            // (contain 会在动画中露黑边)。
+            // resizeMode="cover":photo output 与最终 4:3/16:9 画幅一致；设备协商有细小比例
+            // 偏差时只由预览做 cover，文件处理器再对受限尺寸源图精裁。frame 高度动画中
+            // cover 仍让画面跟随容器平滑放大/缩小，避免 contain 露出黑边。
             resizeMode="cover"
             device={device}
             isActive={isActive}

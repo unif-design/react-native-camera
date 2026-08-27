@@ -44,7 +44,7 @@ export function nativeConfigurationKey(
 
   return [
     ...common,
-    'resolution=3024x4032',
+    `resolution=${configuration.aspectRatio === '4:3' ? '1440x1920' : '1080x1920'}`,
     'container=jpeg',
     `quality=${mode.quality ?? 0.9}`,
     `prioritization=${optionalValue(configuration.photoQualityPrioritization)}`,

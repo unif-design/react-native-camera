@@ -114,7 +114,7 @@ v1.x → v2.x 的破坏性变更清单与迁移方法。当前最新版的完整
 
 ### 2. `watermark` 配置项:移除后又回归
 
-`api.open()` 的 `watermark` 参数在 **v2.0.0** 中一度被移除,已在 **v2.1.x** 重新加入并增强:现支持多行文字(`content: string[]`)、六方位对齐(`position`)与 Skia 离屏合成。
+`api.open()` 的 `watermark` 参数在 **v2.0.0** 中一度被移除,已在 **v2.1.x** 重新加入并增强:现支持多行文字(`content: string[]`)与六方位对齐(`position`)。早期版本用 Skia 离屏合成；当前版本已改为 Skia 实时预览 + iOS/Android 文件级原生烧录，公共参数不变。
 
 迁移方式:升级到 `v2.1.x` 或更高版本,参照[指南 → 水印](/docs/guides/watermark)的新 API 传参。注意水印**仅对照片生效,录像无水印**。
 

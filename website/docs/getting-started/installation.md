@@ -18,7 +18,7 @@ description: "安装 @unif/react-native-camera 及全部必装 peerDependencies�
 | Android | API 24+(Android 7.0) |
 
 :::note 为什么最低 iOS 是 15.1
-本库是纯 JS 库,最低 iOS 由 peerDependencies 的原生库决定,取各 peer 最低 iOS 的**最高**值。React Native 0.86 core 的 `min_ios_version_supported` 为 `15.1`(RN 0.80+ 抬升),`react-native-vision-camera` / `react-native-nitro-modules` / `react-native-nitro-image` / `react-native-video` / `@dr.pogodin/react-native-fs` / `@sbaiahmed1/react-native-blur` 的 podspec 都继承这个值;`@shopify/react-native-skia` 写死 14.0、`react-native-reanimated` / `react-native-worklets` 为 13.4,均更低。故整体最低为 **iOS 15.1**。
+本库自身的原生照片处理 Pod 继承 React Native 的 `min_ios_version_supported`，只链接 ImageIO / Core Image / CoreText 等系统 framework。连同全部 peer 取最高下限后，整体最低仍为 **iOS 15.1**。
 :::
 
 :::danger 仅支持新架构
@@ -51,8 +51,8 @@ yarn add @unif/react-native-camera \
 | `react-native-vision-camera-worklets` | `^5.0.0` | vision-camera 5.x 内部懒 `require`,**必装**(见下) |
 | `react-native-nitro-modules` | `*` | vision-camera 5.x 的 Nitro 运行时 |
 | `react-native-nitro-image` | `*` | Nitro 图像桥 |
-| `@shopify/react-native-skia` | `>=2` | 水印离屏合成 |
-| `@dr.pogodin/react-native-fs` | `>=2` | 文件读写(**fork,非 `react-native-fs`**,见下) |
+| `@shopify/react-native-skia` | `>=2` | 取景器水印实时预览 |
+| `@dr.pogodin/react-native-fs` | `>=2` | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
 | `react-native-video` | `>=7.0.0-beta.0` | 录像预览播放 |
 | `react-native-reanimated` | `>=4.5.0 <4.6.0` | 取景器 / 预览动画 |
 | `react-native-worklets` | `>=0.11.0 <0.12.0` | reanimated 4 / vision-camera 的 worklet 运行时 |
@@ -101,7 +101,7 @@ vision-camera 5.x 把 Frame Processor / 多线程能力拆到了同伴包 `react
 <details>
 <summary>为什么文件系统用 <code>@dr.pogodin/react-native-fs</code> 而非 <code>react-native-fs</code>?</summary>
 
-本库依赖的是 **fork** —— `@dr.pogodin/react-native-fs`(水印烧图时读写临时文件用它)。它与社区原版 `react-native-fs` **是两个包**,装错或两者并存都会导致原生符号冲突。
+本库依赖的是 **fork** —— `@dr.pogodin/react-native-fs`(临时路径与 session 文件清理用它；照片内容不会经它做 Base64 写回)。它与社区原版 `react-native-fs` **是两个包**,装错或两者并存都会导致原生符号冲突。
 
 ```sh
 # ❌ Incorrect:装成非 fork 的包,会冲突
@@ -188,8 +188,8 @@ module.exports = {
 cd ios && bundle exec pod install
 ```
 
-:::warning vision-camera / Skia / fs / video 升级后必跑 pod install
-`react-native-vision-camera`、`@shopify/react-native-skia`、`@dr.pogodin/react-native-fs`、`react-native-video`(7.x)均含原生代码,每次升级这些包后都需重新 `pod install`,否则运行时或编译期会报原生符号缺失。
+:::warning 安装本库或升级原生包后必跑 pod install
+本库自身含 Codegen TurboModule；`react-native-vision-camera`、`@shopify/react-native-skia`、`@dr.pogodin/react-native-fs`、`react-native-video`(7.x)也含原生代码。安装或升级后都需重新 `pod install`,否则运行时或编译期会报模块/符号缺失。
 :::
 
 完成后用 Xcode 或 `npx react-native run-ios` 重新编译运行。

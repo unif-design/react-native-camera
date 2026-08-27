@@ -8,6 +8,8 @@
 // jest.mock 工厂被 babel 提升,不能引外部变量,但工厂内 require 是允许的(运行期执行)。
 
 export const VC_COMMON_RESOLUTIONS = {
+  FHD_4_3: { width: 1440, height: 1920 },
+  FHD_16_9: { width: 1080, height: 1920 },
   UHD_4_3: { width: 3024, height: 4032 },
   UHD_16_9: { width: 2160, height: 3840 },
 } as const;
