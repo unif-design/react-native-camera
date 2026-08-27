@@ -150,8 +150,16 @@ for (const [docName, doc] of [
     `${docName} 仍把当前照片处理错误描述为 Skia GPU`
   );
   assert(
-    doc.includes('Skia 原生 CPU raster surface'),
-    `${docName} 缺少当前 CPU raster surface 契约`
+    !doc.includes('Skia 原生 CPU raster surface'),
+    `${docName} 仍把照片文件处理描述为旧 Skia CPU surface 管线`
+  );
+  assert(
+    /ImageIO\s*\/\s*Core Image/.test(doc),
+    `${docName} 缺少当前 iOS ImageIO/Core Image 文件管线契约`
+  );
+  assert(
+    /BitmapFactory\s*\/\s*Canvas/.test(doc),
+    `${docName} 缺少当前 Android BitmapFactory/Canvas 文件管线契约`
   );
 }
 
