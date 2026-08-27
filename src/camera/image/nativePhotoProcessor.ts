@@ -118,17 +118,6 @@ export async function processPhotoFile(
       durationMs: finiteDuration(diagnosticsRaw.durationMs),
     },
   };
-
-  if (__DEV__) {
-    // 只记录阶段/尺寸/耗时；禁止路径、照片内容、水印文字或编码数据进入日志。
-    console.info('[camera/photo] file processing completed', {
-      input: `${result.diagnostics.inputWidth}x${result.diagnostics.inputHeight}`,
-      output: `${result.width}x${result.height}`,
-      sampled: result.diagnostics.sampled,
-      durationMs: result.diagnostics.durationMs,
-      watermarkLines: request.watermark?.content.length ?? 0,
-    });
-  }
   return result;
 }
 
