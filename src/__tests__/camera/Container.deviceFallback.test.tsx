@@ -142,6 +142,8 @@ beforeEach(() => {
       id: 'raw-fallback',
       path: '/raw-fallback.jpg',
       uri: 'file:///raw-fallback.jpg',
+      width: 1080,
+      height: 1920,
       cameraType: 'back',
       mode: 'continuous',
     })
@@ -184,7 +186,6 @@ it('requested back 缺失时 fallback 到实际 front，并用实际方向禁用
     harness.getByTestId('flip-btn').props.accessibilityState.disabled
   ).toBe(true);
 
-  fireEvent.press(harness.getByTestId('aspect-btn'));
   await act(async () => {
     fireEvent.press(harness.getByTestId('shutter-btn'));
     await Promise.resolve();
@@ -284,7 +285,6 @@ it('capture 期间只保留 committed device，回到 ready 后才原子提交 p
   const harness = renderContainer('back');
   layoutCameraViewport(harness);
   configureLatest();
-  fireEvent.press(harness.getByTestId('aspect-btn'));
   const committedInstance = latestCamera().instanceId;
 
   fireEvent.press(harness.getByTestId('shutter-btn'));
@@ -298,6 +298,8 @@ it('capture 期间只保留 committed device，回到 ready 后才原子提交 p
     id: 'capture-pending-selection',
     path: '/capture-pending-selection.jpg',
     uri: 'file:///capture-pending-selection.jpg',
+    width: 1080,
+    height: 1920,
     cameraType: 'back',
     mode: 'continuous',
   });
@@ -319,7 +321,6 @@ it('inventory 消失时忙态保留 committed device，回到 ready 后进入 no
   const harness = renderContainer('back');
   layoutCameraViewport(harness);
   configureLatest();
-  fireEvent.press(harness.getByTestId('aspect-btn'));
   fireEvent.press(harness.getByTestId('shutter-btn'));
 
   mockInventory = {};
@@ -331,6 +332,8 @@ it('inventory 消失时忙态保留 committed device，回到 ready 后进入 no
     id: 'removed-inventory-photo',
     path: '/removed-inventory-photo.jpg',
     uri: 'file:///removed-inventory-photo.jpg',
+    width: 1080,
+    height: 1920,
     cameraType: 'back',
     mode: 'continuous',
   });
@@ -367,7 +370,6 @@ it('preview 期间冻结 committed selection，退出后再配置最新 inventor
   const harness = renderContainer('back');
   layoutCameraViewport(harness);
   configureLatest();
-  fireEvent.press(harness.getByTestId('aspect-btn'));
   await act(async () => {
     fireEvent.press(harness.getByTestId('shutter-btn'));
     await Promise.resolve();

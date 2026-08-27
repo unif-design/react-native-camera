@@ -4,10 +4,9 @@ import type {
   CapturePhotoSettings,
 } from 'react-native-vision-camera';
 
-jest.mock(
-  '../../camera/image/nativePhotoProcessor',
-  () => ({ inspectPhotoFile: jest.fn() })
-);
+jest.mock('../../camera/image/nativePhotoProcessor', () => ({
+  inspectPhotoFile: jest.fn(),
+}));
 
 const RNFS = require('@dr.pogodin/react-native-fs');
 const nativePhotoProcessor = require('../../camera/image/nativePhotoProcessor');

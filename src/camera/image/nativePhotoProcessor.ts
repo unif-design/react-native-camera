@@ -33,6 +33,15 @@ export type PhotoFileProcessingResult = {
   diagnostics: PhotoProcessingDiagnostics;
 };
 
+type NativePhotoProcessingStage =
+  | 'read'
+  | 'decode'
+  | 'surface'
+  | 'crop'
+  | 'watermark'
+  | 'encode'
+  | 'write';
+
 function parseObject(raw: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(raw);
   if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -113,27 +122,10 @@ export async function processPhotoFile(
 
 export function nativePhotoProcessingStage(
   error: unknown
-):
-  | 'read'
-  | 'decode'
-  | 'surface'
-  | 'crop'
-  | 'watermark'
-  | 'encode'
-  | 'write'
-  | null {
+): NativePhotoProcessingStage | null {
   if (error == null || typeof error !== 'object') return null;
   const code = String((error as { code?: unknown }).code ?? '');
-  const stages: Record<
-    string,
-    | 'read'
-    | 'decode'
-    | 'surface'
-    | 'crop'
-    | 'watermark'
-    | 'encode'
-    | 'write'
-  > = {
+  const stages: Record<string, NativePhotoProcessingStage> = {
     E_PHOTO_READ: 'read',
     E_PHOTO_DECODE: 'decode',
     E_PHOTO_ALLOCATE: 'surface',

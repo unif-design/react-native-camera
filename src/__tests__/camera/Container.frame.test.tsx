@@ -198,7 +198,7 @@ it.each([
     },
   ],
 ] as const)(
-  'viewport %p 对 16:9/4:3 只派生一个共享 Camera/Watermark frame',
+  'viewport %p 对 16:9/4:3 共享 frame，并为照片画幅重配 output',
   (viewport, expected) => {
     const harness = renderContainer({
       cameraMode: [{ mode: 'single' }],
@@ -210,12 +210,16 @@ it.each([
     expectFrame(latestCamera().props.frame, expected['16:9']);
     expect(latestWatermark().frame).toBe(latestCamera().props.frame);
     expectSharedFrameAnimation();
+    const initialInstance = latestCamera().instanceId;
     configureLatest();
     fireEvent.press(harness.getByTestId('aspect-btn'));
 
     expectFrame(latestCamera().props.frame, expected['4:3']);
     expect(latestWatermark().frame).toBe(latestCamera().props.frame);
     expectSharedFrameAnimation();
+    expect(latestCamera().instanceId).not.toBe(initialInstance);
+    expect(latestCamera().props.enableFocus).toBe(false);
+    configureLatest();
     expect(latestCamera().props.enableFocus).toBe(true);
   }
 );
