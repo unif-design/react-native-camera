@@ -436,11 +436,11 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
     '>=0.11.0 <0.13.0'
   );
-  // Reanimated 4.6 / Worklets 0.12 验证图使用已放宽 peers 的 Design 0.30；
+  // Reanimated 4.6 / Worklets 0.12 验证图使用带共享 Jest 修复的 Design 0.30.1；
   // 发布包仍保留 RN 0.86 + Design 0.26 这组旧兼容矩阵，不把验证版本误写成公共下限。
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.30.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.30.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.30.0');
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.30.1');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.30.1');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.30.1');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();
