@@ -1,10 +1,36 @@
 ---
 sidebar_position: 7
 title: 版本迁移
-description: "@unif/react-native-camera v4.0.0 的支持基线抬升、v3.0.0 的原生动画依赖升级，以及 v1.x → v2.x 的 API 迁移方法。"
+description: "@unif/react-native-camera v4.1 的 RN 0.86 验证组合、v4.0 的支持基线抬升、v3.0 的动画依赖升级，以及 v1.x → v2.x 的 API 迁移方法。"
 ---
 
 # 版本迁移
+
+## 从 v4.0 升级到 v4.1
+
+v4.1 不改公开业务 API，也不抬高 RN / Design 的公共 peer 下限；它放宽 Reanimated 与
+Worklets 的 peer 上限，并新增以下当前验证组合：
+
+- React Native `0.86.3`
+- `@unif/react-native-design` `0.30.x`
+- `@sbaiahmed1/react-native-blur` `6.0.1`
+- Reanimated `4.6.x` + Worklets `0.12.x`
+
+升级到 v4.1 的当前验证组合时请把这组依赖原子更新。已有 RN 0.86 项目也可以继续保留
+Design 0.26、Reanimated 4.5 与 Worklets 0.11，不必为了升级 Camera 单独改变宿主运行图。
+
+```sh
+yarn add @unif/react-native-camera@^4.1.0 \
+  react-native@0.86.3 \
+  @unif/react-native-design@^0.30.0 \
+  @sbaiahmed1/react-native-blur@6.0.1 \
+  react-native-reanimated@^4.6.0 \
+  react-native-worklets@^0.12.1
+```
+
+原生依赖变化后重新执行 iOS Pods 安装，并让 Android / iOS CI 各完成一次真实构建。
+
+---
 
 ## 从 v3.x 升级到 v4.0
 

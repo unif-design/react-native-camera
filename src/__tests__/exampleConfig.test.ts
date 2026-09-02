@@ -387,7 +387,7 @@ it('安装后的 RN Gradle included build 使用兼容 Gradle 9 的 Foojay 1.0.0
   );
 });
 
-it('根、example 与 website 使用统一 RN 0.86.2 图且公共 peer 下限锁在支持基线', () => {
+it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 peer 保留支持区间', () => {
   const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const examplePkg = JSON.parse(readExample('package.json'));
   const websitePkg = JSON.parse(readWebsite('package.json'));
@@ -401,31 +401,46 @@ it('根、example 与 website 使用统一 RN 0.86.2 图且公共 peer 下限锁
     readWebsite('node_modules/react-native/package.json')
   );
 
-  expect(rootPkg.devDependencies['react-native']).toBe('0.86.2');
-  expect(examplePkg.dependencies['react-native']).toBe('0.86.2');
+  expect(rootPkg.devDependencies['react-native']).toBe('0.86.3');
+  expect(examplePkg.dependencies['react-native']).toBe('0.86.3');
   expect(examplePkg.devDependencies['@react-native/metro-config']).toBe(
-    '0.86.2'
+    '0.86.3'
   );
   expect(examplePkg.devDependencies['@react-native-community/cli']).toBe(
     '20.1.0'
   );
   expect(websitePkg.dependencies.react).toBe('19.2.3');
   expect(websitePkg.dependencies['react-dom']).toBe('19.2.3');
-  expect(websitePkg.dependencies['react-native']).toBe('0.86.2');
+  expect(websitePkg.dependencies['react-native']).toBe('0.86.3');
   expect(installedWebsiteReact.version).toBe('19.2.3');
   expect(installedWebsiteReactDom.version).toBe('19.2.3');
-  expect(installedWebsiteReactNative.version).toBe('0.86.2');
+  expect(installedWebsiteReactNative.version).toBe('0.86.3');
+  for (const pkg of [
+    rootPkg.devDependencies,
+    examplePkg.dependencies,
+    websitePkg.dependencies,
+  ]) {
+    expect(pkg['@sbaiahmed1/react-native-blur']).toBe('6.0.1');
+    expect(pkg['react-native-reanimated']).toBe('^4.6.0');
+    expect(pkg['react-native-worklets']).toBe('^0.12.1');
+  }
   // 公共下限是 owner 决定的支持基线,和上面的验证版本是两回事:既不能为对齐验证版本
   // 顺手收紧,也不能被无意放宽。改这两行 = 破坏性变更,要走 major。
   expect(rootPkg.peerDependencies['react-native']).toBe('>=0.86.0');
   expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe(
     '>=0.26.0'
   );
-  // 反向约束:三个 workspace 实际装的 design 必须就是公共下限那一版,
-  // 否则 CI 跑的是一份自己从不验证的契约,下限那侧的破坏性变更发现不了。
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.26.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.26.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.26.0');
+  expect(rootPkg.peerDependencies['react-native-reanimated']).toBe(
+    '>=4.5.0 <4.7.0'
+  );
+  expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
+    '>=0.11.0 <0.13.0'
+  );
+  // Reanimated 4.6 / Worklets 0.12 验证图使用已放宽 peers 的 Design 0.30；
+  // 发布包仍保留 RN 0.86 + Design 0.26 这组旧兼容矩阵，不把验证版本误写成公共下限。
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.30.0');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.30.0');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.30.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();

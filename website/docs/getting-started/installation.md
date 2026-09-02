@@ -54,8 +54,8 @@ yarn add @unif/react-native-camera \
 | `@shopify/react-native-skia` | `>=2` | 取景器水印实时预览 |
 | `@dr.pogodin/react-native-fs` | `>=2` | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
 | `react-native-video` | `>=7.0.0-beta.0` | 录像预览播放 |
-| `react-native-reanimated` | `>=4.5.0 <4.6.0` | 取景器 / 预览动画 |
-| `react-native-worklets` | `>=0.11.0 <0.12.0` | reanimated 4 / vision-camera 的 worklet 运行时 |
+| `react-native-reanimated` | `>=4.5.0 <4.7.0` | 取景器 / 预览动画;当前验证 4.6.x |
+| `react-native-worklets` | `>=0.11.0 <0.13.0` | reanimated 4 / vision-camera 的 worklet 运行时;当前验证 0.12.x |
 | `react-native-reanimated-carousel` | `>=5.0.0 <6.0.0` | 预览页轮播 |
 | `react-native-gesture-handler` | `>=3.0.0 <4.0.0` | pinch 变焦 / 对焦手势 |
 | `react-native-safe-area-context` | `>=5.0.0` | 安全区适配 |
