@@ -5,13 +5,14 @@
 
 当前仓库开发与 example 验证运行图为：
 
-- React Native `0.86.2`（New Architecture）
+- React Native `0.86.3`（New Architecture）
 - React `19.2.3`
-- `@unif/react-native-design` `0.26.0`
+- `@unif/react-native-design` `0.30.0`
 - Yarn `4.11.0`、Node `24.13.0`
 
 这不是发布包兼容下限。`@unif/react-native-camera` 的公共
-`peerDependencies.react-native` 为 `>=0.86.0`，`@unif/react-native-design` 为 `>=0.26.0`。
+`peerDependencies.react-native` 为 `>=0.86.0`，`@unif/react-native-design` 为 `>=0.26.0`；
+RN 0.86 + Reanimated 4.6 组合应使用 Design 0.30+。
 
 ## 1. 安装
 
