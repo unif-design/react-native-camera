@@ -1,5 +1,12 @@
 # Changelog
 
+# [4.1.0](https://github.com/unif-design/react-native-camera/compare/v4.0.4...v4.1.0) (2026-09-02)
+
+
+### Features
+
+* 兼容 Reanimated 4.6 与 RN 0.86.3 ([#123](https://github.com/unif-design/react-native-camera/issues/123)) ([9324e6d](https://github.com/unif-design/react-native-camera/commit/9324e6df057b021c44816200c6655b1a417e6fbc))
+
 ## [4.0.4](https://github.com/unif-design/react-native-camera/compare/v4.0.3...v4.0.4) (2026-08-27)
 
 
