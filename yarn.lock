@@ -6318,7 +6318,7 @@ __metadata:
     "@shopify/react-native-skia": "npm:^2.6.4"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.30.0"
+    "@unif/react-native-design": "npm:0.30.1"
     react: "npm:19.2.3"
     react-native: "npm:0.86.3"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6353,7 +6353,7 @@ __metadata:
     "@sbaiahmed1/react-native-blur": "npm:6.0.1"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.30.0"
+    "@unif/react-native-design": "npm:0.30.1"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:19.2.3"
@@ -6392,7 +6392,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:0.30.0"
+    "@unif/react-native-design": "npm:0.30.1"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^8.57.1"
@@ -6444,9 +6444,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:0.30.0":
-  version: 0.30.0
-  resolution: "@unif/react-native-design@npm:0.30.0"
+"@unif/react-native-design@npm:0.30.1":
+  version: 0.30.1
+  resolution: "@unif/react-native-design@npm:0.30.1"
   peerDependencies:
     "@sbaiahmed1/react-native-blur": ">=4"
     react: ">=19.2.3 <20.0.0"
@@ -6457,7 +6457,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.11.0 <0.13.0"
-  checksum: 10c0/8336897308b24aac5dab6a73361310223a1977ca6ade2a25da9144412d3e2bbc2497f8b1886fd123d74192078dfa5bacfd6a2c5a22d97ed6430c92bc0d497699
+  checksum: 10c0/ae7cb295c2a5508a1cfa6ff7943ac9f9cb1fea9dea03b7123c150a913ff9e9a7ac19285c2b6105c82f97e0a4ababc4ede4694e13568d18d5bba81aa426d375b4
   languageName: node
   linkType: hard
 
