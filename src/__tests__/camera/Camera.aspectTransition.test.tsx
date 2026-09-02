@@ -14,17 +14,29 @@ import type { CameraMode } from '../../utils';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
-// 真实 reanimated(接线来自 `@unif/react-native-design/jest-setup`)的导出是 babel 编译出的
-// 不可配置 getter,`jest.spyOn(Reanimated, 'withTiming')` 会抛 "Cannot redefine property"。
-// 故本文件只把 withTiming 包一层直通 jest.fn(其余导出保持真实),用来断言 rect 动画的四个
-// 目标值与时长。`__esModule: true` 必须显式补:它在真实模块上是不可枚举的,spread 会丢,
-// 丢了 Camera.tsx 的 `import Animated from 'react-native-reanimated'` 默认导入就拿不到 Animated。
+// reanimated 官方 mock(接线来自 `@unif/react-native-design/jest-setup`)的 withTiming
+// 不是可直接 spy 的本地函数，因此本文件在同一份官方 mock 上只包一层 jest.fn，
+// 用来断言 rect 动画的四个目标值与时长。不能 requireActual 包根：那会绕过 Design
+// 的 Jest 接线，让真实 native 动画组件进入 React 19 test renderer。
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const React = require('react');
+  const reanimatedMock = jest.requireActual('react-native-reanimated/mock');
+
+  function useStableSharedValue(initialValue: unknown) {
+    const sharedValueRef = React.useRef();
+    if (sharedValueRef.current === undefined) {
+      sharedValueRef.current = reanimatedMock.useSharedValue(initialValue);
+    }
+    return sharedValueRef.current;
+  }
+
   return {
     __esModule: true,
-    ...actual,
-    withTiming: jest.fn(actual.withTiming),
+    ...reanimatedMock,
+    makeMutable: (initialValue: unknown) =>
+      reanimatedMock.useSharedValue(initialValue),
+    useSharedValue: useStableSharedValue,
+    withTiming: jest.fn(reanimatedMock.withTiming),
   };
 });
 
