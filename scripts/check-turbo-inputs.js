@@ -2,6 +2,8 @@
 'use strict';
 
 const { execFileSync } = require('node:child_process');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
 
 const requiredInputs = [
   'src/camera/hooks/usePhotoCaptureTransaction.ts',
@@ -10,15 +12,46 @@ const requiredInputs = [
 ];
 
 const excludedInputPatterns = [
+  /(?:^|\/)__tests__(?:\/|$)/,
+  /(?:^|\/)[^/]+\.(?:test|spec)\.[^/]+$/,
   /(?:^|\/)Pods(?:\/|$)/,
   /(?:^|\/)build(?:\/|$)/,
   /(?:^|\/)\.gradle(?:\/|$)/,
 ];
 
+const requiredNativeExclusions = [
+  '!$TURBO_ROOT$/src/__tests__/**',
+  '!$TURBO_ROOT$/src/**/__tests__/**',
+  '!$TURBO_ROOT$/src/*.test.*',
+  '!$TURBO_ROOT$/src/**/*.test.*',
+  '!$TURBO_ROOT$/example/src/__tests__/**',
+  '!$TURBO_ROOT$/example/src/**/__tests__/**',
+  '!$TURBO_ROOT$/example/src/*.test.*',
+  '!$TURBO_ROOT$/example/src/**/*.test.*',
+];
+
+const turboConfig = JSON.parse(readFileSync('turbo.json', 'utf8'));
+const cacheDirectory = join(process.cwd(), '.turbo/check-inputs');
+for (const platform of ['android', 'ios']) {
+  const taskName = `@unif/react-native-camera-example#build:${platform}`;
+  const configuredInputs = turboConfig.tasks[taskName]?.inputs ?? [];
+  for (const exclusion of requiredNativeExclusions) {
+    if (!configuredInputs.includes(exclusion)) {
+      throw new Error(`${taskName} 缺少 test-only 排除 input: ${exclusion}`);
+    }
+  }
+}
+
 function getTasks(platform) {
   const output = execFileSync(
     'yarn',
-    ['turbo', 'run', `build:${platform}`, '--dry=json'],
+    [
+      'turbo',
+      'run',
+      `build:${platform}`,
+      '--dry=json',
+      `--cache-dir=${cacheDirectory}`,
+    ],
     {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
