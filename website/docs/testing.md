@@ -1,7 +1,7 @@
 ---
 sidebar_position: 5
 title: 测试（Mock）
-description: "在 Jest 中用官方 mock 替换 @unif/react-native-camera：useCamera() 返回 [api, null]，api.open 默认 resolve { code: 0 }，工具函数与类型保留真实实现。"
+description: '在测试环境使用随包 mock 验证调用和结果处理。'
 ---
 
 # 测试（Mock）
@@ -73,7 +73,10 @@ describe('拍照流程', () => {
     const { result } = renderHook(() => useCamera());
     const [api] = result.current;
     // open 默认 resolve { code: 0, data: [], message: 'cancelled' }
-    const res = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
+    const res = await api.open({
+      cameraMode: [{ mode: 'single' }],
+      dataRetainedMode: 'clear',
+    });
     expect(res.code).toBe(0);
   });
 
@@ -98,7 +101,10 @@ describe('拍照流程', () => {
       ],
       message: 'ok',
     });
-    const res = await api.open({ cameraMode: [{ mode: 'single' }], dataRetainedMode: 'clear' });
+    const res = await api.open({
+      cameraMode: [{ mode: 'single' }],
+      dataRetainedMode: 'clear',
+    });
     expect(res.code).toBe(200);
     expect(res.data).toHaveLength(1);
   });

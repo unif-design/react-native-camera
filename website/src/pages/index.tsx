@@ -144,10 +144,7 @@ const DIM = (s: string) => <span className="tok-dim">{s}</span>;
 // 主页代码窗与公开类型绑定；只 import type，浏览器不会加载 native 相机 runtime，
 // 但 website typecheck 会在公开 API 漂移时立即失败。
 const homepageOpenConfig = {
-  cameraMode: [
-    { mode: 'continuous' },
-    { mode: 'video', recTime: 15 },
-  ],
+  cameraMode: [{ mode: 'continuous' }, { mode: 'video', recTime: 15 }],
   dataRetainedMode: 'retain',
   watermark: {
     content: ['Unif · 巡检记录', '上海市', '2026-08-02'],
@@ -177,27 +174,34 @@ const CODE_LINES: CodeLine[] = [
     {K('const')} [api, holder] = {FN('useCamera')}()
   </>,
   <>
-    {'  '}{K('const')} open = () =&gt; api.{FN('open')}({'{'}
+    {'  '}
+    {K('const')} open = () =&gt; api.{FN('open')}({'{'}
   </>,
   <>
     {'    '}cameraMode: [{'{'} mode: {ST("'continuous'")} {'}'},
   </>,
   <>
-    {'    '}{'{' } mode: {ST("'video'")}, recTime: <span className="tok-id">15</span> {'}'}],
+    {'    '}
+    {'{'} mode: {ST("'video'")}, recTime: <span className="tok-id">15</span>{' '}
+    {'}'}],
   </>,
   <>
     {'    '}dataRetainedMode: {ST("'retain'")},
   </>,
   <>
-    {'    '}watermark: {'{'} content: [{ST("'Unif · 巡检'")}], position: {ST("'top-right'")} {'}'},
+    {'    '}watermark: {'{'} content: [{ST("'Unif · 巡检'")}], position:{' '}
+    {ST("'top-right'")} {'}'},
   </>,
   <>
-    {'  '}{'});'}
+    {'  '}
+    {'});'}
   </>,
   <>{' '}</>,
   <>
     {'  '}
-    {K('return')} {DIM('<>')} {DIM('<')}{FN('Pressable')} onPress={'{'}open{'}'} {DIM('/>')} {'{'}holder{'}'} {DIM('</>')}
+    {K('return')} {DIM('<>')} {DIM('<')}
+    {FN('Pressable')} onPress={'{'}open{'}'} {DIM('/>')} {'{'}holder{'}'}{' '}
+    {DIM('</>')}
   </>,
   <>{'}'}</>,
 ];
@@ -228,7 +232,7 @@ const FEATURES: Feature[] = [
   {
     Icon: IconSpark,
     title: '开箱即用',
-    desc: '一行 hook 调用即可唤起完整的模态相机界面，无需手写 Camera 组件和权限逻辑。',
+    desc: '通过 useCamera 打开拍摄界面并接收结果，应用负责保存或上传。',
   },
 ];
 
@@ -237,7 +241,7 @@ export default function Home(): React.JSX.Element {
   return (
     <Layout
       title="Unif Camera — 一行 hook，唤起整套相机"
-      description="@unif/react-native-camera — 无需手写 Camera 组件和权限逻辑。调用 useCamera 即可弹出完整的模态相机界面，水印 WYSIWYG 预览并烧入成片。"
+      description="@unif/react-native-camera：拍照、连拍、录像、预览确认和照片水印。"
     >
       <main className="unif-home">
         {/* ── Hero ── */}

@@ -1,7 +1,7 @@
 ---
 sidebar_position: 7
 title: 版本迁移
-description: "@unif/react-native-camera v4.1 的 RN 0.86 验证组合、v4.0 的支持基线抬升、v3.0 的动画依赖升级，以及 v1.x → v2.x 的 API 迁移方法。"
+description: '已发布版本的接口和依赖调整说明。'
 ---
 
 # 版本迁移
@@ -37,9 +37,9 @@ yarn add @unif/react-native-camera@^4.1.0 \
 v4.0 只抬支持基线,不改公开 API —— `useCamera()`、`OpenConfig` 与结果类型一律不变。
 破坏性在于两条 peer 下限上移,**React Native 0.80–0.85 与 design 0.20–0.25 的消费者装不上 v4**:
 
-| peer | v3.x | v4.0 |
-| --- | --- | --- |
-| `react-native` | `>=0.85.0` | `>=0.86.0` |
+| peer                        | v3.x       | v4.0       |
+| --------------------------- | ---------- | ---------- |
+| `react-native`              | `>=0.85.0` | `>=0.86.0` |
 | `@unif/react-native-design` | `>=0.20.0` | `>=0.26.0` |
 
 留在旧基线上的项目请继续用 `@unif/react-native-camera@^3.0.0`;要升 v4 就先把宿主 App 抬到
@@ -62,13 +62,13 @@ v3.0 将预览轮播迁移到 stable Carousel 5，并统一使用 Gesture Handle
 Reanimated 4.5 与 Worklets 0.11。`useCamera()` 等公开业务 API 不变，但原生动画 peers
 必须作为一个兼容组合原子升级。
 
-| peer | v2.x | v3.0 |
-| --- | --- | --- |
-| `react-native-gesture-handler` | `>=2.21.0` | `>=3.0.0 <4.0.0` |
-| `react-native-reanimated` | `>=4.0.0` | `>=4.5.0 <4.6.0` |
-| `react-native-worklets` | `*` | `>=0.11.0 <0.12.0` |
-| `react-native-reanimated-carousel` | `>=5.0.0-beta.0` | `>=5.0.0 <6.0.0` |
-| `@unif/react-native-design` | `>=0.8.1` | `>=0.20.0` |
+| peer                               | v2.x             | v3.0               |
+| ---------------------------------- | ---------------- | ------------------ |
+| `react-native-gesture-handler`     | `>=2.21.0`       | `>=3.0.0 <4.0.0`   |
+| `react-native-reanimated`          | `>=4.0.0`        | `>=4.5.0 <4.6.0`   |
+| `react-native-worklets`            | `*`              | `>=0.11.0 <0.12.0` |
+| `react-native-reanimated-carousel` | `>=5.0.0-beta.0` | `>=5.0.0 <6.0.0`   |
+| `@unif/react-native-design`        | `>=0.8.1`        | `>=0.20.0`         |
 
 使用 Yarn 可直接执行:
 
@@ -155,7 +155,11 @@ v1.x 部分类型需通过 deep path 导入;v2.x 起所有公开类型都从 `@u
 import type { CameraResult } from '@unif/react-native-camera/lib/typescript/src/utils';
 
 // ✅ v2.x:直接从顶层入口导入
-import type { CameraResult, OpenConfig, CameraMode } from '@unif/react-native-camera';
+import type {
+  CameraResult,
+  OpenConfig,
+  CameraMode,
+} from '@unif/react-native-camera';
 ```
 
 无需任何 deep path。完整类型列表见 [API 参考 → 类型](/docs/api/types)。

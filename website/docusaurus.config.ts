@@ -8,7 +8,7 @@ const navbarVersion = pkg.version.split('.').slice(0, 2).join('.');
 
 const config: Config = {
   title: 'Unif Camera',
-  tagline: '@unif/react-native-camera · 基于 vision-camera 5.x 的相机库',
+  tagline: 'Unif React Native 相机：拍照、连拍、录像和照片水印',
   favicon: 'img/logo.png',
 
   // 部署到 GitHub Pages 默认域名:https://unif-design.github.io/react-native-camera/
@@ -120,9 +120,18 @@ const config: Config = {
           title: 'Unif 生态',
           items: [
             { label: '文档总站', href: 'https://unif.design' },
-            { label: '设计系统 design', href: 'https://unif-design.github.io/react-native-design/' },
-            { label: '友盟分享 umeng', href: 'https://unif-design.github.io/react-native-umeng/' },
-            { label: '华为扫码 hms-scan', href: 'https://unif-design.github.io/react-native-hms-scan/' },
+            {
+              label: '设计系统 design',
+              href: 'https://unif-design.github.io/react-native-design/',
+            },
+            {
+              label: '友盟分享 umeng',
+              href: 'https://unif-design.github.io/react-native-umeng/',
+            },
+            {
+              label: '华为扫码 hms-scan',
+              href: 'https://unif-design.github.io/react-native-hms-scan/',
+            },
           ],
         },
       ],

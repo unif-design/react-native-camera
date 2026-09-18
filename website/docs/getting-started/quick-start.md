@@ -1,20 +1,14 @@
 ---
 sidebar_position: 2
 title: 快速上手
-description: "用 useCamera 5 分钟跑通第一次拍照：useCamera() 取 [api, holder]，await api.open(config)，按 code === 200 取 res.data。"
+description: '使用 useCamera 打开相机并处理拍摄结果。'
 ---
 
 # 快速上手
 
-5 分钟跑通第一次拍照:取 `[api, holder]` → 渲染 `holder` → `await api.open(config)` → 按 `code === 200` 取文件。
+完成[安装与权限配置](/docs/getting-started/installation)后，在真机运行以下示例。
 
-:::warning 必须真机运行
-相机依赖真实摄像头硬件,**模拟器 / Web 跑不起来**(属预期行为)。请在真机上验证。先完成[安装](/docs/getting-started/installation)(peerDeps + 权限键 + `pod install`)再运行本例。
-:::
-
----
-
-## 最小可跑示例
+## 代码示例
 
 ```tsx
 import React from 'react';
@@ -25,11 +19,13 @@ export default function PhotoScreen() {
   const [api, holder] = useCamera(); // ① 取 api + holder
 
   const onShoot = async () => {
-    const res: CameraResult = await api.open({   // ③ 弹出相机,await 结果
+    const res: CameraResult = await api.open({
+      // ③ 弹出相机,await 结果
       cameraMode: [{ mode: 'single', quality: 0.9 }],
       dataRetainedMode: 'clear',
     });
-    if (res.code === 200) {                        // ④ 200 才是成功
+    if (res.code === 200) {
+      // ④ 200 才是成功
       // res.data 是 CustomPhotoFile[],每项含 .uri / .path / .width / .height / .mime
       console.log(res.data[0]?.uri);
     }
@@ -39,82 +35,18 @@ export default function PhotoScreen() {
   return (
     <View>
       <Button title="拍照" onPress={onShoot} />
-      {holder}{/* ② holder 必须渲染进树,否则相机不弹且 Promise 保持 pending */}
+      {holder}
+      {/* ② holder 必须渲染进树,否则相机不弹且 Promise 保持 pending */}
     </View>
   );
 }
 ```
 
-跑起来后点「拍照」即弹出全屏相机,拍完确认,`res.data[0].uri` 就是拍到的照片。
+## 接入要点
 
----
+- 在稳定的组件树中渲染 `holder`。
+- 将拍摄模式等配置传给 `api.open()`。
+- 仅在 `code === 200` 时处理媒体，`0` 表示取消。
+- 需要长期保留文件时，由应用保存或上传。
 
-## 逐步讲解
-
-### ① 取 `api` 和 `holder`
-
-```tsx
-const [api, holder] = useCamera();
-```
-
-`useCamera()` 无参,返回一个二元组:
-
-- **`api`** —— `CameraApi`,提供 `open(config)` / `close()`,控制相机开关。
-- **`holder`** —— `React.ReactElement`,相机模态的 React 宿主节点。
-
-### ② 渲染 `holder`
-
-```tsx
-{holder}
-```
-
-`holder` **必须出现在 React 树中**,它是全屏相机模态的挂载点。位置不影响视觉(打开时全屏覆盖),但**节点必须存在**。缺少它时,合法 `api.open()` 仍会创建会话并返回 Promise,只是相机不弹、`Container` 无法完成该 Promise;它会保持 pending,直到 `close()`、下一次合法 `open()` 或 Hook 卸载取消它。
-
-### ③ 打开相机
-
-```tsx
-const res = await api.open({
-  cameraMode: [{ mode: 'single', quality: 0.9 }],
-  dataRetainedMode: 'clear',
-});
-```
-
-`api.open(config)` 返回 `Promise<CameraResult>`,用户拍完确认(或取消)后 resolve。配置:
-
-- **`cameraMode`** —— 拍摄模式数组,至少一项。`mode: 'single'` 单拍;`quality`(0~1)是 JPEG 压缩系数,默认 `0.9`。想给用户多个模式 tab,就多传几项,如 `[{ mode: 'single' }, { mode: 'continuous' }, { mode: 'video' }]`。
-- **`dataRetainedMode`** —— 用户切换模式时:`'clear'` 清除已拍文件,`'retain'` 保留。
-
-调用时会先做运行时校验。非法配置直接 resolve `500/invalid_config`,不会替换当前有效会话;若配置合法且已有会话,旧会话先以 `code: 0` 取消,再启动新会话。`close()`、Hook 卸载和过期回调竞争时,同一个 Promise 最多 resolve 一次。
-
-### ④ 按 `code` 处理结果
-
-```tsx
-if (res.code === 200) {
-  console.log(res.data[0]?.uri);
-}
-```
-
-`res` 是 `CameraResult`,**只有 `code === 200` 才是成功**(此时 `res.data` 是文件列表):
-
-| code | 含义 |
-| --- | --- |
-| `200` | 用户确认保存,`res.data` 含文件列表 |
-| `0` | 用户取消(未拍或点返回) |
-| `403` | 无相机权限 |
-| `404` | 无可用摄像设备 |
-| `500` | 配置非法(`cameraMode` / `dataRetainedMode` 或可选字段不合法) |
-| `503` | 保留码,当前不触发 |
-
-> **拍照 / 录像运行时失败不再返回 code 关相机**:快门拍摄失败、录像启动 / 停止失败 → 相机内顶部错误条提示「请重试」,不关闭相机、不结束 `open()`,用户可重拍。故 `500` 仅余「配置非法」、`503` 当前无触发路径(录像失败改走相机内重试)。
-
-:::danger 不要把 `0` 当成功
-`0` 是「取消」,此时 `res.data` 为空。务必判 `code === 200`,不要写成 `code === 0`。
-:::
-
----
-
-## 下一步
-
-- [核心概念](/docs/getting-started/concepts) —— 模态相机 / holder / 生命周期 / result code 心智模型
-- [指南 → 拍照](/docs/guides/taking-photos) —— 单拍 / 连拍配置与预览详解
-- [API 参考 → useCamera](/docs/api/use-camera) —— `useCamera` 完整 API
+多次打开、局部拍摄失败和文件归属见[调用与资源](/docs/getting-started/concepts)。参数见[类型参考](/docs/api/types)，遇到问题查看[FAQ](/docs/troubleshooting)。

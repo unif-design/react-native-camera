@@ -3,7 +3,13 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const b = require('./build-llms.js');
+const b = {
+  ...require('./llms/bundle'),
+  ...require('./llms/markdown'),
+  stripMdxNoise: require('./llms/markdown').convertMdxBody,
+};
+require('./build-llms-core.test.js');
+require('./build-llms-site.test.js');
 
 const customPhotoFileFields = [
   'id',
@@ -47,31 +53,51 @@ function assertMockSuccessSnippet(snippet) {
 
 // 1) frontmatter description
 const pf = b.parseFrontmatter('---\ntitle: T\ndescription: D 描述\n---\nbody');
-assert.strictEqual(pf.description, 'D 描述', 'parseFrontmatter 解析 description');
+assert.strictEqual(
+  pf.description,
+  'D 描述',
+  'parseFrontmatter 解析 description'
+);
 
 // 2) LiveDemo → ```tsx code block, keeps usage, no placeholder
-const s = b.stripMdxNoise('## 预览\n<LiveDemo>\n  <Button variant="primary" />\n</LiveDemo>\n');
+const s = b.stripMdxNoise(
+  '## 预览\n<LiveDemo>\n  <Button variant="primary" />\n</LiveDemo>\n'
+);
 assert(s.includes('```tsx'), 'LiveDemo 转 tsx 代码块');
 assert(s.includes('<Button variant="primary" />'), '保留组件用法');
 assert(!s.includes('网页版查看'), '不再是 placeholder');
 
 // 3) index line with description
 assert.strictEqual(
-  b.formatIndexLine({ title: 'Button 按钮', mdPath: '/md/components/button.md', description: '主/次' }),
-  '- [Button 按钮](md/components/button.md) — 主/次', 'formatIndexLine 带描述');
+  b.formatIndexLine({
+    title: 'Button 按钮',
+    mdPath: 'md/components/button.md',
+    description: '主/次',
+  }),
+  '- [Button 按钮](md/components/button.md) — 主/次',
+  'formatIndexLine 带描述'
+);
 assert.strictEqual(
-  b.formatIndexLine({ title: 'X', mdPath: '/md/x.md', description: null }),
-  '- [X](md/x.md)', 'formatIndexLine 无描述不加破折号');
+  b.formatIndexLine({ title: 'X', mdPath: 'md/x.md', description: null }),
+  '- [X](md/x.md)',
+  'formatIndexLine 无描述不加破折号'
+);
 
 // 4) 概览 first
-assert.deepStrictEqual(b.sortSections(['components', '概览', 'design']), ['概览', 'components', 'design'], '概览置顶');
+assert.deepStrictEqual(
+  b.sortSections(['components', '概览', 'design']),
+  ['概览', 'components', 'design'],
+  '概览置顶'
+);
 
 // 5) TOC
 assert(b.buildToc(['A', 'B']).startsWith('## 目录'), 'buildToc 头部');
 assert(b.buildToc(['A', 'B']).includes('- A'), 'buildToc 列条目');
 
 // 必须断言 builder 的真实产物，避免只测 helper 而索引仍输出站点绝对 /md/ 链接。
-execFileSync(process.execPath, [path.join(__dirname, 'build-llms.js')], { stdio: 'inherit' });
+execFileSync(process.execPath, [path.join(__dirname, 'build-llms.js')], {
+  stdio: 'inherit',
+});
 const generatedIndex = fs.readFileSync(
   path.join(__dirname, '..', 'static', 'llms.txt'),
   'utf8'
@@ -94,74 +120,72 @@ const overrideSnippet = findTypeScriptSnippet(
 assert(overrideSnippet, 'testing.md 必须有覆盖单次成功返回的 TypeScript 示例');
 assertMockSuccessSnippet(overrideSnippet);
 
-const missingFieldSnippet = overrideSnippet.replace(/\s*isRemake:\s*false,?/, '');
+const missingFieldSnippet = overrideSnippet.replace(
+  /\s*isRemake:\s*false,?/,
+  ''
+);
 assert.throws(
   () => assertMockSuccessSnippet(missingFieldSnippet),
   /CustomPhotoFile\.isRemake/,
   '文档门禁必须拒绝缺少公开文件字段的成功 fixture'
 );
 
-// 仓库事实与 website CI 同属文档可信度门禁：源码演进后不能继续发布相反的
-// AGENTS 说明，也不能让 website / llms.txt 变更绕过共享 CI。
+// 研发入口只负责路由；平台处理细节由所属指南维护。
 const repositoryRoot = path.resolve(__dirname, '..', '..');
 const agentsDoc = fs.readFileSync(
   path.join(repositoryRoot, 'AGENTS.md'),
   'utf8'
 );
+assert(
+  agentsDoc.includes('unif-portal-dev-skills:code-development'),
+  'AGENTS.md 缺少当前研发技能入口'
+);
+assert(
+  agentsDoc.includes('](docs/DEVELOPMENT.md)'),
+  'AGENTS.md 缺少开发资料链接'
+);
+assert(
+  fs.existsSync(path.join(repositoryRoot, 'docs/DEVELOPMENT.md')),
+  '开发资料不存在'
+);
+
 const introDoc = fs.readFileSync(
-  path.join(repositoryRoot, 'website', 'docs', 'intro.md'),
+  path.join(repositoryRoot, 'website/docs/intro.md'),
   'utf8'
 );
-const staleAgentFacts = [
-  '`processPhoto()` 与 `createFileRegistry()` 当前没有生产调用点',
-  '取消 bridge 未由真实 Container 注册',
-  '统一 reducer 与 configuration generation 是内部纯逻辑契约',
-  'Container 已接线路径没有 per-session registry',
-  '该 registry 当前没有 session owner 或生产调用点',
-  '不要声称库已经在取消 / 删除时回收文件',
-];
-for (const staleFact of staleAgentFacts) {
-  assert(
-    !agentsDoc.includes(staleFact),
-    `AGENTS.md 仍包含已失效事实:${staleFact}`
-  );
-}
-
-const currentAgentFacts = [
-  'Container 已注册 session controller 与 container presence bridge',
-  '`useCameraSessionController` 已用 reducer 驱动',
-  '`usePhotoCaptureTransaction` 已接入 `processPhoto()`',
-  '每个 session 都由 `useCamera()` 创建独立 `FileRegistry`',
-  '成功 `code: 200` 前只 `transfer()` 返回文件',
-];
-for (const currentFact of currentAgentFacts) {
-  assert(
-    agentsDoc.includes(currentFact),
-    `AGENTS.md 缺少当前实现事实:${currentFact}`
-  );
-}
-
+assert(
+  introDoc.includes('](/docs/getting-started/quick-start)'),
+  '介绍页缺少接入入口'
+);
+assert(
+  introDoc.includes('](/docs/guides/watermark)'),
+  '介绍页缺少水印指南入口'
+);
+const watermarkDoc = fs.readFileSync(
+  path.join(repositoryRoot, 'website/docs/guides/watermark.md'),
+  'utf8'
+);
 for (const [docName, doc] of [
-  ['AGENTS.md', agentsDoc],
   ['website/docs/intro.md', introDoc],
+  ['website/docs/guides/watermark.md', watermarkDoc],
 ]) {
   assert(
     !doc.includes('水印依赖 Skia GPU'),
-    `${docName} 仍把当前照片处理错误描述为 Skia GPU`
+    `${docName} 仍把照片文件处理描述为 Skia GPU`
   );
   assert(
     !doc.includes('Skia 原生 CPU raster surface'),
-    `${docName} 仍把照片文件处理描述为旧 Skia CPU surface 管线`
-  );
-  assert(
-    /ImageIO\s*\/\s*Core Image/.test(doc),
-    `${docName} 缺少当前 iOS ImageIO/Core Image 文件管线契约`
-  );
-  assert(
-    /BitmapFactory\s*\/\s*Canvas/.test(doc),
-    `${docName} 缺少当前 Android BitmapFactory/Canvas 文件管线契约`
+    `${docName} 仍描述旧照片处理管线`
   );
 }
+assert(
+  /ImageIO\s*\/\s*Core Image/.test(watermarkDoc),
+  '水印指南缺少 iOS 文件处理依据'
+);
+assert(
+  /BitmapFactory\s*\/\s*Canvas/.test(watermarkDoc),
+  '水印指南缺少 Android 文件处理依据'
+);
 
 const ciWorkflow = fs.readFileSync(
   path.join(repositoryRoot, '.github', 'workflows', 'ci.yml'),
@@ -177,9 +201,7 @@ function extractWorkflowJob(workflow, jobId) {
     .slice(jobBodyStart)
     .match(/\n  [a-z][a-z0-9_-]*:\n/);
   const jobEnd =
-    nextJobMatch == null
-      ? workflow.length
-      : jobBodyStart + nextJobMatch.index;
+    nextJobMatch == null ? workflow.length : jobBodyStart + nextJobMatch.index;
   return workflow.slice(jobStart, jobEnd);
 }
 
@@ -226,7 +248,7 @@ const websiteCommands = [
 ];
 for (const contract of [
   "if: needs.changes.outputs.website == 'true'",
-  "node -p \"require('./website/package.json').name\"",
+  'node -p "require(\'./website/package.json\').name"',
   'id: website',
   'printf \'name=%s\\n\' "$WEBSITE_WORKSPACE" >> "$GITHUB_OUTPUT"',
   'WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}',
@@ -235,9 +257,8 @@ for (const contract of [
   assert(websiteJob.includes(contract), `CI website job 缺少契约:${contract}`);
 }
 assert.strictEqual(
-  websiteJob.split(
-    'WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}'
-  ).length - 1,
+  websiteJob.split('WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}')
+    .length - 1,
   2,
   'CI website typecheck / build 必须分别注入 workspace env'
 );

@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 title: 类型
-description: "@unif/react-native-camera 公开类型完整参考：OpenConfig、CameraMode、WatermarkType、CameraResult（状态码 200/0/403/404/500/503）、CustomPhotoFile 字段表。"
+description: '本库公开参数、返回结果与错误类型。'
 ---
 
 # 类型
@@ -29,14 +29,14 @@ import type {
 
 传入 [`api.open(config)`](/docs/api/camera-api#open) 的配置对象。
 
-| 字段 | 类型 | 必填 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `cameraMode` | [`CameraMode[]`](#cameramode) | ✅ | — | 拍摄模式数组，至少一项；多项时底部出现模式 tab |
-| `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍照片 |
-| `watermark` | [`WatermarkType`](#watermarktype) | — | 不加水印 | 文字水印配置；传入则取景显示戳记 + 保存时烧入成片 |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | **走 SDK 默认** | 照片质量优先级（全局）。缺省时库不传该字段，由 SDK 自行决定；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'` / `'balanced'` 任何设备直传 |
-| `photoHDR` | `boolean` | — | **由相机 negotiate 决定** | 是否启用照片 HDR（多帧融合，更宽动态范围）。缺省不下发该约束、不强制开关；传 `boolean` 才作为约束下发 |
-| `videoBitRate` | `number` | — | **编码器自适应** | 录像目标码率（bps，全局，作用于 video 模式）。缺省不传、由编码器按分辨率自适应；仅在需要明确控制时传（如 4K 约 20–40 Mbps） |
+| 字段                         | 类型                                 | 必填 | 默认值                    | 说明                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------ | ---- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cameraMode`                 | [`CameraMode[]`](#cameramode)        | ✅   | —                         | 拍摄模式数组，至少一项；多项时底部出现模式 tab                                                                                                                          |
+| `dataRetainedMode`           | `'clear' \| 'retain'`                | ✅   | —                         | 切换模式时是否保留已拍照片                                                                                                                                              |
+| `watermark`                  | [`WatermarkType`](#watermarktype)    | —    | 不加水印                  | 文字水印配置；传入则取景显示戳记 + 保存时烧入成片                                                                                                                       |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | —    | **走 SDK 默认**           | 照片质量优先级（全局）。缺省时库不传该字段，由 SDK 自行决定；`'speed'` 在不支持的设备会被**安全降级**为 `'balanced'`（不报错）；`'quality'` / `'balanced'` 任何设备直传 |
+| `photoHDR`                   | `boolean`                            | —    | **由相机 negotiate 决定** | 是否启用照片 HDR（多帧融合，更宽动态范围）。缺省不下发该约束、不强制开关；传 `boolean` 才作为约束下发                                                                   |
+| `videoBitRate`               | `number`                             | —    | **编码器自适应**          | 录像目标码率（bps，全局，作用于 video 模式）。缺省不传、由编码器按分辨率自适应；仅在需要明确控制时传（如 4K 约 20–40 Mbps）                                             |
 
 各字段的运行时行为见 [CameraApi → OpenConfig](/docs/api/camera-api#openconfig)。
 
@@ -50,18 +50,19 @@ import type {
 
 `OpenConfig.cameraMode` 数组中每一项的类型，描述一种拍摄模式及其初始参数。
 
-| 字段 | 类型 | 必填 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `mode` | `'single' \| 'continuous' \| 'video'` | ✅ | — | 拍摄模式：单拍 / 连拍 / 视频 |
-| `type` | `'back' \| 'front'` | — | `'back'` | 请求的初始前/后摄。**仅数组首项生效**；请求侧无设备时自动 fallback 到另一侧 |
-| `flashMode` | `'auto' \| 'on' \| 'off'` | — | `'off'` | 初始闪光。**仅数组首项生效**作初始值；闪光开关之后由相机内 UI 控制 |
-| `quality` | `number` | — | `0.9` | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认） |
-| `recTime` | `number` | — | — | 录制时长上限（秒）。已接线 vision-camera `maxDuration`：到点原生自动停止、视频自动入已拍列表（缺省不设=不自动停） |
+| 字段        | 类型                                  | 必填 | 默认值   | 说明                                                                                                              |
+| ----------- | ------------------------------------- | ---- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `mode`      | `'single' \| 'continuous' \| 'video'` | ✅   | —        | 拍摄模式：单拍 / 连拍 / 视频                                                                                      |
+| `type`      | `'back' \| 'front'`                   | —    | `'back'` | 请求的初始前/后摄。**仅数组首项生效**；请求侧无设备时自动 fallback 到另一侧                                       |
+| `flashMode` | `'auto' \| 'on' \| 'off'`             | —    | `'off'`  | 初始闪光。**仅数组首项生效**作初始值；闪光开关之后由相机内 UI 控制                                                |
+| `quality`   | `number`                              | —    | `0.9`    | JPEG 压缩率 `0~1`。质量优先级见 [`OpenConfig.photoQualityPrioritization`](#openconfig)（缺省走 SDK 默认）         |
+| `recTime`   | `number`                              | —    | —        | 录制时长上限（秒）。已接线 vision-camera `maxDuration`：到点原生自动停止、视频自动入已拍列表（缺省不设=不自动停） |
 
 :::note `type` / `flashMode` / `recTime` 的现状
+
 - `type`、`flashMode` 沿用自原版 4.x 的 API，仅**数组首项**被读取，作相机打开时的初始镜头 / 初始闪光；其余项的这两个字段被忽略。请求的前/后摄不可用时自动选择另一侧，最终 `CustomPhotoFile.cameraType` 是实际方向。
 - `recTime` 已接线到 vision-camera `maxDuration`（2.21 起）：到点原生自动停止，视频与手动停止走同一路径入列。缺省不传则不自动停。
-:::
+  :::
 
 ---
 
@@ -69,10 +70,10 @@ import type {
 
 `OpenConfig.watermark` 的类型——给取景画面和成片烧入文字水印。用法见 [水印指南](/docs/guides/watermark)。
 
-| 字段 | 类型 | 必填 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `content` | `string[]` | ✅ | — | 水印文字，每个字符串一行；数量不限 |
-| `position` | `'top-left' \| 'top-center' \| 'top-right' \| 'bottom-left' \| 'bottom-center' \| 'bottom-right'` | — | `'top-right'` | 水印位置（文字对齐随位置自适应） |
+| 字段       | 类型                                                                                              | 必填 | 默认值        | 说明                               |
+| ---------- | ------------------------------------------------------------------------------------------------- | ---- | ------------- | ---------------------------------- |
+| `content`  | `string[]`                                                                                        | ✅   | —             | 水印文字，每个字符串一行；数量不限 |
+| `position` | `'top-left' \| 'top-center' \| 'top-right' \| 'bottom-left' \| 'bottom-center' \| 'bottom-right'` | —    | `'top-right'` | 水印位置（文字对齐随位置自适应）   |
 
 ---
 
@@ -80,22 +81,22 @@ import type {
 
 [`api.open()`](/docs/api/camera-api#open) 返回的 `Promise` resolve 值。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `code` | `0 \| 200 \| 403 \| 404 \| 500 \| 503` | 状态码，见下表 |
-| `data` | [`CustomPhotoFile[]`](#customphotofile) | 拍摄的文件列表（仅 `code === 200` 时非空有效） |
-| `message` | `string` | 描述信息 |
+| 字段      | 类型                                    | 说明                                           |
+| --------- | --------------------------------------- | ---------------------------------------------- |
+| `code`    | `0 \| 200 \| 403 \| 404 \| 500 \| 503`  | 状态码，见下表                                 |
+| `data`    | [`CustomPhotoFile[]`](#customphotofile) | 拍摄的文件列表（仅 `code === 200` 时非空有效） |
+| `message` | `string`                                | 描述信息                                       |
 
 **状态码（`CameraResultCode`）：**
 
-| code | 含义 | 何时返回 |
-| --- | --- | --- |
-| `200` | 成功 | 用户完成拍摄并确认，`data` 含文件列表 |
-| `0` | 取消 | 用户取消、点返回或调用 `api.close()`（`data` 为空） |
-| `403` | 无权限 | 相机权限被拒 |
-| `404` | 无设备 | 没有可用摄像设备 |
+| code  | 含义     | 何时返回                                                                                                                 |
+| ----- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `200` | 成功     | 用户完成拍摄并确认，`data` 含文件列表                                                                                    |
+| `0`   | 取消     | 用户取消、点返回或调用 `api.close()`（`data` 为空）                                                                      |
+| `403` | 无权限   | 相机权限被拒                                                                                                             |
+| `404` | 无设备   | 没有可用摄像设备                                                                                                         |
 | `500` | 配置非法 | `cameraMode` / `dataRetainedMode` 或任一可选字段未通过运行时类型、枚举或数值范围校验（拍照运行时失败不再返回此码，见下） |
-| `503` | 录像失败 | 保留码，当前不触发（录像失败改走相机内重试，见下） |
+| `503` | 录像失败 | 保留码，当前不触发（录像失败改走相机内重试，见下）                                                                       |
 
 :::info 拍照 / 录像运行时失败：相机内重试，不返回 code
 自 2.21 起，快门拍摄失败、录像启动 / 停止失败**不再 resolve 关相机**，而是在相机内弹顶部错误条提示重试、不丢已拍（对齐 1.x「失败停留」）。故 `500` 仅余「配置非法」、`503` 当前无触发路径，二者保留作 API 兼容。
@@ -115,19 +116,19 @@ import type {
 
 `CameraResult.data` 数组中每个文件的类型。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 唯一 id（`时间戳-序号`，避免同毫秒撞 id） |
-| `cameraType` | `'back' \| 'front'` | 拍摄时的前/后摄 |
-| `cameraMode` | `'single' \| 'continuous' \| 'video'` | 模式（原版 1.x 字段名，= `mode`） |
-| `path` | `string` | 本地文件路径 |
-| `uri` | `string` | 文件 uri（`file://` 前缀） |
-| `width` | `number` | 宽（px） |
-| `height` | `number` | 高（px） |
-| `mime` | `'image/jpeg' \| 'video/mp4'` | MIME 类型 |
-| `mode` | `'single' \| 'continuous' \| 'video'` | 模式（2.x 字段名，= `cameraMode`） |
-| `isRemake` | `boolean` | 是否翻拍；通用拍照恒为 `false` |
-| `duration?` | `number` | 时长（秒，仅 video 条目有，取录制实际时长） |
+| 字段         | 类型                                  | 说明                                        |
+| ------------ | ------------------------------------- | ------------------------------------------- |
+| `id`         | `string`                              | 唯一 id（`时间戳-序号`，避免同毫秒撞 id）   |
+| `cameraType` | `'back' \| 'front'`                   | 拍摄时的前/后摄                             |
+| `cameraMode` | `'single' \| 'continuous' \| 'video'` | 模式（原版 1.x 字段名，= `mode`）           |
+| `path`       | `string`                              | 本地文件路径                                |
+| `uri`        | `string`                              | 文件 uri（`file://` 前缀）                  |
+| `width`      | `number`                              | 宽（px）                                    |
+| `height`     | `number`                              | 高（px）                                    |
+| `mime`       | `'image/jpeg' \| 'video/mp4'`         | MIME 类型                                   |
+| `mode`       | `'single' \| 'continuous' \| 'video'` | 模式（2.x 字段名，= `cameraMode`）          |
+| `isRemake`   | `boolean`                             | 是否翻拍；通用拍照恒为 `false`              |
+| `duration?`  | `number`                              | 时长（秒，仅 video 条目有，取录制实际时长） |
 
 :::info `cameraMode` 与 `mode` 的关系
 `cameraMode` 与 `mode` 是**同一值的两个别名**，始终相等：`cameraMode` 是原版（1.x）字段名，`mode` 是 2.x 引入的字段名。两者同时存在以保证向后兼容，按习惯选用其一即可。
@@ -158,11 +159,11 @@ type CameraApi = {
 
 类型定义为纯 TypeScript（不含运行时代码），在所有平台均可导入。
 
-| 平台 | 支持 |
-| --- | --- |
-| iOS | ✅ |
-| Android | ✅ |
-| Web | ✅（仅类型） |
+| 平台    | 支持         |
+| ------- | ------------ |
+| iOS     | ✅           |
+| Android | ✅           |
+| Web     | ✅（仅类型） |
 
 ---
 

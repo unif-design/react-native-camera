@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: 录像
-description: "录像场景指南：mode 'video' 视频录制、读取 duration/mime、与拍照混合的多模式 tab、recTime 时长上限、录像失败的相机内重试及播放方案。"
+description: '录像配置、时长控制和错误处理。'
 ---
 
 # 录像
@@ -92,10 +92,7 @@ await api.open({
 
 ```tsx
 await api.open({
-  cameraMode: [
-    { mode: 'single', quality: 0.9 },
-    { mode: 'video' },
-  ],
+  cameraMode: [{ mode: 'single', quality: 0.9 }, { mode: 'video' }],
   dataRetainedMode: 'clear',
 });
 ```
@@ -112,11 +109,13 @@ await api.open({
 import { VideoView, useVideoPlayer } from 'react-native-video';
 
 // videoUri 来自 res.data[0].uri
-const player = useVideoPlayer(videoUri, p => {
+const player = useVideoPlayer(videoUri, (p) => {
   p.loop = false;
 });
 
-return <VideoView player={player} style={{ width: '100%', aspectRatio: 9 / 16 }} />;
+return (
+  <VideoView player={player} style={{ width: '100%', aspectRatio: 9 / 16 }} />
+);
 ```
 
 :::tip react-native-video 版本
