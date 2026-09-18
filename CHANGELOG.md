@@ -1,5 +1,7 @@
 # Changelog
 
+## [4.1.3](https://github.com/unif-design/react-native-camera/compare/v4.1.2...v4.1.3) (2026-09-18)
+
 ## [4.1.2](https://github.com/unif-design/react-native-camera/compare/v4.1.1...v4.1.2) (2026-09-18)
 
 ## [4.1.1](https://github.com/unif-design/react-native-camera/compare/v4.1.0...v4.1.1) (2026-09-03)
