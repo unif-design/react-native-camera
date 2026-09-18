@@ -214,12 +214,24 @@ for (const permission of ['contents: read', 'pull-requests: read']) {
 }
 
 assert(
-  ciWorkflow.includes('website: ${{ steps.filter.outputs.website }}'),
+  ciWorkflow.includes('website: ${{ steps.scope.outputs.website }}'),
   'CI changes job 缺少 website output'
 );
 
-const websiteFilterMatch = ciWorkflow.match(
-  /\n            website:\n((?:              - .*\n)+)/
+assert(
+  /id: scope\n\s+uses: \.\/\.github\/actions\/changes/.test(changesJob),
+  'CI changes job 必须调用共享分类 action'
+);
+const changeAction = fs.readFileSync(
+  path.join(repositoryRoot, '.github/actions/changes/action.yml'),
+  'utf8'
+);
+assert(
+  changeAction.includes('value: ${{ steps.paths.outputs.website }}'),
+  '共享分类 action 必须交付实际 website 匹配结果'
+);
+const websiteFilterMatch = changeAction.match(
+  /\n          website:\n((?:            - .*\n)+)/
 );
 assert(websiteFilterMatch, 'CI changes filters 缺少 website filter');
 const websiteFilter = websiteFilterMatch[1];
