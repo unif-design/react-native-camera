@@ -151,7 +151,7 @@ export type CameraApi = {
 
 ### 2.5 版本
 
-→ **2.5.0**（minor bump）。去掉 `photoQuality`/`jpegQuality`、改回 `quality` 严格说是 API 变更，但这是**修正 2.0 重写时的 quality 拆分失误**，且本库为**内部使用**（消费者只有 portal，同步升级），不走严格 SemVer major。返回字段为新增（非破坏）。portal 随之升级（见 Part B）。
+当时方案选择 **2.5.0**，移除 `photoQuality` / `jpegQuality` 并恢复 `quality`，同时安排 Portal 接入调整（见 Part B）。这是该历史方案的版本选择，不构成当前公共发布的版本规则，也不限制其他项目使用本库。
 
 ---
 
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
 
 | 项 | 说明 |
 |---|---|
-| API 变更（2.5.0） | 去掉 photoQuality/jpegQuality、改回 quality。库内部使用，消费者仅 portal，同步升级；按"修正 2.0 失误"处理，走 minor。 |
+| API 变更（2.5.0） | 去掉 photoQuality/jpegQuality、改回 quality；当时方案选择 minor，并安排 Portal 同步调整。当前版本级别按实际公共契约变化判定。 |
 | 字段接线 | `type` 接线（H5 传初始前后摄）；`quality` 接线（JPEG）；`flashMode` **不接线**（闪光由相机内 UI 控制，字段仅作 API 兼容保留）；`recTime` 接受但 no-op（未用到，后续视频需要再接）。 |
 | 取景框 vs 传感器原生比例 | box 比例 = 输出 `targetResolution` 比例；若设备传感器原生比例与之差异较大，cover 仍可能有极小裁切。主因（全屏裁两侧）已解决；如真机仍有偏差，再微调。 |
 | 方向/镜像 | 用 5.x 默认，未烧像素。若真机出现歪/镜像，属已知风险，单独处理（不在本 spec）。 |

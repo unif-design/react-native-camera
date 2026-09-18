@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: useCamera
-description: "useCamera() Hook：无参调用，返回 [api, holder] 二元组——api 控制相机开关，holder 是必须渲染进树的相机宿主节点。"
+description: 'useCamera 的调用、宿主节点和返回值。'
 ---
 
 # useCamera
@@ -23,7 +23,7 @@ const [api, holder] = useCamera();
 **TypeScript 签名：**
 
 ```ts
-function useCamera(): [CameraApi, React.ReactElement]
+function useCamera(): [CameraApi, React.ReactElement];
 ```
 
 `useCamera()` **不接受任何参数**——所有拍摄配置都在调用 [`api.open(config)`](/docs/api/camera-api) 时传入。
@@ -34,10 +34,10 @@ function useCamera(): [CameraApi, React.ReactElement]
 
 返回一个二元组 `[CameraApi, React.ReactElement]`：
 
-| 返回值 | 类型 | 说明 |
-| --- | --- | --- |
-| `api` | [`CameraApi`](/docs/api/camera-api) | 相机控制对象，提供 `open()` / `close()` 方法 |
-| `holder` | `React.ReactElement` | 相机 UI（全屏模态）的宿主节点，**必须渲染进 React 树** |
+| 返回值   | 类型                                | 说明                                                   |
+| -------- | ----------------------------------- | ------------------------------------------------------ |
+| `api`    | [`CameraApi`](/docs/api/camera-api) | 相机控制对象，提供 `open()` / `close()` 方法           |
+| `holder` | `React.ReactElement`                | 相机 UI（全屏模态）的宿主节点，**必须渲染进 React 树** |
 
 `holder` 本质是一个 `<ModalView>` 节点（内部已自带 `SafeAreaProvider` + `ThemeProvider`），相机未打开时不显示任何内容。**没有 `holder` 挂载就没有相机 `Container`**：合法的 `api.open()` 仍会创建会话并返回 Promise，但 UI 不会弹出，`Container` 也无法通过拍摄完成这个 Promise。它会保持 pending，直到调用 `api.close()`、后续合法 `open()` 取消旧会话，或使用该 Hook 的组件卸载。
 
@@ -86,11 +86,11 @@ const PhotoScreen = () => {
 
 ## 平台兼容性 {#platforms}
 
-| 平台 | 支持 |
-| --- | --- |
-| iOS | ✅ |
-| Android | ✅ |
-| Web | ❌ |
+| 平台    | 支持 |
+| ------- | ---- |
+| iOS     | ✅   |
+| Android | ✅   |
+| Web     | ❌   |
 
 ---
 

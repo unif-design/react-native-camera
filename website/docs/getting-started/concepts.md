@@ -1,170 +1,50 @@
 ---
 sidebar_position: 3
-title: 核心概念
-description: "理解 @unif/react-native-camera 的核心心智模型：模态相机、holder 渲染、api.open(config) 的 Promise 生命周期、cameraMode/dataRetainedMode、CameraResult.code（200/0/403/404/500/503）、文件级水印（仅 JPEG）。"
+title: 调用与资源
+description: '相机调用、取消、结果码、水印和临时文件归属。'
 ---
 
-# 核心概念
+# 调用与资源
 
-在深入 API 前,先建立几个核心心智模型——它们解释了这个库「为什么这样设计」与使用时的关键约束。
+相机以全屏模态呈现。应用准备配置、打开相机并处理结果；取景、拍摄、预览和选择由库完成。
 
----
+## 调用入口
 
-## 模型一:模态相机,不是内嵌取景器
-
-`@unif/react-native-camera` 提供的是**模态化相机**,而不是嵌进页面布局的取景器组件。
-
-调用 `api.open()` 会弹出一个**全屏模态界面**,用户在模态内完成所有操作(切换模式、拍照、预览、确认或取消),确认后模态关闭,结果通过 Promise 返回。
-
-这与把 `<CameraView />` 内嵌到页面布局的模式完全不同:
-
-- **调用方不管相机 UI 的布局和层叠** —— 模态自己全屏覆盖。
-- **拍摄流程是线性的** —— `await api.open(...)` 挂起,拍完才继续,逻辑简单。
-- **适合「按需拍照」** —— 表单附件、巡检记录、工单照片;不适合持续取景的 AR / 扫码场景(扫码请用 `@unif/react-native-hms-scan`)。
-
-模态内的取景控件由库内置、用户自行操作(无需调用方配置):双指 pinch 变焦(含 `0.5x` 超广角与 `0.5/1` 档位快捷跳档)、点击对焦、前后摄翻转、画幅切换(`4:3` / `16:9`,**默认 `16:9`**)、闪光(`auto`/`on`/`off` 轮换)、快门声开关。
-
----
-
-## 模型二:`useCamera()` → `[api, holder]`,holder 必须渲染
-
-`useCamera()` 无参,返回二元组 `[api, holder]`:
-
-- **`api`** —— `CameraApi`,有两个方法:`open(config)` 弹出相机并返回 Promise;`close()` 主动收起(等价于用户取消,resolve `code: 0`)。
-- **`holder`** —— 相机模态的 React 宿主节点(`React.ReactElement`)。
+`useCamera()` 返回 `[api, holder]`。在稳定的组件树中渲染 `holder`，再调用 `api.open(config)`；缺少宿主时界面不会出现，合法调用会继续等待直至取消。
 
 ```tsx
 const [api, holder] = useCamera();
 
-return (
-  <View>
-    {/* 其他 UI */}
-    {holder}  {/* 必须在树中 */}
-  </View>
-);
+return <View>{holder}</View>;
 ```
 
-**`holder` 必须出现在 React 树中**,原因:
+配置中的 `cameraMode` 决定可用拍摄模式，`dataRetainedMode` 决定切换模式时是否保留已拍文件。初始镜头、闪光、质量和水印等字段见[类型参考](/docs/api/types)。
 
-- 相机模态是通过 React 组件树挂载的,不是 imperative 的原生调用。
-- `holder` 是相机 UI 的挂载锚点;缺它,合法 `api.open()` 仍会创建会话,但 UI 不会出现,`Container` 也无法完成 Promise。Promise 会保持 pending,直到 `close()`、后续合法 `open()` 或 Hook 卸载取消它。
-- `holder` 的位置(在父节点哪一层)不影响视觉——相机打开时全屏覆盖——但**节点必须存在于组件树内**。
+## 调用生命周期
 
-推荐在页面组件或根 App 里一次性放置 `{holder}`,无需每次调用前重新挂载。
+1. 校验输入；非法配置返回 `500`，当前有效会话保持不变。
+2. 打开相机，等待用户完成选择或取消。
+3. 通过 `CameraResult` 返回结果。
 
----
+合法的新 `open()` 会先以 `code: 0` 结束旧调用；`close()` 和 Hook 卸载也按取消处理。同一次调用只完成一次，过期回调不覆盖新结果。
 
-## 模型三:`api.open(config)` 返回 Promise,有完整生命周期
+拍摄、录像或照片处理失败时，界面保留当前会话并反馈错误，用户可以重试或取消；未完成的文件不作为成功结果交付。完整行为见 [CameraApi](/docs/api/camera-api)。
 
-`api.open(config)` 返回 `Promise<CameraResult>`,生命周期如下:
+## 结果
 
-```
-api.open(config)
-    │
-    ▼
-  [校验]  非法配置直接 resolve 500,不替换 active session
-    │ 合法
-    ▼
-  [打开]  全屏模态弹出,进入拍摄界面
-    │
-    ▼
-  [拍摄]  用户拍照 / 录像(单拍 / 连拍 / 视频)
-    │
-    ▼
-  [确认]  预览页:确认使用 / 重拍 / 取消
-    │
-    ▼
-  [关闭]  模态收起
-    │
-    ▼
-Promise.resolve(CameraResult)
-```
+| code  | 含义                              |
+| ----- | --------------------------------- |
+| `200` | 用户确认选择，`data` 包含媒体文件 |
+| `0`   | 取消或关闭                        |
+| `403` | 相机权限被拒绝                    |
+| `404` | 没有可用摄像设备                  |
+| `500` | 配置无效                          |
+| `503` | 保留码，当前没有触发路径          |
 
-关键特性:
+只有 `code === 200` 才处理媒体；麦克风或拍摄中的局部错误不等同于 `403`。
 
-- **挂起调用方** —— `await api.open(...)` 会等整个流程(确认或取消)完成才继续。
-- **取消也 resolve** —— 用户取消时 `code` 为 `0`,**不会 reject**。
-- **合法重入先取消旧会话** —— 当前会话尚未完成时再次合法 `open()`,旧 Promise 先 resolve `code: 0`,然后新会话开始;非法新配置只返回 `500/invalid_config`,不影响旧会话。
-- **每个 Promise 最多完成一次** —— `close()`、Hook 卸载、保存回调或取消回调同时发生时,只有当前会话的第一个终态生效;旧会话的过期回调会被忽略。
-- **水印在每次快门后逐张烧入** —— 若传 `watermark`,相机在**每次快门后**对该张照片逐张烧入(`image/jpeg`,串行)(期间取景画面中央显示「水印生成中…」遮罩)。设备协商输出需精裁或可见水印处理失败时，留在会话内显示“照片处理失败，请重试”，不交付 raw / 半成品，Promise 继续等待用户重试或取消。
+## 水印与文件
 
-### `config`:`cameraMode` 与 `dataRetainedMode`
+文字水印只写入照片，不作用于录像。它是可见像素内容，不提供防篡改能力；用法见[水印](/docs/guides/watermark)。
 
-`api.open(config)` 的入参是 `OpenConfig`:
-
-- **`cameraMode: CameraMode[]`** —— 拍摄模式数组,至少一项。每项的 `mode` 为 `'single'`(单拍) / `'continuous'`(连拍) / `'video'`(录像);可选 `quality`(0~1 JPEG 压缩系数,默认 `0.9`)。传多项时,相机底部出现模式 tab 供用户切换；首项请求的前/后摄不可用时会自动 fallback 到另一侧，返回文件记录实际 `cameraType`。
-- **`dataRetainedMode: 'clear' | 'retain'`** —— 用户切换模式时:`'clear'` 清除已拍文件,`'retain'` 保留。
-- **`watermark?`** —— 可选,见模型五。
-
-> `CameraMode` 还有 `type`(初始前/后摄)、`flashMode`、`recTime` 等兼容字段。完整字段见 [API → 类型](/docs/api/types)。
-
----
-
-## 模型四:用 `CameraResult.code` 判定结果
-
-`api.open()` resolve 出 `CameraResult = { code, data, message }`。**只有 `code === 200` 才是成功**:
-
-| code | 含义 | 处理 |
-| --- | --- | --- |
-| `200` | 用户确认保存(成功) | 取 `res.data`(`CustomPhotoFile[]`) |
-| `0` | 取消 / 关闭 | 静默,`data` 为空 |
-| `403` | 无相机权限 | 引导用户去系统设置开权限 |
-| `404` | 无可用摄像设备 | 提示设备不支持 |
-| `500` | 配置非法(`cameraMode` / `dataRetainedMode` 或可选字段不合法) | 兜底提示,排查 `config` |
-| `503` | 保留码,当前不触发 | —— |
-
-> **拍照 / 录像运行时失败不再返回 code 关相机**:快门拍摄失败、录像启动 / 停止失败 → 相机内顶部错误条提示「请重试」,不关闭相机、不结束 `open()`,用户可重拍、已拍不丢。故 `500` 仅余「配置非法」、`503` 当前无触发路径。
-
-成功时 `res.data` 的每一项是 `CustomPhotoFile`,含 `uri` / `path` / `width` / `height` / `mime`(`'image/jpeg'` 或 `'video/mp4'`)等字段。
-
-:::danger 别把 `0` 当成功
-`0` 是「取消」,此时 `data` 为空。判定务必用 `code === 200`。各 code 的处理范式见[常见问题](/docs/troubleshooting)。
-:::
-
----
-
-## 模型五:文件级水印(仅照片)
-
-传入 `watermark` 后,相机在每次快门后由原生文件处理器把多行文字**烧进成片**；Skia 只负责取景器实时预览:
-
-```ts
-watermark: {
-  content: ['Unif · 巡检', '上海浦东', '2024-01-01 10:00'], // 每项一行
-  position: 'top-right', // 六选一,默认 'top-right'
-}
-```
-
-关键约束:
-
-- **仅对照片(`image/jpeg`)生效** —— 水印烧图把结果编码为 JPEG;**录像(`video/mp4`)没有水印**。
-- **是可视标记,不是防篡改手段** —— 水印只是叠加在像素上的文字,不提供任何加密 / 防伪 / 签名保证。
-- **处理失败可重试** —— 文件读取 / 下采样解码 / 裁切 / 绘制 / 编码失败时，不返回原图、不结束会话；相机显示“照片处理失败，请重试”，保留此前文件。录像不经过照片 processor。
-
-> 水印用法详解见[指南 → 水印](/docs/guides/watermark)。
-
-## 模型六：临时文件与所有权
-
-拍摄结果是临时路径，不会自动写入系统相册。`code === 200` 前库会同步 transfer 返回路径的所有权给消费者，之后消费者应自行复制 / 上传以长期保留；transfer 不是持久化动作。仍由库拥有的临时文件会在删除、重拍、清空模式、取消、关闭、supersede、卸载或过期 callback 时 best-effort 回收，Promise 不会等待 unlink 完成。
-
----
-
-## 术语表
-
-| 术语 | 一句话定义 | 详情 |
-| --- | --- | --- |
-| `useCamera()` | 唯一公开 Hook,返回 `[api, holder]` | 模型二 |
-| holder | 相机模态的 React 宿主节点,必须渲染进树 | 模型二 |
-| `CameraApi` | `api` 对象,含 `open(config)` / `close()` | [API → useCamera](/docs/api/use-camera) |
-| `OpenConfig` | `api.open()` 入参:`cameraMode[]` + `dataRetainedMode`(+ 可选 `watermark`) | [API → 类型](/docs/api/types) |
-| `CameraMode` | 单个拍摄模式配置(`mode` + 可选 `quality`/`type`/`flashMode`/`recTime`) | [API → 类型](/docs/api/types) |
-| `dataRetainedMode` | 切模式时是否保留已拍文件:`'clear'` / `'retain'` | 模型三 |
-| `CameraResult` | `api.open()` 的 resolve 值:`code` + `data` + `message` | 模型四 |
-| `CustomPhotoFile` | 单个文件描述对象,含 `uri` / `path` / `width` / `height` / `mime` 等 | [API → 类型](/docs/api/types) |
-
----
-
-## 下一步
-
-- [指南 → 拍照](/docs/guides/taking-photos) —— 单拍 / 连拍配置详解
-- [API 参考 → useCamera](/docs/api/use-camera) —— 完整 hook API
-- [API 参考 → 类型](/docs/api/types) —— 所有类型定义
+成功结果仍指向临时文件。库交付结果后由应用负责保存或上传；尚未交付的文件由库在删除、重拍、切换、取消或卸载时清理。文件转交不表示已经持久化，也不表示业务提交成功。

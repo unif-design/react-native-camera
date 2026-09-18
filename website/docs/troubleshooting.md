@@ -1,7 +1,7 @@
 ---
 sidebar_position: 6
 title: 常见问题
-description: "@unif/react-native-camera 排障决策树：相机黑屏（权限 / 缺 holder）、Unable to resolve（缺 peerDeps / worklets）、水印不出现（仅 JPEG）、模拟器 / Web 不工作（须真机）、result code 处理。"
+description: '按使用场景排查接入、平台和结果处理问题。'
 ---
 
 # 常见问题
@@ -48,7 +48,7 @@ return (
 
 ## 症状:打包 / 运行报 `Unable to resolve module ...`
 
-缺同伴包。peerDeps **缺一即崩**,最常漏的是 `react-native-vision-camera-worklets`。
+缺同伴包。缺少必要的 peer 依赖会导致模块解析或运行失败,最常漏的是 `react-native-vision-camera-worklets`。
 
 ### `Unable to resolve module react-native-vision-camera-worklets`
 
@@ -80,8 +80,11 @@ vision-camera 5.x 内部对 `react-native-vision-camera-worklets` 做了懒 `req
 
 ```ts
 // ❌ Incorrect:期望 video 出水印
-await api.open({ cameraMode: [{ mode: 'video' }], dataRetainedMode: 'clear',
-  watermark: { content: ['现场'] } }); // 录像不会有水印
+await api.open({
+  cameraMode: [{ mode: 'video' }],
+  dataRetainedMode: 'clear',
+  watermark: { content: ['现场'] },
+}); // 录像不会有水印
 ```
 
 **水印仅对照片(`image/jpeg`)生效,录像(`video/mp4`)没有水印。** 这是设计行为。
@@ -116,12 +119,19 @@ cd ios && bundle exec pod install
 ```ts
 const res = await api.open(cfg);
 switch (res.code) {
-  case 200: use(res.data); break;        // 成功:取文件
-  case 0:   /* 用户取消,静默 */ break;
-  case 403: /* 无权限:引导去系统设置 */ break;
-  case 404: /* 无摄像设备:提示不支持 */ break;
-  case 500: /* 配置非法（必填项或可选字段未通过运行时校验）*/ break;
-  case 503: /* 保留码，当前不触发（录像失败走相机内重试）*/ break;
+  case 200:
+    use(res.data);
+    break; // 成功:取文件
+  case 0:
+    /* 用户取消,静默 */ break;
+  case 403:
+    /* 无权限:引导去系统设置 */ break;
+  case 404:
+    /* 无摄像设备:提示不支持 */ break;
+  case 500:
+    /* 配置非法（必填项或可选字段未通过运行时校验）*/ break;
+  case 503:
+    /* 保留码，当前不触发（录像失败走相机内重试）*/ break;
 }
 ```
 
@@ -143,4 +153,8 @@ if (res.code === 200) use(res.data);
 [!] The `...` pod ... has a license ... which doesn't provide any official binaries...
 ```
 
-✅ **无害,可忽略。** 这是 CocoaPods 对部分非标准 LICENSE 的提示,不影响编译和运行。
+先区分 LICENSE 提示与安装错误；结合 `pod install` 的退出状态、实际依赖和后续编译结果判断。此提示本身不代表设备行为已通过验证。
+
+## 拍照成功后，文件会自动永久保存吗？
+
+不会。`code === 200` 表示用户确认了临时媒体。应用需要保存或上传以长期保留；可预览的 URI 不等于已写入相册，也不表示业务请求成功。文件责任见[调用与资源](/docs/getting-started/concepts)。

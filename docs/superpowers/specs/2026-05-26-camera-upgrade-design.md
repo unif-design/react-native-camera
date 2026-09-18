@@ -14,7 +14,7 @@
 ### 1.1 现状
 
 - npm 上已发布 `@unif/react-native-camera@1.2.6`（2025-02），基于 RN 0.74.6 + react-native-vision-camera 4.7.3 + Yarn 3.6.1 + bob 0.20
-- 原 GitHub 仓库 `tongyizixun/unif-react-native-camera`（私有，本次未访问），本地副本在 `~/Downloads/react-native-camera-main/` 为 v1.2.5
+- 原 GitHub 仓库 `tongyizixun/unif-react-native-camera`（当时未访问），本地副本在 `~/Downloads/react-native-camera-main/` 为 v1.2.5
 - 当前仓库 `unif-design/react-native-camera` 是组织迁移后的新空仓，已用 `create-react-native-library@0.62.0` 的 `library` 模板初始化（RN 0.85.0 + Yarn 4.11 + bob 0.41）
 - 消费方 `retail-pecportal/NewCamera.tsx` 使用 `useCamera()` hook 打开相机，配置 `cameraMode` / `dataRetainedMode` / `watermark` / `photoResolution`
 

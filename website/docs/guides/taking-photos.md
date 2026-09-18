@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: 拍照
-description: "拍照场景完整指南：单拍、连拍、JPEG quality 质量控制、多模式 tab 切换与 dataRetainedMode 保留策略，附 holder / code 200 易错点。"
+description: '单拍、连拍、图片质量和拍摄结果处理。'
 ---
 
 # 拍照并保存
@@ -94,24 +94,21 @@ await api.open({
 
 ```tsx
 await api.open({
-  cameraMode: [
-    { mode: 'single', quality: 0.9 },
-    { mode: 'continuous' },
-  ],
+  cameraMode: [{ mode: 'single', quality: 0.9 }, { mode: 'continuous' }],
   dataRetainedMode: 'retain', // 切模式时保留已拍照片
 });
 ```
 
-| `dataRetainedMode` | 切换模式时的行为 |
-| --- | --- |
-| `'clear'` | 先弹二次确认，确认后**清空**已拍照片（推荐用于大多数场景） |
-| `'retain'` | **保留**已拍照片，合并进最终 `res.data` |
+| `dataRetainedMode` | 切换模式时的行为                                           |
+| ------------------ | ---------------------------------------------------------- |
+| `'clear'`          | 先弹二次确认，确认后**清空**已拍照片（推荐用于大多数场景） |
+| `'retain'`         | **保留**已拍照片，合并进最终 `res.data`                    |
 
 > 注意：在单拍模式下 `'clear'` 还有一层语义——每拍一张后直接进入确认预览（见 [基本用法](#single)）。
 
 ---
 
-## 易错点（Incorrect / Correct）{#pitfalls}
+## 注意事项{#pitfalls}
 
 ### 1. 不渲染 `holder` → 相机不弹
 
@@ -146,8 +143,11 @@ if (res.code === 0) use(res.data);
 // ✅ Correct：200 才是成功
 const res = await api.open(cfg);
 if (res.code === 200) use(res.data);
-else if (res.code === 0) { /* 用户取消，静默 */ }
-else { /* 403 / 404 / 500 兜底处理 */ }
+else if (res.code === 0) {
+  /* 用户取消，静默 */
+} else {
+  /* 403 / 404 / 500 兜底处理 */
+}
 ```
 
 ---

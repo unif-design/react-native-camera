@@ -1,21 +1,21 @@
 ---
 sidebar_position: 1
 title: 安装
-description: "安装 @unif/react-native-camera 及全部必装 peerDependencies（含 @dr.pogodin/react-native-fs fork 与 vision-camera-worklets），配置 iOS / Android 权限键，运行 pod install。"
+description: '安装依赖，配置原生权限、构建环境与宿主接线。'
 ---
 
 # 安装
 
-装齐 `@unif/react-native-camera` 的全部同伴包,配置原生权限,完成编译。**peerDeps 缺一即崩** —— 本页以 `package.json` 的 `peerDependencies` 为准逐项列出。
+装齐 `@unif/react-native-camera` 的全部同伴包,配置原生权限,完成编译。**peer 依赖需要完整配置** —— 本页以 `package.json` 的 `peerDependencies` 为准逐项列出。
 
 ## 环境要求
 
-| 要求 | 版本 |
-| --- | --- |
+| 要求         | 版本                                      |
+| ------------ | ----------------------------------------- |
 | React Native | **0.86+**(仅新架构 Fabric + TurboModules) |
-| React | 19+ |
-| iOS | 15.1+ |
-| Android | API 24+(Android 7.0) |
+| React        | 19+                                       |
+| iOS          | 15.1+                                     |
+| Android      | API 24+(Android 7.0)                      |
 
 :::note 为什么最低 iOS 是 15.1
 本库自身的原生照片处理 Pod 继承 React Native 的 `min_ios_version_supported`，只链接 ImageIO / Core Image / CoreText 等系统 framework。连同全部 peer 取最高下限后，整体最低仍为 **iOS 15.1**。
@@ -29,9 +29,10 @@ description: "安装 @unif/react-native-camera 及全部必装 peerDependencies�
 
 ## 1. 安装依赖 {#安装依赖}
 
-以下同伴包**全部必装,缺一即崩**(以 `package.json` 的 `peerDependencies` 为准):
+以下同伴包需要按清单安装(以 `package.json` 的 `peerDependencies` 为准):
 
 :::danger 完整 peer 清单
+
 ```sh
 yarn add @unif/react-native-camera \
   react-native-vision-camera react-native-vision-camera-worklets \
@@ -41,27 +42,28 @@ yarn add @unif/react-native-camera \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
   @sbaiahmed1/react-native-blur @unif/react-native-design
 ```
+
 :::
 
 各包的作用与版本约束:
 
-| 包 | 版本约束 | 作用 |
-| --- | --- | --- |
-| `react-native-vision-camera` | `^5.0.0` | 底层相机引擎 |
-| `react-native-vision-camera-worklets` | `^5.0.0` | vision-camera 5.x 内部懒 `require`,**必装**(见下) |
-| `react-native-nitro-modules` | `*` | vision-camera 5.x 的 Nitro 运行时 |
-| `react-native-nitro-image` | `*` | Nitro 图像桥 |
-| `@shopify/react-native-skia` | `>=2` | 取景器水印实时预览 |
-| `@dr.pogodin/react-native-fs` | `>=2` | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
-| `react-native-video` | `>=7.0.0-beta.0` | 录像预览播放 |
-| `react-native-reanimated` | `>=4.5.0 <4.7.0` | 取景器 / 预览动画;当前验证 4.6.x |
-| `react-native-worklets` | `>=0.11.0 <0.13.0` | reanimated 4 / vision-camera 的 worklet 运行时;当前验证 0.12.x |
-| `react-native-reanimated-carousel` | `>=5.0.0 <6.0.0` | 预览页轮播 |
-| `react-native-gesture-handler` | `>=3.0.0 <4.0.0` | pinch 变焦 / 对焦手势 |
-| `react-native-safe-area-context` | `>=5.0.0` | 安全区适配 |
-| `react-native-svg` | `>=15` | 矢量绘制(design `Icon` 等) |
-| `@sbaiahmed1/react-native-blur` | `>=4` | 界面毛玻璃 |
-| `@unif/react-native-design` | `>=0.26.0` | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()` |
+| 包                                    | 版本约束           | 作用                                                           |
+| ------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `react-native-vision-camera`          | `^5.0.0`           | 底层相机引擎                                                   |
+| `react-native-vision-camera-worklets` | `^5.0.0`           | vision-camera 5.x 内部懒 `require`,**必装**(见下)              |
+| `react-native-nitro-modules`          | `*`                | vision-camera 5.x 的 Nitro 运行时                              |
+| `react-native-nitro-image`            | `*`                | Nitro 图像桥                                                   |
+| `@shopify/react-native-skia`          | `>=2`              | 取景器水印实时预览                                             |
+| `@dr.pogodin/react-native-fs`         | `>=2`              | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
+| `react-native-video`                  | `>=7.0.0-beta.0`   | 录像预览播放                                                   |
+| `react-native-reanimated`             | `>=4.5.0 <4.7.0`   | 取景器 / 预览动画;当前验证 4.6.x                               |
+| `react-native-worklets`               | `>=0.11.0 <0.13.0` | reanimated 4 / vision-camera 的 worklet 运行时;当前验证 0.12.x |
+| `react-native-reanimated-carousel`    | `>=5.0.0 <6.0.0`   | 预览页轮播                                                     |
+| `react-native-gesture-handler`        | `>=3.0.0 <4.0.0`   | pinch 变焦 / 对焦手势                                          |
+| `react-native-safe-area-context`      | `>=5.0.0`          | 安全区适配                                                     |
+| `react-native-svg`                    | `>=15`             | 矢量绘制(design `Icon` 等)                                     |
+| `@sbaiahmed1/react-native-blur`       | `>=4`              | 界面毛玻璃                                                     |
+| `@unif/react-native-design`           | `>=0.26.0`         | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()`      |
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,
@@ -144,9 +146,9 @@ module.exports = {
 
 在 `ios/<AppName>/Info.plist` 中声明实际使用的权限。`NSCameraUsageDescription` 是使用本库的必需项;只有配置并使用 `video` 模式时才需要 `NSMicrophoneUsageDescription`:
 
-| Key | 说明 |
-| --- | --- |
-| `NSCameraUsageDescription` | **必需**。使用摄像头拍照 / 录像时展示给用户的说明文字 |
+| Key                            | 说明                                                  |
+| ------------------------------ | ----------------------------------------------------- |
+| `NSCameraUsageDescription`     | **必需**。使用摄像头拍照 / 录像时展示给用户的说明文字 |
 | `NSMicrophoneUsageDescription` | **仅 video 模式需要**。录制视频时展示给用户的说明文字 |
 
 ```xml title="ios/<AppName>/Info.plist"
@@ -163,9 +165,9 @@ module.exports = {
 
 在 `android/app/src/main/AndroidManifest.xml` 的 `<manifest>` 节点下添加:
 
-| 权限 | 说明 |
-| --- | --- |
-| `android.permission.CAMERA` | **必需**。拍照 / 录像所需的摄像头权限 |
+| 权限                              | 说明                                          |
+| --------------------------------- | --------------------------------------------- |
+| `android.permission.CAMERA`       | **必需**。拍照 / 录像所需的摄像头权限         |
 | `android.permission.RECORD_AUDIO` | **仅 video 模式需要**。录制视频时的麦克风权限 |
 
 ```xml title="android/app/src/main/AndroidManifest.xml"
@@ -211,12 +213,12 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 相机是全屏 RN `<Modal>`。design 的 `ConfirmHost` / `ToastHost` 挂在消费者 App 根节点,而 App 根的弹窗 / Toast **无法叠加到已经 present 的相机 Modal 之上**(会被相机盖住)。所以相机内部改用挂在相机 Modal 子树里的高 `zIndex` 浮层渲染确认弹窗 / Toast,确保正常显示。
 
 > 这是本库自身的设计;若你在**相机之外**使用 design 的命令式 `confirm` / `toast`,仍需按 design 文档在 App 根挂 `ConfirmHost` / `ToastHost`。
-:::
+> :::
 
 ---
 
 ## 下一步
 
-- [快速上手](/docs/getting-started/quick-start) —— 5 分钟跑通第一次拍照
+- [快速上手](/docs/getting-started/quick-start) —— 完成第一次拍照
 - [核心概念](/docs/getting-started/concepts) —— 理解模态相机的心智模型
 - [API 参考 → useCamera](/docs/api/use-camera) —— 完整 API 文档

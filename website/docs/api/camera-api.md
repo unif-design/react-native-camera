@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: CameraApi
-description: "CameraApi 相机控制对象：open(config) 弹出全屏相机并 resolve Promise<CameraResult>，close() 强制关闭；含 OpenConfig 配置说明。"
+description: '相机打开、关闭、配置与结果交接。'
 ---
 
 # CameraApi
@@ -43,18 +43,15 @@ open(config: OpenConfig): Promise<CameraResult>
 
 **参数：**
 
-| 参数 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| `config` | [`OpenConfig`](#openconfig) | ✅ | 相机配置——拍摄模式、数据保留策略、水印 |
+| 参数     | 类型                        | 必填 | 说明                                   |
+| -------- | --------------------------- | ---- | -------------------------------------- |
+| `config` | [`OpenConfig`](#openconfig) | ✅   | 相机配置——拍摄模式、数据保留策略、水印 |
 
 **示例：**
 
 ```tsx
 const res = await api.open({
-  cameraMode: [
-    { mode: 'single', quality: 0.9 },
-    { mode: 'continuous' },
-  ],
+  cameraMode: [{ mode: 'single', quality: 0.9 }, { mode: 'continuous' }],
   dataRetainedMode: 'clear',
 });
 if (res.code === 200) {
@@ -103,14 +100,14 @@ useEffect(() => {
 
 `open()` 的配置对象。完整字段类型表见 [类型 → OpenConfig](/docs/api/types#openconfig)，这里说明各字段的**运行时行为**：
 
-| 字段 | 类型 | 必填 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `cameraMode` | [`CameraMode[]`](/docs/api/types#cameramode) | ✅ | — | 拍摄模式数组，至少一项 |
-| `dataRetainedMode` | `'clear' \| 'retain'` | ✅ | — | 切换模式时是否保留已拍文件 |
-| `watermark` | [`WatermarkType`](/docs/api/types#watermarktype) | — | 不加水印 | 文字水印配置 |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'` | — | 走 SDK 默认 | 照片质量优先级（全局） |
-| `photoHDR` | `boolean` | — | 由相机 negotiate | 是否启用照片 HDR |
-| `videoBitRate` | `number` | — | 编码器自适应 | 录像目标码率（bps） |
+| 字段                         | 类型                                             | 必填 | 默认值           | 说明                       |
+| ---------------------------- | ------------------------------------------------ | ---- | ---------------- | -------------------------- |
+| `cameraMode`                 | [`CameraMode[]`](/docs/api/types#cameramode)     | ✅   | —                | 拍摄模式数组，至少一项     |
+| `dataRetainedMode`           | `'clear' \| 'retain'`                            | ✅   | —                | 切换模式时是否保留已拍文件 |
+| `watermark`                  | [`WatermarkType`](/docs/api/types#watermarktype) | —    | 不加水印         | 文字水印配置               |
+| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'`             | —    | 走 SDK 默认      | 照片质量优先级（全局）     |
+| `photoHDR`                   | `boolean`                                        | —    | 由相机 negotiate | 是否启用照片 HDR           |
+| `videoBitRate`               | `number`                                         | —    | 编码器自适应     | 录像目标码率（bps）        |
 
 ### `cameraMode` {#cameramode-behavior}
 
@@ -122,10 +119,10 @@ useEffect(() => {
 
 控制用户**切换拍摄模式**时已拍文件的去留，并影响单拍的自动预览时机：
 
-| 值 | 行为 |
-| --- | --- |
-| `'clear'` | 切模式时先 `confirm()` 二次确认，确认后清空已拍照片；且「**单拍 + clear**」每拍一张后直接进入确认预览页 |
-| `'retain'` | 切模式时不清空，已拍文件累积合并进最终结果 |
+| 值         | 行为                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `'clear'`  | 切模式时先 `confirm()` 二次确认，确认后清空已拍照片；且「**单拍 + clear**」每拍一张后直接进入确认预览页 |
+| `'retain'` | 切模式时不清空，已拍文件累积合并进最终结果                                                              |
 
 ### `watermark` {#watermark-behavior}
 
@@ -137,11 +134,11 @@ useEffect(() => {
 
 三个**可选**字段，用于按需覆盖底层 vision-camera 的拍摄质量取舍。**核心约定：缺省（不传）时库不写入任何偏好，完全走 SDK 默认协商**——只有显式传值才生效。
 
-| 字段 | 缺省（不传） | 传值时 |
-| --- | --- | --- |
-| `photoQualityPrioritization` | 不写入该选项，由 SDK 自行决定 | `'balanced'` / `'quality'` 任何设备直传；`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
-| `photoHDR` | 不下发 `photoHDR` 约束 → 由相机 negotiate 自行决定 | 传 `true` / `false` 作为约束下发（显式开 / 显式关） |
-| `videoBitRate` | 不写入 → 编码器按分辨率自适应 | 作为 `targetBitRate`（bps）下发；编码器会参考但可能因系统压力 / 画面运动 / 文件大小约束略有出入 |
+| 字段                         | 缺省（不传）                                       | 传值时                                                                                                                 |
+| ---------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `photoQualityPrioritization` | 不写入该选项，由 SDK 自行决定                      | `'balanced'` / `'quality'` 任何设备直传；`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
+| `photoHDR`                   | 不下发 `photoHDR` 约束 → 由相机 negotiate 自行决定 | 传 `true` / `false` 作为约束下发（显式开 / 显式关）                                                                    |
+| `videoBitRate`               | 不写入 → 编码器按分辨率自适应                      | 作为 `targetBitRate`（bps）下发；编码器会参考但可能因系统压力 / 画面运动 / 文件大小约束略有出入                        |
 
 :::note 与分辨率无关
 照片按最终画幅请求 FHD（4:3 为 1440×1920，16:9 为 1080×1920），录像随画幅请求 UHD；这些内部目标**不可配置**，也不随这三个字段变化。这三字段只调质量取舍 / HDR / 码率。
@@ -151,11 +148,11 @@ useEffect(() => {
 
 ## 平台兼容性 {#platforms}
 
-| 平台 | 支持 |
-| --- | --- |
-| iOS | ✅ |
-| Android | ✅ |
-| Web | ❌ |
+| 平台    | 支持 |
+| ------- | ---- |
+| iOS     | ✅   |
+| Android | ✅   |
+| Web     | ❌   |
 
 ---
 
