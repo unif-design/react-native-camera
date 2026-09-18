@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
@@ -351,7 +352,8 @@ it('iOS Podfile 将 RN CLI autolinking 锚定到 example 根目录', () => {
   const podfile = readExample('ios/Podfile');
 
   expect(podfile).toContain('config = use_native_modules!([');
-  expect(podfile).toContain('process.chdir(#{File.dirname(__FILE__).to_json})');
+  expect(podfile).toContain('process.chdir(process.argv[1])');
+  expect(podfile).toContain('File.dirname(__FILE__),');
   expect(podfile).toContain(
     "require.resolve('@react-native-community/cli', { paths: [process.cwd()] })"
   );
@@ -449,4 +451,13 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
       key.includes('eslint-plugin-ft-flow')
     )
   ).toEqual([]);
+});
+
+it('Podfile config passes a quoted directory as a separate Node argument', () => {
+  const result = spawnSync(
+    process.execPath,
+    ['--test', join(root, 'scripts/__tests__/ios-config-command.test.mjs')],
+    { encoding: 'utf8' }
+  );
+  if (result.status !== 0) throw new Error(result.stdout + result.stderr);
 });

@@ -20,6 +20,13 @@ iOS 首次运行或原生依赖变化后，使用示例自己的 Bundler 环境�
 
 构建及完整测试由 CI 执行。开展真机测试时，从根目录使用 `yarn example android` 或 `yarn example ios`；真实拍摄需要带摄像头的设备。
 
+连接多个 Android 设备时，先查询设备编号，再指定目标：
+
+```sh
+adb devices
+yarn example android --deviceId "ANDROID_DEVICE_SERIAL"
+```
+
 ## 示例内容
 
 | 场景       | 可以验证什么                                    |
