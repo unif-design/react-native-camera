@@ -225,23 +225,36 @@ it('example App 以固定 Provider 顺序装配唯一 camera hook 与 holder', (
   expect(source).not.toMatch(/\bConfirmHost\b|\bToastHost\b/);
 });
 
-it('CI 显式执行 example suites 与 contract，并保留完整 coverage gate', () => {
+it('CI 的单次完整 coverage 包含所有 example suites 与 contract', () => {
   const workflow = readRoot('.github/workflows/ci.yml');
-  const exampleSuites = 'yarn test src/__tests__/example --runInBand';
-  const exampleContract =
-    'yarn test src/__tests__/exampleConfig.test.ts --runInBand';
-  const fullCoverage = 'yarn test --maxWorkers=2 --coverage';
-
-  expect(workflow).toContain(exampleSuites);
-  expect(workflow).toContain(exampleContract);
-  expect(workflow).toContain(fullCoverage);
-  expect(workflow.indexOf(exampleSuites)).toBeLessThan(
-    workflow.indexOf(exampleContract)
+  expect(
+    workflow.match(/run: yarn test --maxWorkers=2 --coverage/g)
+  ).toHaveLength(1);
+  expect(workflow).not.toContain('yarn test src/__tests__/example');
+  const result = spawnSync(
+    process.execPath,
+    [
+      join(root, 'node_modules/jest/bin/jest.js'),
+      '--listTests',
+      '--json',
+      '--runInBand',
+      '--watchman=false',
+    ],
+    { cwd: root, encoding: 'utf8', timeout: 10000 }
   );
-  expect(workflow.indexOf(exampleContract)).toBeLessThan(
-    workflow.indexOf(fullCoverage)
-  );
-});
+  expect(result.status).toBe(0);
+  const discovered = JSON.parse(result.stdout) as string[];
+  const exampleTests = readSourceFiles(join(root, 'src/__tests__/example'))
+    .map(({ fileName }) => fileName)
+    .filter((fileName) => /\.test\.[tj]sx?$/.test(fileName));
+  expect(exampleTests.length).toBeGreaterThan(0);
+  for (const fileName of [
+    ...exampleTests,
+    join(root, 'src/__tests__/exampleConfig.test.ts'),
+  ]) {
+    expect(discovered).toContain(fileName);
+  }
+}, 15000);
 
 it('example README 将 adb serial 传给 CLI 的 deviceId 参数', () => {
   const readme = readExample('README.md');
