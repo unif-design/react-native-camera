@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Modal, StatusBar, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@unif/react-native-design';
@@ -22,6 +22,7 @@ export function ModalView({ visible, onClose, children }: Props) {
       supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
       testID="camera-modal"
     >
+      <StatusBar barStyle="light-content" />
       {/* Modal 展示在独立 native root/window，消费者 App 根的原生手势 root 无法覆盖
           这里的子树；因此相机内部自带 flex:1 root，确保 pinch / tap 始终可识别。 */}
       <GestureHandlerRootView
