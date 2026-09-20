@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.4](https://github.com/unif-design/react-native-camera/compare/v4.1.3...v4.1.4) (2026-09-20)
+
+
+### Bug Fixes
+
+* **camera:** keep status bar readable in full-screen capture ([#127](https://github.com/unif-design/react-native-camera/issues/127)) ([799ed90](https://github.com/unif-design/react-native-camera/commit/799ed90b570aa27704fafccbe480c0e4ee61a666))
+
 ## [4.1.3](https://github.com/unif-design/react-native-camera/compare/v4.1.2...v4.1.3) (2026-09-18)
 
 ## [4.1.2](https://github.com/unif-design/react-native-camera/compare/v4.1.1...v4.1.2) (2026-09-18)
