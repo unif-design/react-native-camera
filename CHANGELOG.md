@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.5](https://github.com/unif-design/react-native-camera/compare/v4.1.4...v4.1.5) (2026-09-23)
+
+
+### Bug Fixes
+
+* **camera:** preserve the presenting screen after capture ([#128](https://github.com/unif-design/react-native-camera/issues/128)) ([c8482b3](https://github.com/unif-design/react-native-camera/commit/c8482b340045c943b5c3258adab53e39b2055a1b))
+
 ## [4.1.4](https://github.com/unif-design/react-native-camera/compare/v4.1.3...v4.1.4) (2026-09-20)
 
 
