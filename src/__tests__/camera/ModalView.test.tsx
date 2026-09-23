@@ -63,6 +63,10 @@ it('Modal 自带 flex:1 GestureHandlerRootView，手势不依赖消费者根节�
     </ModalView>
   );
 
+  expect(getByTestId('camera-gesture-root')).toHaveProp(
+    'accessibilityViewIsModal',
+    true
+  );
   expect(
     StyleSheet.flatten(getByTestId('camera-gesture-root').props.style)
   ).toEqual(expect.objectContaining({ flex: 1 }));

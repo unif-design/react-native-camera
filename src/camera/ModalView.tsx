@@ -28,6 +28,7 @@ export function ModalView({ visible, onClose, children }: Props) {
           这里的子树；因此相机内部自带 flex:1 root，确保 pinch / tap 始终可识别。 */}
       <GestureHandlerRootView
         testID="camera-gesture-root"
+        accessibilityViewIsModal
         style={styles.gestureRoot}
       >
         <SafeAreaProvider>
