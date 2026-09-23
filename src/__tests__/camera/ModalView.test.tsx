@@ -37,7 +37,11 @@ it('visible 时渲染 Modal 宿主与 children(自带 dark/safe-area/dialog prov
       <Text testID="modal-child">hi</Text>
     </ModalView>
   );
-  expect(getByTestId('camera-modal')).toBeTruthy();
+  // H5 等原生模态内打开相机后，关闭时必须保留原呈现窗口。
+  expect(getByTestId('camera-modal')).toHaveProp(
+    'presentationStyle',
+    'overFullScreen'
+  );
   expect(getByTestId('modal-child')).toBeTruthy();
   expect(getByText('hi')).toBeTruthy();
 });

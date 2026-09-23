@@ -17,6 +17,7 @@ export function ModalView({ visible, onClose, children }: Props) {
     <Modal
       visible={visible}
       animationType="slide"
+      presentationStyle="overFullScreen"
       statusBarTranslucent
       onRequestClose={onClose}
       supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
