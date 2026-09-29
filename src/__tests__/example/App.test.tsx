@@ -6,7 +6,10 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
-import type { CameraApi, CameraResult } from '@unif/react-native-camera';
+import type {
+  CameraController,
+  CameraOutcome,
+} from '@unif/react-native-camera';
 import { useCamera } from '@unif/react-native-camera';
 
 import App from '../../../example/src/App';
@@ -33,48 +36,43 @@ jest.mock('@unif/react-native-camera', () => {
   };
 });
 
-const photoResult: CameraResult = {
-  code: 200,
-  data: [
+const photoResult: CameraOutcome = {
+  status: 'success',
+  media: [
     {
       id: 'photo-1',
-      cameraType: 'back',
-      cameraMode: 'single',
-      path: '/tmp/photo-1.jpg',
+      facing: 'back',
+
       uri: 'file:///tmp/photo-1.jpg',
       width: 4032,
       height: 3024,
-      mime: 'image/jpeg',
+      mimeType: 'image/jpeg',
       mode: 'single',
-      isRemake: false,
     },
   ],
-  message: 'success',
 };
 
-const videoResult: CameraResult = {
-  code: 200,
-  data: [
+const videoResult: CameraOutcome = {
+  status: 'success',
+  media: [
     {
       id: 'video-1',
-      cameraType: 'front',
-      cameraMode: 'video',
-      path: '/tmp/video-1.mp4',
+      facing: 'front',
+
       uri: 'file:///tmp/video-1.mp4',
       width: 3840,
       height: 2160,
-      mime: 'video/mp4',
+      mimeType: 'video/mp4',
       mode: 'video',
-      isRemake: false,
-      duration: 12.5,
+
+      durationMs: 12500,
     },
   ],
-  message: 'success',
 };
 
-function currentApi(): CameraApi {
+function currentApi(): CameraController {
   const firstResult = jest.mocked(useCamera).mock.results[0]?.value as
-    | [CameraApi, unknown]
+    | [CameraController, unknown]
     | undefined;
   if (!firstResult) {
     throw new Error('App 尚未调用 useCamera');
@@ -152,7 +150,7 @@ it('四个场景往返时始终只调用一次公开 useCamera，并只渲染一
   const scenarios = [
     {
       entryName: /基础拍摄/,
-      marker: '一次只传入一个 cameraMode，便于复制最小公开配置。',
+      marker: '一次只传入一个 modes 项，便于复制最小公开配置。',
     },
     {
       entryName: /多模式/,
@@ -290,13 +288,16 @@ it('成功照片历史展示完整 metadata、可选路径与临时目录警告�
   expect(screen.getByText('image/jpeg')).toBeOnTheScreen();
   expect(screen.getByText('single · back')).toBeOnTheScreen();
   expect(screen.getByText('4032 × 3024')).toBeOnTheScreen();
-  expect(screen.getByText('/tmp/photo-1.jpg')).toHaveProp('selectable', true);
+  expect(screen.queryByText('/tmp/photo-1.jpg')).not.toBeOnTheScreen();
   expect(screen.getByText('file:///tmp/photo-1.jpg')).toHaveProp(
     'selectable',
     true
   );
   expect(screen.getByText(/返回媒体仍位于临时目录/)).toBeOnTheScreen();
-  expect(screen.getByText(/"code": 200/)).toHaveProp('selectable', true);
+  expect(screen.getByText(/"status": "success"/)).toHaveProp(
+    'selectable',
+    true
+  );
 
   fireEvent.press(screen.getByRole('button', { name: '清空历史' }));
   expect(screen.getByText('暂无本进程拍摄结果。')).toBeOnTheScreen();
@@ -330,11 +331,11 @@ it('历史仅默认展开最新记录，旧记录按需展开和收起媒体与 
     .mockResolvedValueOnce(photoResult)
     .mockResolvedValueOnce({
       ...photoResult,
-      data: [
+      media: [
         {
-          ...photoResult.data[0]!,
+          ...photoResult.media[0]!,
           id: 'photo-2',
-          path: '/tmp/photo-2.jpg',
+
           uri: 'file:///tmp/photo-2.jpg',
         },
       ],
@@ -356,11 +357,11 @@ it('历史仅默认展开最新记录，旧记录按需展开和收起媒体与 
 
   fireEvent.press(screen.getByRole('button', { name: '展开详情' }));
   expect(screen.getByText('photo-1')).toBeOnTheScreen();
-  expect(screen.getAllByText(/"code": 200/)).toHaveLength(2);
+  expect(screen.getAllByText(/"status": "success"/)).toHaveLength(2);
 
   fireEvent.press(screen.getByRole('button', { name: '收起详情' }));
   expect(screen.queryByText('photo-1')).not.toBeOnTheScreen();
-  expect(screen.getAllByText(/"code": 200/)).toHaveLength(1);
+  expect(screen.getAllByText(/"status": "success"/)).toHaveLength(1);
 });
 
 it('成功视频只展示 Design Icon 与 metadata，不渲染 Image 或播放器', async () => {
@@ -388,7 +389,7 @@ it('成功视频只展示 Design Icon 与 metadata，不渲染 Image 或播放�
   ).not.toBeOnTheScreen();
   expect(screen.getByText('video/mp4')).toBeOnTheScreen();
   expect(screen.getByText('video · front')).toBeOnTheScreen();
-  expect(screen.getByText('时长 12.5 秒')).toBeOnTheScreen();
+  expect(screen.getByText('时长 12500 毫秒')).toBeOnTheScreen();
   expect(screen.getByText('示例不内置视频播放器')).toBeOnTheScreen();
 });
 
@@ -416,16 +417,15 @@ it.each(['基础拍摄', '多模式', '水印存证', '质量实验室'])(
       ).toBeOnTheScreen();
     });
     expect(screen.getByText('native bridge unavailable')).toBeOnTheScreen();
-    expect(screen.queryByText(/结果码 500/)).not.toBeOnTheScreen();
+    expect(screen.queryByText(/结果 failed/)).not.toBeOnTheScreen();
   }
 );
 
-it('code 403 展示 message、diagnostic、状态 Icon 与系统设置恢复指引', async () => {
+it('permission_denied 展示 message、diagnostic、状态 Icon 与系统设置恢复指引', async () => {
   render(<App />);
   jest.mocked(currentApi().open).mockResolvedValueOnce({
-    code: 403,
-    data: [],
-    message: 'permission_denied',
+    status: 'failed',
+    error: { reason: 'permission_denied', message: 'permission_denied' },
   });
 
   fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
@@ -441,22 +441,21 @@ it('code 403 展示 message、diagnostic、状态 Icon 与系统设置恢复指�
   ).toBeOnTheScreen();
   // 状态 Icon 同样是装饰件、a11y 子树隐藏(语义由同排 Tag 文案承担)。
   expect(
-    screen.getByTestId('result-status-icon-403', {
+    screen.getByTestId('result-status-icon-failed', {
       includeHiddenElements: true,
     })
   ).toBeOnTheScreen();
 });
 
-it('code 0 使用中性取消语义，503 保留码措辞可诊断', async () => {
+it('cancelled 使用中性语义，unavailable 显示可用性错误', async () => {
   render(<App />);
   const api = currentApi();
   jest
     .mocked(api.open)
-    .mockResolvedValueOnce({ code: 0, data: [], message: 'cancelled' })
+    .mockResolvedValueOnce({ status: 'cancelled' })
     .mockResolvedValueOnce({
-      code: 503,
-      data: [],
-      message: 'reserved_video_failure',
+      status: 'failed',
+      error: { reason: 'unavailable', message: 'camera_unavailable' },
     });
 
   fireEvent.press(screen.getByRole('button', { name: /基础拍摄/ }));
@@ -464,14 +463,10 @@ it('code 0 使用中性取消语义，503 保留码措辞可诊断', async () =>
   await waitFor(() => {
     expect(screen.getByText('已取消')).toBeOnTheScreen();
   });
-  expect(
-    screen.queryByText('录像失败（保留码，当前实现不主动触发）')
-  ).not.toBeOnTheScreen();
+  expect(screen.queryByText('相机暂不可用')).not.toBeOnTheScreen();
 
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
   await waitFor(() => {
-    expect(
-      screen.getByText('录像失败（保留码，当前实现不主动触发）')
-    ).toBeOnTheScreen();
+    expect(screen.getByText('相机暂不可用')).toBeOnTheScreen();
   });
 });

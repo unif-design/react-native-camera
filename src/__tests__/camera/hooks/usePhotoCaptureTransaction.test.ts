@@ -15,7 +15,11 @@ import {
   createFileRegistry,
   type FileRegistry,
 } from '../../../camera/session/fileRegistry';
-import type { CameraResult, CustomPhotoFile, OpenConfig } from '../../../utils';
+import type {
+  CameraSessionOutcome,
+  CapturedFile,
+  CameraInput,
+} from '../../../utils';
 import { makePhotoFile } from '../../__helpers__/factories';
 
 jest.mock('../../../camera/image/processPhoto', () => {
@@ -46,17 +50,17 @@ async function flushMicrotasks(rounds = 6): Promise<void> {
   }
 }
 
-function defaultConfig(): OpenConfig {
+function defaultConfig(): CameraInput {
   return {
-    cameraMode: [{ mode: 'continuous', quality: 0.9 }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'continuous', quality: 0.9 }],
+    retention: 'retain',
   };
 }
 
 type SetupOptions = {
-  config?: OpenConfig;
-  capture?: jest.Mock<Promise<CustomPhotoFile | null>, []>;
-  files?: CustomPhotoFile[];
+  config?: CameraInput;
+  capture?: jest.Mock<Promise<CapturedFile | null>, []>;
+  files?: CapturedFile[];
   aspectRatio?: '4:3' | '16:9';
   activePosition?: 'back' | 'front';
   registry?: FileRegistry;
@@ -69,7 +73,7 @@ function setup(options: SetupOptions = {}) {
   const config = options.config ?? defaultConfig();
   const capture =
     options.capture ??
-    jest.fn<Promise<CustomPhotoFile | null>, []>().mockResolvedValue(null);
+    jest.fn<Promise<CapturedFile | null>, []>().mockResolvedValue(null);
   const unlink =
     options.unlink ??
     jest.fn<Promise<void>, [string]>().mockResolvedValue(undefined);
@@ -77,7 +81,7 @@ function setup(options: SetupOptions = {}) {
   const initialFiles = options.files ?? [];
   initialFiles.forEach((file) => fileRegistry.register(file.path));
   const onError = jest.fn<void, [string]>();
-  const onSettle = jest.fn<void, [CameraResult]>();
+  const onSettle = jest.fn<void, [CameraSessionOutcome]>();
   const registerController = jest.fn(
     (_sessionId: number, _bridge: SessionControllerBridge) => jest.fn()
   );
@@ -151,7 +155,7 @@ function setup(options: SetupOptions = {}) {
 }
 
 function processedResult(
-  final: CustomPhotoFile
+  final: CapturedFile
 ): jest.MockedFunction<typeof processPhoto> {
   return processPhotoMock.mockImplementation(
     async (_raw, _operation, registry) => {
@@ -171,7 +175,7 @@ afterEach(() => {
 });
 
 it('同一 call stack 四次快门只启动一个 capture transaction', async () => {
-  const pending = deferred<CustomPhotoFile | null>();
+  const pending = deferred<CapturedFile | null>();
   const raw = makePhotoFile({
     id: 'raw',
     path: '/raw.jpg',
@@ -211,13 +215,13 @@ it.each([
   {
     name: 'null',
     capture: jest
-      .fn<Promise<CustomPhotoFile | null>, []>()
+      .fn<Promise<CapturedFile | null>, []>()
       .mockResolvedValue(null),
   },
   {
     name: 'reject',
     capture: jest
-      .fn<Promise<CustomPhotoFile | null>, []>()
+      .fn<Promise<CapturedFile | null>, []>()
       .mockRejectedValue(new Error('native capture failed')),
   },
 ])('capture $name 仅恢复 ready 并提示一次中文错误', async ({ capture }) => {
@@ -237,7 +241,7 @@ it.each([
 });
 
 it('capture 晚到时先登记 raw 再按 stale token 删除，不触发视觉或错误', async () => {
-  const pending = deferred<CustomPhotoFile | null>();
+  const pending = deferred<CapturedFile | null>();
   const raw = makePhotoFile({ id: 'late-raw', path: '/late-raw.jpg' });
   const harness = setup({ capture: jest.fn(() => pending.promise) });
   let shutter!: Promise<void>;
@@ -261,7 +265,7 @@ it('capture 晚到时先登记 raw 再按 stale token 删除，不触发视觉�
 });
 
 it('unmount 后 capture 晚到只回收 raw，不做 React late update', async () => {
-  const pending = deferred<CustomPhotoFile | null>();
+  const pending = deferred<CapturedFile | null>();
   const raw = makePhotoFile({ id: 'unmounted-raw', path: '/unmounted.jpg' });
   const harness = setup({ capture: jest.fn(() => pending.promise) });
   let shutter!: Promise<void>;
@@ -281,7 +285,7 @@ it('unmount 后 capture 晚到只回收 raw，不做 React late update', async (
 });
 
 it('processor 晚到时登记 final 后回收 raw/final，不提交文件或晚到视觉更新', async () => {
-  const pending = deferred<CustomPhotoFile>();
+  const pending = deferred<CapturedFile>();
   const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
   const final = makePhotoFile({ id: 'final', path: '/final.jpg' });
   processPhotoMock.mockImplementation((_raw, _operation, registry) =>
@@ -327,9 +331,9 @@ it('watermark freeze timer 晚到后重复 gate，stale 时只清理产物', asy
   processedResult(final);
   const harness = setup({
     config: {
-      cameraMode: [{ mode: 'continuous' }],
-      dataRetainedMode: 'retain',
-      watermark: { content: ['可见水印'], position: 'top-right' },
+      modes: [{ mode: 'continuous' }],
+      retention: 'retain',
+      watermark: { lines: ['可见水印'], position: 'top-right' },
     },
     capture: jest.fn().mockResolvedValue(raw),
   });
@@ -360,19 +364,20 @@ it('watermark freeze timer 晚到后重复 gate，stale 时只清理产物', asy
 
 it('首个 await 前深快照 mode/aspect/watermark/actual position 并以 operationId 作 captureId', async () => {
   jest.useFakeTimers();
-  const pending = deferred<CustomPhotoFile | null>();
+  const pending = deferred<CapturedFile | null>();
   const raw = makePhotoFile({
     id: 'raw',
     path: '/raw.jpg',
-    cameraType: 'back',
-    cameraMode: 'single',
+    facing: 'back',
+
     mode: 'single',
   });
   const final = makePhotoFile({ id: 'final', path: '/final.jpg' });
-  const config: OpenConfig = {
-    cameraMode: [{ mode: 'continuous', quality: 0.77 }],
-    dataRetainedMode: 'retain',
-    watermark: { content: ['原始水印'], position: 'bottom-right' },
+  const sourceLines = ['原始水印'];
+  const config: CameraInput = {
+    modes: [{ mode: 'continuous', quality: 0.77 }],
+    retention: 'retain',
+    watermark: { lines: sourceLines, position: 'bottom-right' },
   };
   processedResult(final);
   const harness = setup({
@@ -386,9 +391,8 @@ it('首个 await 前深快照 mode/aspect/watermark/actual position 并以 opera
   act(() => {
     shutter = harness.result.current.capturePhoto();
   });
-  config.cameraMode[0]!.mode = 'video';
-  config.cameraMode[0]!.quality = 0.1;
-  config.watermark!.content[0] = '变化后水印';
+  Object.assign(config.modes[0]!, { mode: 'video', quality: 0.1 });
+  sourceLines[0] = '变化后水印';
   config.watermark!.position = 'top-left';
   harness.result.current.controller.state.aspectRatio = '4:3';
   harness.result.current.controller.state.activePosition = 'back';
@@ -400,8 +404,8 @@ it('首个 await 前深快照 mode/aspect/watermark/actual position 并以 opera
 
   expect(processPhotoMock).toHaveBeenCalledWith(
     expect.objectContaining({
-      cameraType: 'front',
-      cameraMode: 'continuous',
+      facing: 'front',
+
       mode: 'continuous',
     }),
     {
@@ -410,7 +414,7 @@ it('首个 await 前深快照 mode/aspect/watermark/actual position 并以 opera
       aspectRatio: '16:9',
       mode: { quality: 0.77 },
       watermark: {
-        content: ['原始水印'],
+        lines: ['原始水印'],
         position: 'bottom-right',
       },
       cameraPosition: 'front',
@@ -455,7 +459,7 @@ it('处理失败保留旧文件、回收 raw，并只提示一次照片处理错
 
 it('mock processor reject 先提交撤 freeze render，再 fallback 清理 raw', async () => {
   const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
-  const processing = deferred<CustomPhotoFile>();
+  const processing = deferred<CapturedFile>();
   const base = createFileRegistry(jest.fn(async () => {}));
   const freezeAtDelete: Array<string | null> = [];
   let committedFreeze: string | null = null;
@@ -531,7 +535,7 @@ it('processor delegate 的 raw/partial final 在撤 freeze 后各清理一次', 
 it('unmount 后 processor delegate 的 raw/partial final 无视觉引用，可立即清理', async () => {
   const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
   const partialPath = '/partial.jpg';
-  const processing = deferred<CustomPhotoFile>();
+  const processing = deferred<CapturedFile>();
   const unlink = jest
     .fn<Promise<void>, [string]>()
     .mockResolvedValue(undefined);
@@ -574,7 +578,7 @@ it('unmount 后 processor delegate 的 raw/partial final 无视觉引用，可�
 it('layout unmount 窗口在 session drain 后登记的 partial 会被同步接管且逐 path 幂等', async () => {
   const raw = makePhotoFile({ id: 'raw', path: '/raw.jpg' });
   const partialPath = '/partial.jpg';
-  const processing = deferred<CustomPhotoFile>();
+  const processing = deferred<CapturedFile>();
   const unlink = jest
     .fn<Promise<void>, [string]>()
     .mockResolvedValue(undefined);
@@ -773,9 +777,8 @@ it('save 只 settle 最新 files，不提前 transfer 或 delete', () => {
   });
 
   expect(harness.onSettle).toHaveBeenCalledWith({
-    code: 200,
-    data: [first],
-    message: 'ok',
+    status: 'success',
+    media: [first],
   });
   expect(harness.fileRegistry.stateOf(first.path)).toBe('owned');
   expect(harness.unlink).not.toHaveBeenCalled();
@@ -784,8 +787,8 @@ it('save 只 settle 最新 files，不提前 transfer 或 delete', () => {
 it('video mode 不进入照片 transaction', async () => {
   const harness = setup({
     config: {
-      cameraMode: [{ mode: 'video' }],
-      dataRetainedMode: 'retain',
+      modes: [{ mode: 'video' }],
+      retention: 'retain',
     },
   });
 

@@ -1,15 +1,15 @@
 import { fireEvent } from '@testing-library/react-native';
 import { PreviewTopBar } from '../../../camera/preview/PreviewTopBar';
-import type { CustomPhotoFile } from '../../../utils';
+import type { CapturedFile } from '../../../utils';
 import { renderDark } from '../../__helpers__/renderDark';
 import { makePhotoFile } from '../../__helpers__/factories';
 
 // 相机 Modal 强制 dark,PreviewTopBar 用 useThemedStyles —— renderDark 包 dark Provider 对齐运行时。
 
-const f = (cameraMode: CustomPhotoFile['cameraMode'], id: string) =>
+const f = (mode: CapturedFile['mode'], id: string) =>
   makePhotoFile({
     id,
-    mode: cameraMode,
+    mode,
     path: `/${id}`,
     uri: `file:///${id}`,
   });

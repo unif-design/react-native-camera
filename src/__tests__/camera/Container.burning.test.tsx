@@ -8,7 +8,7 @@ import {
 import { renderDark } from '../__helpers__/renderDark';
 import { usePhotoCaptureTransaction } from '../../camera/hooks/usePhotoCaptureTransaction';
 import type { PhotoCaptureTransaction } from '../../camera/hooks/usePhotoCaptureTransaction';
-import type { WatermarkType } from '../../utils';
+import type { CameraWatermark } from '../../utils';
 
 // device-ready 需:已授权 + 有设备(覆盖全局 vision-camera mock)。
 jest.mock('react-native-vision-camera', () => {
@@ -52,7 +52,7 @@ function makePhotoTransaction(
 
 function renderContainer(
   transaction: PhotoCaptureTransaction,
-  opts: { watermark?: WatermarkType } = {}
+  opts: { watermark?: CameraWatermark } = {}
 ) {
   usePhotoCaptureTransactionMock.mockReturnValue(transaction);
   // 多模式 config → 渲染可切换药丸(有 mode-switcher-wrap),便于断言「footer 没被替换」。
@@ -61,12 +61,10 @@ function renderContainer(
       <Container
         {...createContainerSessionProps()}
         config={{
-          dataRetainedMode: 'retain',
-          cameraMode: [
-            { mode: 'single', type: 'back' },
-            { mode: 'continuous' },
-          ],
+          modes: [{ mode: 'single' }, { mode: 'continuous' }],
+          retention: 'retain',
           ...(opts.watermark ? { watermark: opts.watermark } : {}),
+          initialFacing: 'back',
         }}
         onSettle={() => {}}
       />
@@ -77,7 +75,7 @@ function renderContainer(
   return rendered;
 }
 
-const WM: WatermarkType = { content: ['L1'], position: 'top-right' };
+const WM: CameraWatermark = { lines: ['L1'], position: 'top-right' };
 
 it('有水印烧录中:footer 仍渲染模式药丸 + 居中「生成中」覆盖层 + 定格帧透传进取景', () => {
   const { getByTestId } = renderContainer(

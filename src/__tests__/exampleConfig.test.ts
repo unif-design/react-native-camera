@@ -220,7 +220,7 @@ it('example App 以固定 Provider 顺序装配唯一 camera hook 与 holder', (
     /useMemo\(\s*\(\)\s*=>\s*createCameraRunController\(\{[\s\S]*?\bapi\b[\s\S]*?\}\),\s*\[api\]\s*\)/
   );
   expect(source).toMatch(
-    /useEffect\(\s*\(\)\s*=>\s*\(\)\s*=>\s*\{\s*api\.close\(\);\s*\},\s*\[api\]\s*\)/
+    /useEffect\(\s*\(\)\s*=>\s*\(\)\s*=>\s*\{\s*run\.close\(\);\s*\},\s*\[run\]\s*\)/
   );
   expect(source).not.toMatch(/\bConfirmHost\b|\bToastHost\b/);
 });

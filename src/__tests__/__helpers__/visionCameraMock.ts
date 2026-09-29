@@ -24,6 +24,7 @@ type DeviceStub = {
   supportsFocusMetering: boolean;
   hasFlash: boolean;
   supportsSpeedQualityPrioritization: boolean;
+  supportsPhotoHDR: boolean;
   isVirtualDevice: boolean;
   zoomLensSwitchFactors: number[];
   physicalDevices: string[];
@@ -60,6 +61,7 @@ export function makeDeviceStub(
     supportsFocusMetering: true,
     hasFlash: isBack,
     supportsSpeedQualityPrioritization: true,
+    supportsPhotoHDR: true,
     isVirtualDevice: isBack,
     zoomLensSwitchFactors: isBack ? [2] : [],
     physicalDevices: isBack

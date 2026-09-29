@@ -9,29 +9,29 @@ import {
   type ColorTokens,
   type IconName,
 } from '@unif/react-native-design';
-import type { AspectRatio, FlashMode } from '../../utils';
+import type { AspectRatio, CameraFlash } from '../../utils';
 import { makeRailStyles } from './railStyles';
 
-// FlashMode / AspectRatio 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
-export type { AspectRatio, FlashMode };
+// CameraFlash / AspectRatio 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
+export type { AspectRatio, CameraFlash };
 
 type Props = {
-  flash: FlashMode;
+  flash: CameraFlash;
   aspectRatio: AspectRatio;
   sound: boolean;
   disabled?: boolean;
-  onChangeFlash: (m: FlashMode) => void;
+  onChangeFlash: (m: CameraFlash) => void;
   onChangeAspectRatio: (r: AspectRatio) => void;
   onToggleSound: () => void;
 };
 
-const flashIcon: Record<FlashMode, IconName> = {
+const flashIcon: Record<CameraFlash, IconName> = {
   off: 'flash-off',
   on: 'flash-on',
   auto: 'flash-auto',
 };
 
-const FLASH_LABEL: Record<FlashMode, string> = {
+const FLASH_LABEL: Record<CameraFlash, string> = {
   off: '关闭',
   on: '开启',
   auto: '自动',
@@ -39,7 +39,7 @@ const FLASH_LABEL: Record<FlashMode, string> = {
 
 // 闪光原地轮换:点一下 auto → on → off → auto(与画幅 4:3↔16:9 文字按钮一致的「点击切换」交互)。
 // 早期弹出层(dropdown + 三选项 + tail 三角)已去除:它会盖住取景、且与同列其它按钮交互不一致。
-const FLASH_NEXT: Record<FlashMode, FlashMode> = {
+const FLASH_NEXT: Record<CameraFlash, CameraFlash> = {
   auto: 'on',
   on: 'off',
   off: 'auto',

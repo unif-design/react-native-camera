@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/unif-design/react-native-camera.git", :tag => "#{s.version}" }
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
   s.private_header_files = "ios/**/*.h"
-  s.frameworks = "Foundation", "CoreGraphics", "CoreImage", "CoreText", "ImageIO"
+  s.frameworks = "Foundation", "AVFoundation", "CoreGraphics", "CoreImage", "CoreText", "ImageIO"
 
   install_modules_dependencies(s)
 end

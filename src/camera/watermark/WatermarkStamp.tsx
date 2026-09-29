@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { Canvas, Paragraph } from '@shopify/react-native-skia';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import type { WatermarkType } from '../../utils';
+import type { CameraWatermark } from '../../utils';
 import type { AnimatedCameraFrameRect } from '../AnimatedCameraFrame';
 import type { CameraFrameRect } from '../session/frameRect';
 import {
@@ -12,7 +12,7 @@ import {
 } from './paragraph';
 
 type Props = {
-  watermark: WatermarkType;
+  watermark: CameraWatermark;
   frame: CameraFrameRect;
   animatedFrame: AnimatedCameraFrameRect;
 };
@@ -25,12 +25,12 @@ type PreparedState = {
 export function WatermarkStamp({ watermark, frame, animatedFrame }: Props) {
   const { width, height } = frame;
   const watermarkKey = JSON.stringify({
-    content: watermark.content,
+    lines: watermark.lines,
     position: watermark.position ?? 'top-right',
   });
   // props 的 object identity 不代表语义变化；先按稳定 key 深拷贝，effect 才不会错误释放/重建 JSI 对象。
   const watermarkSnapshot = useMemo(
-    () => JSON.parse(watermarkKey) as WatermarkType,
+    () => JSON.parse(watermarkKey) as CameraWatermark,
     [watermarkKey]
   );
   const paragraphKey = `${width}:${height}:${watermarkKey}`;

@@ -1,164 +1,69 @@
 ---
 sidebar_position: 2
-title: CameraApi
+title: CameraController
 description: '相机打开、关闭、配置与结果交接。'
 ---
 
-# CameraApi
+# CameraController
 
-相机控制对象，由 [`useCamera()`](/docs/api/use-camera) 返回，提供**打开 / 关闭相机**两个方法。这是一套 Promise 式弹窗相机 API：`open()` 弹出全屏相机，用户拍完确认（或取消）后 Promise resolve 出 [`CameraResult`](/docs/api/types#cameraresult)。
+[`useCamera()`](/docs/api/use-camera) 提供稳定的 `CameraController`。一次 `open()` 对应一次交互，结果是可按 `status` 区分的 `CameraOutcome`。
 
----
-
-## 引用 / 签名 {#signature}
+## open(input, options?) {#open}
 
 ```ts
-import { useCamera } from '@unif/react-native-camera';
-import type { CameraApi } from '@unif/react-native-camera';
-```
-
-```ts
-const [api, holder] = useCamera();
-// api 的类型为 CameraApi
-```
-
-**TypeScript 签名：**
-
-```ts
-type CameraApi = {
-  open: (config: OpenConfig) => Promise<CameraResult>;
-  close: () => void;
-};
-```
-
----
-
-## `open(config)` {#open}
-
-```ts
-open(config: OpenConfig): Promise<CameraResult>
-```
-
-先校验配置，再弹出相机全屏模态。用户在模态内完成拍摄 → 预览确认 / 取消后，Promise resolve 为 [`CameraResult`](/docs/api/types#cameraresult)。**取消不会 reject**——而是 resolve 出 `code: 0`。
-
-**参数：**
-
-| 参数     | 类型                        | 必填 | 说明                                   |
-| -------- | --------------------------- | ---- | -------------------------------------- |
-| `config` | [`OpenConfig`](#openconfig) | ✅   | 相机配置——拍摄模式、数据保留策略、水印 |
-
-**示例：**
-
-```tsx
-const res = await api.open({
-  cameraMode: [{ mode: 'single', quality: 0.9 }, { mode: 'continuous' }],
-  dataRetainedMode: 'clear',
-});
-if (res.code === 200) {
-  // res.data 是 CustomPhotoFile[] 文件列表
+interface CameraController {
+  open(
+    input: Readonly<CameraInput>,
+    options?: CameraCallOptions
+  ): Promise<CameraOutcome>;
+}
+interface CameraCallOptions {
+  signal?: AbortSignal;
 }
 ```
 
-### 运行时校验与重复调用 {#open-lifecycle}
+```ts
+const outcome = await camera.open({
+  modes: [{ mode: 'single', quality: 0.9 }, { mode: 'continuous' }],
+  initialFacing: 'back',
+  initialFlash: 'auto',
+  retention: 'retain',
+});
+if (outcome.status === 'success') {
+  const files = outcome.media;
+  // 保存或上传 files。
+}
+```
 
-`open(config)` 不只依赖 TypeScript 类型，还会在运行时校验 `cameraMode`、`dataRetainedMode`、每个模式的字段，以及 `watermark` / 拍摄质量等可选字段：
+## 取消与替换 {#open-lifecycle}
 
-- **配置非法**：立即 resolve `{ code: 500, data: [], message: 'invalid_config' }`，不会打开相机，也不会替换正在进行的有效会话。
-- **配置合法且已有会话**：先把旧会话以 `code: 0` 取消，再创建并显示新会话；旧 Promise 会先完成，新 Promise 等待新会话结果。
-- **过期回调**：旧 `Container` 的保存 / 关闭回调会被忽略，不会完成新会话。`close()`、组件卸载与各种回调竞争时，同一个 `open()` Promise 最多 resolve 一次。
-
-:::warning `holder` 仍是完成会话的必要条件
-若未把 `useCamera()` 返回的 `holder` 渲染进 React 树，合法 `open()` 虽然创建了会话，但 `Container` 不会挂载，Promise 会保持 pending，直到 `close()`、下一次合法 `open()` 或 Hook 卸载取消它。详见 [useCamera](/docs/api/use-camera#return)。
-:::
-
----
-
-## `close()` {#close}
+每次调用创建自己的 `AbortController`，把它的 `signal` 传给 `open`。调用方持有所属 controller，在路由离开等场景调用 `abort()`。
 
 ```ts
-close(): void
+const controller = new AbortController();
+const pending = camera.open(
+  { modes: [{ mode: 'single' }], retention: 'clear' },
+  { signal: controller.signal }
+);
+controller.abort();
+const outcome = await pending; // { status: 'cancelled' }
 ```
 
-强制关闭当前相机会话（若存在）。内部等价于以 `code: 0`（`message: 'cancelled'`）settle 当前 `open()` 的 Promise；重复 `close()` 或随后到达的旧回调不会再次 settle 它。
+- 先校验输入。非法输入返回 `failed / invalid_input`，当前交互保持不变。
+- 通过校验后，已经取消的信号返回 `cancelled`，不会打开或接替当前交互。
+- 合法且未取消的新调用接替旧调用，旧调用返回 `cancelled`。
+- 旧信号和旧回调只能结束其所属调用，不能关闭新调用。
+- 用户退出、信号取消与真实宿主卸载只结算一次；成功交付后再取消不会改写结果。
+- 未挂载宿主返回 `failed / unavailable`；Web 返回 `failed / unsupported`。
 
-**通常无需手动调用**——用户拍摄完成或取消后 `open()` 会自动 resolve 并关闭相机。仅在需要从外部强制收起相机时使用（例如路由拦截、用户登出）。
+## 拍摄与媒体 {#input-behavior}
 
-**示例：**
+模式按 `modes` 顺序显示，首项是初始模式。初始镜头与闪光放在根级 `initialFacing` / `initialFlash`，默认分别为 `back` / `auto`。不可用的请求镜头按实际可用设备接入，返回真实 `facing`。
 
-```tsx
-// 组件卸载时兜底关闭相机
-useEffect(() => {
-  return () => {
-    api.close();
-  };
-}, [api]);
-```
+`retention: 'clear'` 在模式切换且已有媒体时先取得丢弃确认；拒绝时保持原模式与媒体。`retain` 保留已有媒体。单拍 `clear` 拍完直接进入确认预览。
 
----
+照片质量参数位于照片模式，时长与码率参数位于录像模式。参见[完整类型](/docs/api/types)。麦克风权限只在实际开始录像时请求。
 
-## OpenConfig {#openconfig}
+相机内局部操作失败会显示错误并保留此前媒体，用户可以明确重试或取消；无法继续整轮交互时才交付 `failed`。
 
-`open()` 的配置对象。完整字段类型表见 [类型 → OpenConfig](/docs/api/types#openconfig)，这里说明各字段的**运行时行为**：
-
-| 字段                         | 类型                                             | 必填 | 默认值           | 说明                       |
-| ---------------------------- | ------------------------------------------------ | ---- | ---------------- | -------------------------- |
-| `cameraMode`                 | [`CameraMode[]`](/docs/api/types#cameramode)     | ✅   | —                | 拍摄模式数组，至少一项     |
-| `dataRetainedMode`           | `'clear' \| 'retain'`                            | ✅   | —                | 切换模式时是否保留已拍文件 |
-| `watermark`                  | [`WatermarkType`](/docs/api/types#watermarktype) | —    | 不加水印         | 文字水印配置               |
-| `photoQualityPrioritization` | `'speed' \| 'balanced' \| 'quality'`             | —    | 走 SDK 默认      | 照片质量优先级（全局）     |
-| `photoHDR`                   | `boolean`                                        | —    | 由相机 negotiate | 是否启用照片 HDR           |
-| `videoBitRate`               | `number`                                         | —    | 编码器自适应     | 录像目标码率（bps）        |
-
-### `cameraMode` {#cameramode-behavior}
-
-- **数组的首项决定初始状态**：初始前/后摄取首项的 `type`（缺省 `back`），初始闪光取首项的 `flashMode`（缺省 `off`）；其余项的 `type` / `flashMode` 不影响初始化。请求方向没有设备时会自动 fallback 到另一侧，最终文件的 `cameraType` 以实际选中的设备为准。
-- **多项时底部出现模式 tab**：相机底部按数组顺序渲染「单拍 / 连拍 / 视频」切换 pill，用户拍摄过程中可自由切换。仅一项时不显示 tab。
-- 每项的 `mode`、`quality` 等字段见 [`CameraMode`](/docs/api/types#cameramode)。
-
-### `dataRetainedMode` {#dataretainedmode-behavior}
-
-控制用户**切换拍摄模式**时已拍文件的去留，并影响单拍的自动预览时机：
-
-| 值         | 行为                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------- |
-| `'clear'`  | 切模式时先 `confirm()` 二次确认，确认后清空已拍照片；且「**单拍 + clear**」每拍一张后直接进入确认预览页 |
-| `'retain'` | 切模式时不清空，已拍文件累积合并进最终结果                                                              |
-
-### `watermark` {#watermark-behavior}
-
-传入则**取景画面实时显示水印戳记**（WYSIWYG），**每次快门后逐张烧入**（保存时返回的已是烧好的成片）。仅对照片（`image/jpeg`）生效，录像无水印。详见 [水印指南](/docs/guides/watermark)。
-
-设备协商输出仍需精裁或存在可见水印时，处理失败不会把 raw / 半成品交给结果：相机保持当前会话、保留此前文件并显示“照片处理失败，请重试”，用户可直接重拍。录像不进入照片 processor。
-
-### 拍摄质量（`photoQualityPrioritization` / `photoHDR` / `videoBitRate`） {#quality-behavior}
-
-三个**可选**字段，用于按需覆盖底层 vision-camera 的拍摄质量取舍。**核心约定：缺省（不传）时库不写入任何偏好，完全走 SDK 默认协商**——只有显式传值才生效。
-
-| 字段                         | 缺省（不传）                                       | 传值时                                                                                                                 |
-| ---------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `photoQualityPrioritization` | 不写入该选项，由 SDK 自行决定                      | `'balanced'` / `'quality'` 任何设备直传；`'speed'` 在不支持的设备**自动安全降级**为 `'balanced'`（不报错、不中断拍摄） |
-| `photoHDR`                   | 不下发 `photoHDR` 约束 → 由相机 negotiate 自行决定 | 传 `true` / `false` 作为约束下发（显式开 / 显式关）                                                                    |
-| `videoBitRate`               | 不写入 → 编码器按分辨率自适应                      | 作为 `targetBitRate`（bps）下发；编码器会参考但可能因系统压力 / 画面运动 / 文件大小约束略有出入                        |
-
-:::note 与分辨率无关
-照片按最终画幅请求 FHD（4:3 为 1440×1920，16:9 为 1080×1920），录像随画幅请求 UHD；这些内部目标**不可配置**，也不随这三个字段变化。这三字段只调质量取舍 / HDR / 码率。
-:::
-
----
-
-## 平台兼容性 {#platforms}
-
-| 平台    | 支持 |
-| ------- | ---- |
-| iOS     | ✅   |
-| Android | ✅   |
-| Web     | ❌   |
-
----
-
-## 相关 {#related}
-
-- [useCamera](/docs/api/use-camera) — 获取 `CameraApi` 实例的 hook
-- [类型](/docs/api/types) — `OpenConfig` / `CameraResult` / `CustomPhotoFile` 完整字段表
-- [拍照](/docs/guides/taking-photos) — 拍照场景完整指南
-- [录像](/docs/guides/recording-video) — 录像场景完整指南
+`success` 表示用户选用媒体。文件仍在临时目录，交付后的保存、上传与释放由消费者负责。库只清理仍属于本轮且未交付的文件。

@@ -15,7 +15,7 @@ import {
   createFileRegistry,
   type FileRegistry,
 } from '../../../camera/session/fileRegistry';
-import type { CameraResult, CustomPhotoFile } from '../../../utils';
+import type { CameraSessionOutcome, CapturedFile } from '../../../utils';
 import { makePhotoFile } from '../../__helpers__/factories';
 
 function deferred<T>() {
@@ -34,15 +34,15 @@ async function flushMicrotasks(rounds = 6): Promise<void> {
   }
 }
 
-function video(path: string, duration = 0): CustomPhotoFile {
+function video(path: string, duration = 0): CapturedFile {
   return makePhotoFile({
     id: path.replaceAll('/', '').replaceAll('.', '-'),
     path,
     uri: `file://${path}`,
-    cameraMode: 'video',
+
     mode: 'video',
-    mime: 'video/mp4',
-    duration,
+    mimeType: 'video/mp4',
+    durationMs: duration * 1000,
   });
 }
 
@@ -86,7 +86,7 @@ function setup(options: SetupOptions = {}) {
   );
   const confirm = jest.fn().mockResolvedValue(true);
   const cancelRecording = jest.fn();
-  const onSettle = jest.fn<void, [CameraResult]>();
+  const onSettle = jest.fn<void, [CameraSessionOutcome]>();
 
   const hook = renderHook(() => {
     const controller = useCameraSessionController({

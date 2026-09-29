@@ -61,10 +61,19 @@ describe('nativeConfigurationKey', () => {
     ],
     ['photo to video output', { mode: { mode: 'video' as const } }],
     ['photo quality', { mode: { mode: 'single' as const, quality: 0.8 } }],
-    ['photo HDR', { photoHDR: true }],
+    [
+      'photo HDR',
+      { mode: { mode: 'single' as const, quality: 0.9, hdr: true } },
+    ],
     [
       'photo prioritization',
-      { photoQualityPrioritization: 'quality' as const },
+      {
+        mode: {
+          mode: 'single' as const,
+          quality: 0.9,
+          qualityPriority: 'quality' as const,
+        },
+      },
     ],
   ])('changes for %s', (_label, change) => {
     expect(key(change)).not.toBe(key());
@@ -73,14 +82,16 @@ describe('nativeConfigurationKey', () => {
   it('changes video identity for aspect and bitrate', () => {
     const video: NativeConfiguration = {
       ...baseConfiguration,
-      mode: { mode: 'video' },
-      videoBitRate: 20_000_000,
+      mode: { mode: 'video', bitRate: 20_000_000 },
     };
     expect(nativeConfigurationKey({ ...video, aspectRatio: '4:3' })).not.toBe(
       nativeConfigurationKey(video)
     );
     expect(
-      nativeConfigurationKey({ ...video, videoBitRate: 40_000_000 })
+      nativeConfigurationKey({
+        ...video,
+        mode: { mode: 'video', bitRate: 40_000_000 },
+      })
     ).not.toBe(nativeConfigurationKey(video));
   });
 });
@@ -238,12 +249,15 @@ describe('configuration generation', () => {
     ['photo to video', key({ mode: { mode: 'video' } })],
     ['photo quality', key({ mode: { mode: 'single', quality: 0.8 } })],
     ['video aspect', key({ mode: { mode: 'video' }, aspectRatio: '4:3' })],
+    ['video bitrate', key({ mode: { mode: 'video', bitRate: 20_000_000 } })],
     [
-      'video bitrate',
-      key({ mode: { mode: 'video' }, videoBitRate: 20_000_000 }),
+      'HDR constraint',
+      key({ mode: { mode: 'single' as const, quality: 0.9, hdr: true } }),
     ],
-    ['HDR constraint', key({ photoHDR: true })],
-    ['quality constraint', key({ photoQualityPrioritization: 'speed' })],
+    [
+      'quality constraint',
+      key({ mode: { mode: 'single', qualityPriority: 'speed' } }),
+    ],
   ])('enters configuring for a real %s change', (_label, nextKey) => {
     const next = cameraSessionReducer(makeState(), {
       type: 'BEGIN_CONFIGURATION',

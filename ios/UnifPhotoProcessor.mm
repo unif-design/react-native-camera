@@ -1,5 +1,6 @@
 #import "UnifPhotoProcessor.h"
 
+#import <AVFoundation/AVFoundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreImage/CoreImage.h>
 #import <CoreText/CoreText.h>
@@ -471,6 +472,45 @@ RCT_EXPORT_MODULE(UnifPhotoProcessor)
       resolve(json);
     }
   });
+}
+
+- (void)inspectVideoFile:(NSString *)inputPath
+                 resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject {
+  AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:inputPath]
+                                       options:@{AVURLAssetPreferPreciseDurationAndTimingKey : @YES}];
+  [asset loadTracksWithMediaType:AVMediaTypeVideo
+              completionHandler:^(NSArray<AVAssetTrack *> *tracks, NSError *error) {
+    if (error != nil || tracks.count == 0) {
+      reject(@"E_VIDEO_READ", @"Video metadata inspection failed", error);
+      return;
+    }
+    dispatch_async(UnifPhotoQueue(), ^{
+      AVAssetTrack *track = tracks.firstObject;
+      CGRect bounds = CGRectApplyAffineTransform(
+          (CGRect){CGPointZero, track.naturalSize}, track.preferredTransform);
+      double width = fabs(CGRectGetWidth(bounds));
+      double height = fabs(CGRectGetHeight(bounds));
+      if (!isfinite(width) || !isfinite(height) || width < 1 || height < 1) {
+        reject(@"E_VIDEO_READ", @"Invalid video dimensions", nil);
+        return;
+      }
+      NSMutableDictionary *metadata = [@{
+        @"width" : @(llround(width)),
+        @"height" : @(llround(height)),
+      } mutableCopy];
+      double durationMs = CMTimeGetSeconds(asset.duration) * 1000.0;
+      if (isfinite(durationMs) && durationMs >= 0) {
+        metadata[@"durationMs"] = @(durationMs);
+      }
+      NSString *json = UnifJSON(metadata);
+      if (json == nil) {
+        reject(@"E_VIDEO_READ", @"Video metadata inspection failed", nil);
+        return;
+      }
+      resolve(json);
+    });
+  }];
 }
 
 - (void)processPhoto:(NSString *)inputPath

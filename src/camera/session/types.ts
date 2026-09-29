@@ -1,8 +1,8 @@
 import type {
   AspectRatio,
-  CameraType,
-  CustomPhotoFile,
-  FlashMode,
+  CameraFacing,
+  CapturedFile,
+  CameraFlash,
 } from '../../utils';
 
 export type CameraSessionPhase =
@@ -24,12 +24,12 @@ export type CameraPreviewState = {
 
 export type CameraSessionState = {
   phase: CameraSessionPhase;
-  files: CustomPhotoFile[];
+  files: CapturedFile[];
   modeIndex: number;
   aspectRatio: AspectRatio;
-  activePosition: CameraType;
+  activePosition: CameraFacing;
   canFlip: boolean;
-  flash: FlashMode;
+  flash: CameraFlash;
   sound: boolean;
   preview: CameraPreviewState | null;
   operationId: number | null;
@@ -56,14 +56,14 @@ export type CameraSessionAction =
       forceNativeReconfiguration?: boolean;
     }
   | { type: 'CONFIGURED'; generation: number }
-  | { type: 'SET_FLASH'; flash: FlashMode }
+  | { type: 'SET_FLASH'; flash: CameraFlash }
   | { type: 'SET_SOUND'; sound: boolean }
   | { type: 'CAPTURE_PHOTO'; operationId: number }
   | { type: 'PHOTO_CAPTURED'; operationId: number }
   | {
       type: 'PHOTO_SUCCEEDED';
       operationId: number;
-      file: CustomPhotoFile;
+      file: CapturedFile;
       preview?: CameraPreviewState;
     }
   | { type: 'START_VIDEO'; operationId: number }
@@ -73,7 +73,7 @@ export type CameraSessionAction =
   | {
       type: 'VIDEO_FINISHED';
       operationId: number;
-      file?: CustomPhotoFile;
+      file?: CapturedFile;
       duration: number;
       reason: string;
     }

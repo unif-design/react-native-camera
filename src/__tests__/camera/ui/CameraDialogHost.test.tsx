@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Text, Pressable } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { ThemeProvider } from '@unif/react-native-design';
+import { ThemeProvider, type as font } from '@unif/react-native-design';
 import {
   CameraDialogProvider,
   useCameraDialog,
@@ -78,11 +78,11 @@ describe('CameraDialogHost', () => {
       wrap(<ConfirmTrigger onResult={() => {}} />)
     );
     // 触发前不渲染弹窗
-    expect(queryByTestId('camera-confirm')).toBeNull();
+    expect(queryByTestId('confirm-scrim')).toBeNull();
     fireEvent.press(getByTestId('trigger-confirm'));
-    expect(getByTestId('camera-confirm')).toBeTruthy();
-    expect(getByTestId('camera-confirm-ok')).toBeTruthy();
-    expect(getByTestId('camera-confirm-cancel')).toBeTruthy();
+    expect(getByTestId('confirm-scrim')).toBeTruthy();
+    expect(getByTestId('confirm-ok')).toBeTruthy();
+    expect(getByTestId('confirm-cancel')).toBeTruthy();
     expect(getByText('确认删除?')).toBeTruthy();
     expect(getByText('图片删除后无法恢复')).toBeTruthy();
   });
@@ -93,9 +93,9 @@ describe('CameraDialogHost', () => {
       wrap(<ConfirmTrigger onResult={onResult} />)
     );
     fireEvent.press(getByTestId('trigger-confirm'));
-    fireEvent.press(getByTestId('camera-confirm-ok'));
+    fireEvent.press(getByTestId('confirm-ok'));
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(true));
-    expect(queryByTestId('camera-confirm')).toBeNull();
+    expect(queryByTestId('confirm-scrim')).toBeNull();
   });
 
   it('点取消 resolve(false) 并关闭弹窗', async () => {
@@ -104,9 +104,9 @@ describe('CameraDialogHost', () => {
       wrap(<ConfirmTrigger onResult={onResult} />)
     );
     fireEvent.press(getByTestId('trigger-confirm'));
-    fireEvent.press(getByTestId('camera-confirm-cancel'));
+    fireEvent.press(getByTestId('confirm-cancel'));
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(false));
-    expect(queryByTestId('camera-confirm')).toBeNull();
+    expect(queryByTestId('confirm-scrim')).toBeNull();
   });
 
   it('点背景遮罩 resolve(false) 并关闭弹窗', async () => {
@@ -115,9 +115,9 @@ describe('CameraDialogHost', () => {
       wrap(<ConfirmTrigger onResult={onResult} />)
     );
     fireEvent.press(getByTestId('trigger-confirm'));
-    fireEvent.press(getByTestId('camera-confirm-backdrop'));
+    fireEvent.press(getByTestId('confirm-scrim'));
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(false));
-    expect(queryByTestId('camera-confirm')).toBeNull();
+    expect(queryByTestId('confirm-scrim')).toBeNull();
   });
 
   it('toast 渲染文案', () => {
@@ -213,5 +213,27 @@ describe('CameraDialogHost', () => {
       fireEvent.press(getByTestId('err-b'));
       expect(getByText('相机异常:B')).toBeTruthy();
     });
+  });
+});
+
+test('确认提示和错误提示使用宿主字号', () => {
+  const view = render(
+    <ThemeProvider forceScheme="dark" fontScale={1.4}>
+      <CameraDialogProvider>
+        <ConfirmTrigger onResult={() => {}} />
+        <ErrorTrigger msg="请重试" />
+      </CameraDialogProvider>
+    </ThemeProvider>
+  );
+  fireEvent.press(view.getByTestId('trigger-confirm'));
+  expect(view.getByText('确认删除?')).toHaveStyle({
+    fontSize: font.heroSm * 1.4,
+  });
+  expect(view.getByText('图片删除后无法恢复')).toHaveStyle({
+    fontSize: font.body * 1.4,
+  });
+  fireEvent.press(view.getByTestId('trigger-error'));
+  expect(view.getByText('相机异常:请重试')).toHaveStyle({
+    fontSize: font.sm * 1.4,
   });
 });

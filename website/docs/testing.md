@@ -6,114 +6,53 @@ description: '在测试环境使用随包 mock 验证调用和结果处理。'
 
 # 测试（Mock）
 
-本库依赖 `react-native-vision-camera` 等原生模块,Jest 环境加载不到会崩溃。官方提供整包 mock,在测试里替换本库即可。
+使用官方 mock 隔离原生相机。它保留稳定的 `CameraController.open`，返回空宿主，并默认交付 `cancelled`。
 
----
-
-## 启用 mock
-
-在 Jest setup 或单个测试文件里整包替换:
-
-```js
+```ts
 jest.mock('@unif/react-native-camera', () =>
   require('@unif/react-native-camera/mock')
 );
 ```
 
-替换后:
+## 默认与成功结果
 
-- `useCamera()` 返回 `[api, null]`(holder 为 `null`,无需渲染)。
-- `api.open` / `api.close` 是 `jest.fn`。
-- `api.open` **默认 resolve `{ code: 0, data: [], message: 'cancelled' }`**(模拟用户取消)。
-- **工具函数(`toFileUri` / `buildPhotoFile` 等)与所有类型保留真实实现** —— 它们不碰原生,跑真实逻辑比 mock 更有意义,无需额外 stub。
-
----
-
-## 覆盖单次返回(成功用例)
-
-默认是取消(`code: 0`)。要测拍照成功,用 `mockResolvedValueOnce` 覆盖一次返回:
-
-```ts
-const { result } = renderHook(() => useCamera());
-const [api] = result.current;
-(api.open as jest.Mock).mockResolvedValueOnce({
-  code: 200,
-  data: [
-    {
-      id: '1700000000000-0',
-      cameraType: 'back',
-      cameraMode: 'single',
-      path: '/x.jpg',
-      uri: 'file:///x.jpg',
-      width: 1,
-      height: 1,
-      mime: 'image/jpeg',
-      mode: 'single',
-      isRemake: false,
-    },
-  ],
-  message: 'ok',
-});
-```
-
----
-
-## 完整示例
-
-```ts
+```tsx
 import { renderHook } from '@testing-library/react-native';
-import { useCamera } from '@unif/react-native-camera';
+import { useCamera, type CameraOutcome } from '@unif/react-native-camera';
 
-jest.mock('@unif/react-native-camera', () =>
-  require('@unif/react-native-camera/mock')
-);
+it('处理取消与成功', async () => {
+  const { result } = renderHook(() => useCamera());
+  const [camera, holder] = result.current;
+  expect(holder).toBeNull();
+  const input = {
+    modes: [{ mode: 'single' as const }],
+    retention: 'clear' as const,
+  };
+  await expect(camera.open(input)).resolves.toEqual({ status: 'cancelled' });
 
-describe('拍照流程', () => {
-  it('用户取消时 code 为 0', async () => {
-    const { result } = renderHook(() => useCamera());
-    const [api] = result.current;
-    // open 默认 resolve { code: 0, data: [], message: 'cancelled' }
-    const res = await api.open({
-      cameraMode: [{ mode: 'single' }],
-      dataRetainedMode: 'clear',
-    });
-    expect(res.code).toBe(0);
-  });
-
-  it('拍照成功时返回文件列表', async () => {
-    const { result } = renderHook(() => useCamera());
-    const [api] = result.current;
-    (api.open as jest.Mock).mockResolvedValueOnce({
-      code: 200,
-      data: [
-        {
-          id: '1700000000000-0',
-          cameraType: 'back',
-          cameraMode: 'single',
-          path: '/x.jpg',
-          uri: 'file:///x.jpg',
-          width: 1,
-          height: 1,
-          mime: 'image/jpeg',
-          mode: 'single',
-          isRemake: false,
-        },
-      ],
-      message: 'ok',
-    });
-    const res = await api.open({
-      cameraMode: [{ mode: 'single' }],
-      dataRetainedMode: 'clear',
-    });
-    expect(res.code).toBe(200);
-    expect(res.data).toHaveLength(1);
-  });
+  const selected: CameraOutcome = {
+    status: 'success',
+    media: [
+      {
+        id: 'photo-1',
+        uri: 'file:///tmp/photo.jpg',
+        mode: 'single',
+        facing: 'back',
+        mimeType: 'image/jpeg',
+        width: 1440,
+        height: 1920,
+      },
+    ],
+  };
+  jest.mocked(camera.open).mockResolvedValueOnce(selected);
+  await expect(camera.open(input)).resolves.toEqual(selected);
 });
 ```
 
----
+## 取消交接
 
-## 下一步
+消费者测试应检查 `open` 收到原调用的 `signal`，并验证所属操作结束时调用 `abort()`。Mock 不启动真实交互，因此测试等待与取消时，可以为单次 `open` 提供 Promise 并监听传入信号。
 
-- [核心概念 → result code](/docs/getting-started/concepts) —— `CameraResult.code` 各值含义
-- [常见问题](/docs/troubleshooting) —— 真机 / 模拟器限制与排障
+## 验证边界
+
+普通 UI、结果分支与信号交接可在 Jest 验证。权限、真实捕获、文件可读、录像停止、水印像素、内存和后台切换需要 iOS／Android 设备。Mock 不替代生产 Web；Web 的真实入口返回 `failed / unsupported`。

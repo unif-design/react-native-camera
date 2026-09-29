@@ -1,6 +1,9 @@
+import { createRef } from 'react';
+import { act } from '@testing-library/react-native';
+import type { CameraHandle } from '../../camera/Camera';
 import * as VisionCamera from 'react-native-vision-camera';
 import { Camera } from '../../camera/Camera';
-import type { AspectRatio, CameraMode } from '../../utils';
+import type { AspectRatio, CameraModeOptions } from '../../utils';
 import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
@@ -15,39 +18,57 @@ import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 const usePhotoOutputMock = jest.mocked(VisionCamera.usePhotoOutput);
 const useVideoOutputMock = jest.mocked(VisionCamera.useVideoOutput);
 
-const singleMode: CameraMode = { mode: 'single' };
-const videoMode: CameraMode = { mode: 'video' };
+const singleMode: CameraModeOptions = { mode: 'single' };
+const videoMode: CameraModeOptions = { mode: 'video' };
 const frame = { x: 0, y: 0, width: 390, height: 520 };
 const animatedFrame = makeAnimatedFrameStub(frame);
 
 type RenderProps = Partial<{
-  currentMode: CameraMode;
+  currentMode: CameraModeOptions;
   photoQualityPrioritization: 'speed' | 'balanced' | 'quality';
   photoHDR: boolean;
   videoBitRate: number;
   supportsSpeed: boolean;
+  supportsPhotoHDR: boolean;
   aspectRatio: AspectRatio;
+  onCameraError: (error: Error) => void;
 }>;
 
 function renderCamera(p: RenderProps = {}) {
-  return renderDark(
+  const cameraRef = createRef<CameraHandle>();
+  const mode = p.currentMode ?? singleMode;
+  const currentMode: CameraModeOptions =
+    mode.mode === 'video'
+      ? {
+          ...mode,
+          ...(p.videoBitRate === undefined ? {} : { bitRate: p.videoBitRate }),
+        }
+      : {
+          ...mode,
+          ...(p.photoQualityPrioritization === undefined
+            ? {}
+            : { qualityPriority: p.photoQualityPrioritization }),
+          ...(p.photoHDR === undefined ? {} : { hdr: p.photoHDR }),
+        };
+  const rendered = renderDark(
     <Camera
+      ref={cameraRef}
+      onCameraError={p.onCameraError}
       // 类型对齐 CameraDevice;桩含 Camera 实际读取的字段。
       device={
         makeDeviceStub({
           supportsSpeedQualityPrioritization: p.supportsSpeed,
+          supportsPhotoHDR: p.supportsPhotoHDR,
         }) as never
       }
-      currentMode={p.currentMode ?? singleMode}
+      currentMode={currentMode}
       frame={frame}
       animatedFrame={animatedFrame}
       isActive={false}
-      photoQualityPrioritization={p.photoQualityPrioritization}
-      photoHDR={p.photoHDR}
-      videoBitRate={p.videoBitRate}
       aspectRatio={p.aspectRatio}
     />
   );
+  return { ...rendered, cameraRef };
 }
 
 /** 取某 jest.fn 最近一次调用的首个实参(options 对象)。 */
@@ -96,14 +117,20 @@ describe('photoQualityPrioritization 接线', () => {
     expect(lastOpts(usePhotoOutputMock).qualityPrioritization).toBe('balanced');
   });
 
-  it("安全降级:传 'speed' 但设备不支持 → 降级 'balanced'(不 throw、不传 speed)", () => {
-    expect(() =>
-      renderCamera({
-        photoQualityPrioritization: 'speed',
-        supportsSpeed: false,
-      })
-    ).not.toThrow();
-    expect(lastOpts(usePhotoOutputMock).qualityPrioritization).toBe('balanced');
+  it('明确的 speed 请求在不支持设备上反馈局部错误，不伪造降级成功', async () => {
+    const onCameraError = jest.fn();
+    const { cameraRef } = renderCamera({
+      photoQualityPrioritization: 'speed',
+      supportsSpeed: false,
+      onCameraError,
+    });
+    expect(lastOpts(usePhotoOutputMock)).not.toHaveProperty(
+      'qualityPrioritization'
+    );
+    await act(async () => {
+      await expect(cameraRef.current?.capture()).resolves.toBeNull();
+    });
+    expect(onCameraError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it("传 'quality' 但设备不支持 speed → 仍直传 'quality'(quality 与 speed 能力无关、不降级)", () => {
@@ -159,7 +186,7 @@ describe('videoBitRate 接线', () => {
     });
   });
 
-  it("fileType 恒为 'mp4'(iOS 默认 mov,不显式指定会让 buildPhotoFile 的 video/mp4 mime 失实)", () => {
+  it("fileType 恒为 'mp4'(iOS 默认 mov,不显式指定会让 buildPhotoFile 的 video/mp4 mimeType 失实)", () => {
     renderCamera({ currentMode: videoMode });
     expect(lastOpts(useVideoOutputMock).fileType).toBe('mp4');
   });
@@ -180,4 +207,20 @@ it('forwards the native onConfigured callback without changing Camera identity',
   const vc = UNSAFE_root.findByProps({ nativeID: 'vision-camera' });
 
   expect(vc.props.onConfigured).toBe(onConfigured);
+});
+
+it('不支持照片 HDR 的设备拒绝显式 hdr:true，不发起原生捕获', async () => {
+  const onCameraError = jest.fn();
+  const capturePhotoToFile = jest.fn();
+  usePhotoOutputMock.mockReturnValueOnce({ capturePhotoToFile } as never);
+  const { cameraRef } = renderCamera({
+    photoHDR: true,
+    supportsPhotoHDR: false,
+    onCameraError,
+  });
+  await act(async () => {
+    await expect(cameraRef.current?.capture()).resolves.toBeNull();
+  });
+  expect(capturePhotoToFile).not.toHaveBeenCalled();
+  expect(onCameraError).toHaveBeenCalledWith(expect.any(Error));
 });

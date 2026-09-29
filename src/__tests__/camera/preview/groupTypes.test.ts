@@ -1,11 +1,11 @@
 import { distinctTypes, filesOfType } from '../../../camera/preview/groupTypes';
-import type { CustomPhotoFile } from '../../../utils';
+import type { CapturedFile } from '../../../utils';
 import { makePhotoFile } from '../../__helpers__/factories';
 
-const f = (cameraMode: CustomPhotoFile['cameraMode'], id: string) =>
+const f = (mode: CapturedFile['mode'], id: string) =>
   makePhotoFile({
     id,
-    mode: cameraMode,
+    mode,
     path: `/${id}.jpg`,
     uri: `file:///${id}.jpg`,
   });

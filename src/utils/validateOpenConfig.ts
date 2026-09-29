@@ -1,171 +1,137 @@
 import type {
-  CameraMode,
-  CameraModeName,
-  CameraResult,
-  CameraType,
-  DataRetainedMode,
-  FlashMode,
-  OpenConfig,
-  WatermarkType,
-} from './interface';
-
-type ValidationResult =
-  | { ok: true; config: OpenConfig }
-  | { ok: false; result: CameraResult };
-
-const CAMERA_MODES: readonly CameraModeName[] = [
-  'single',
-  'continuous',
-  'video',
-];
-const CAMERA_TYPES: readonly CameraType[] = ['back', 'front'];
-const FLASH_MODES: readonly FlashMode[] = ['auto', 'on', 'off'];
-const DATA_RETAINED_MODES: readonly DataRetainedMode[] = ['clear', 'retain'];
-const WATERMARK_POSITIONS: readonly NonNullable<WatermarkType['position']>[] = [
-  'top-left',
-  'top-center',
-  'top-right',
-  'bottom-left',
-  'bottom-center',
-  'bottom-right',
-];
-const PHOTO_QUALITY_PRIORITIZATIONS: readonly NonNullable<
-  OpenConfig['photoQualityPrioritization']
->[] = ['speed', 'balanced', 'quality'];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  CameraInputValidation,
+  CameraModeOptions,
+  CameraWatermark,
+} from './types';
+import {
+  CAMERA_FACINGS,
+  CAMERA_FLASHES,
+  CAMERA_MODES,
+  MAX_VIDEO_BIT_RATE,
+  CAMERA_QUALITY_PRIORITIES,
+  CAMERA_WATERMARK_POSITIONS,
+} from './constants';
+function record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
-
-function isDenseArray(value: unknown[]): boolean {
-  for (let index = 0; index < value.length; index += 1) {
-    if (!Object.prototype.hasOwnProperty.call(value, index)) return false;
-  }
-  return true;
-}
-
-function isOneOf<T extends string>(
+function choice<T extends string>(
   value: unknown,
-  options: readonly T[]
+  choices: readonly T[]
 ): value is T {
-  return typeof value === 'string' && options.includes(value as T);
+  return typeof value === 'string' && choices.includes(value as T);
 }
-
-function isOptionalOneOf<T extends string>(
-  value: unknown,
-  options: readonly T[]
-): value is T | undefined {
-  return value === undefined || isOneOf(value, options);
+function positive(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
-
-function isFiniteInRange(
-  value: unknown,
-  min: number,
-  max: number
-): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isFinite(value) &&
-    value >= min &&
-    value <= max
-  );
-}
-
-function isOptionalPositiveFinite(value: unknown): value is number | undefined {
-  return (
-    value === undefined ||
-    (typeof value === 'number' && Number.isFinite(value) && value > 0)
-  );
-}
-
-function normalizeCameraMode(value: unknown): CameraMode | null {
-  if (
-    !isRecord(value) ||
-    !isOneOf(value.mode, CAMERA_MODES) ||
-    !isOptionalOneOf(value.type, CAMERA_TYPES) ||
-    !isOptionalOneOf(value.flashMode, FLASH_MODES) ||
-    (value.quality !== undefined && !isFiniteInRange(value.quality, 0, 1)) ||
-    !isOptionalPositiveFinite(value.recTime)
-  ) {
-    return null;
+function mode(value: unknown): CameraModeOptions | null {
+  if (!record(value) || !choice(value.mode, CAMERA_MODES)) return null;
+  if (value.mode === 'video') {
+    if (
+      value.quality !== undefined ||
+      value.qualityPriority !== undefined ||
+      value.hdr !== undefined ||
+      (value.maxDurationSeconds !== undefined &&
+        !positive(value.maxDurationSeconds)) ||
+      (value.bitRate !== undefined &&
+        (!positive(value.bitRate) ||
+          !Number.isInteger(value.bitRate) ||
+          value.bitRate > MAX_VIDEO_BIT_RATE))
+    )
+      return null;
+    return {
+      mode: 'video',
+      ...(value.maxDurationSeconds === undefined
+        ? {}
+        : { maxDurationSeconds: value.maxDurationSeconds }),
+      ...(value.bitRate === undefined ? {} : { bitRate: value.bitRate }),
+    };
   }
-
+  if (
+    value.maxDurationSeconds !== undefined ||
+    value.bitRate !== undefined ||
+    (value.quality !== undefined &&
+      (typeof value.quality !== 'number' ||
+        !Number.isFinite(value.quality) ||
+        value.quality < 0 ||
+        value.quality > 1)) ||
+    (value.qualityPriority !== undefined &&
+      !choice(value.qualityPriority, CAMERA_QUALITY_PRIORITIES)) ||
+    (value.hdr !== undefined && typeof value.hdr !== 'boolean')
+  )
+    return null;
   return {
     mode: value.mode,
-    ...(value.type !== undefined ? { type: value.type } : {}),
-    ...(value.flashMode !== undefined ? { flashMode: value.flashMode } : {}),
-    ...(value.quality !== undefined ? { quality: value.quality } : {}),
-    ...(value.recTime !== undefined ? { recTime: value.recTime } : {}),
+    ...(value.quality === undefined ? {} : { quality: value.quality }),
+    ...(value.qualityPriority === undefined
+      ? {}
+      : { qualityPriority: value.qualityPriority }),
+    ...(value.hdr === undefined ? {} : { hdr: value.hdr }),
   };
 }
-
-function normalizeWatermark(value: unknown): WatermarkType | null {
-  if (
-    !isRecord(value) ||
-    !Array.isArray(value.content) ||
-    !isDenseArray(value.content) ||
-    !value.content.every((line) => typeof line === 'string') ||
-    !isOptionalOneOf(value.position, WATERMARK_POSITIONS)
-  ) {
-    return null;
-  }
-
-  return {
-    content: [...value.content],
-    ...(value.position !== undefined ? { position: value.position } : {}),
-  };
-}
-
-function invalidConfig(): ValidationResult {
+function invalid(): CameraInputValidation {
   return {
     ok: false,
-    result: { code: 500, data: [], message: 'invalid_config' },
-  };
-}
-
-export function validateOpenConfig(value: unknown): ValidationResult {
-  if (
-    !isRecord(value) ||
-    !Array.isArray(value.cameraMode) ||
-    value.cameraMode.length === 0 ||
-    !isDenseArray(value.cameraMode) ||
-    !isOneOf(value.dataRetainedMode, DATA_RETAINED_MODES) ||
-    !isOptionalOneOf(
-      value.photoQualityPrioritization,
-      PHOTO_QUALITY_PRIORITIZATIONS
-    ) ||
-    (value.photoHDR !== undefined && typeof value.photoHDR !== 'boolean') ||
-    !isOptionalPositiveFinite(value.videoBitRate)
-  ) {
-    return invalidConfig();
-  }
-
-  const cameraMode = value.cameraMode.map(normalizeCameraMode);
-  if (cameraMode.some((mode) => mode === null)) {
-    return invalidConfig();
-  }
-
-  const watermark =
-    value.watermark === undefined
-      ? undefined
-      : normalizeWatermark(value.watermark);
-  if (watermark === null) {
-    return invalidConfig();
-  }
-
-  return {
-    ok: true,
-    config: {
-      cameraMode: cameraMode as CameraMode[],
-      dataRetainedMode: value.dataRetainedMode,
-      ...(watermark !== undefined ? { watermark } : {}),
-      ...(value.photoQualityPrioritization !== undefined
-        ? { photoQualityPrioritization: value.photoQualityPrioritization }
-        : {}),
-      ...(value.photoHDR !== undefined ? { photoHDR: value.photoHDR } : {}),
-      ...(value.videoBitRate !== undefined
-        ? { videoBitRate: value.videoBitRate }
-        : {}),
+    result: {
+      status: 'failed',
+      error: { reason: 'invalid_input', message: 'Invalid camera input' },
     },
   };
+}
+export function validateOpenConfig(value: unknown): CameraInputValidation {
+  try {
+    if (
+      !record(value) ||
+      !Array.isArray(value.modes) ||
+      !value.modes.length ||
+      (value.retention !== 'clear' && value.retention !== 'retain') ||
+      (value.initialFacing !== undefined &&
+        !choice(value.initialFacing, CAMERA_FACINGS)) ||
+      (value.initialFlash !== undefined &&
+        !choice(value.initialFlash, CAMERA_FLASHES))
+    )
+      return invalid();
+    const modes: CameraModeOptions[] = [];
+    for (const input of value.modes) {
+      const parsed = mode(input);
+      if (!parsed || modes.some((item) => item.mode === parsed.mode))
+        return invalid();
+      modes.push(Object.freeze(parsed));
+    }
+    let watermark: CameraWatermark | undefined;
+    if (value.watermark !== undefined) {
+      const source = value.watermark;
+      if (
+        !record(source) ||
+        !Array.isArray(source.lines) ||
+        (source.position !== undefined &&
+          !choice(source.position, CAMERA_WATERMARK_POSITIONS))
+      )
+        return invalid();
+      const lines: string[] = [];
+      for (const line of source.lines) {
+        if (typeof line !== 'string') return invalid();
+        lines.push(line);
+      }
+      watermark = Object.freeze({
+        lines: Object.freeze(lines),
+        ...(source.position === undefined ? {} : { position: source.position }),
+      });
+    }
+    return {
+      ok: true,
+      config: Object.freeze({
+        modes: Object.freeze(modes),
+        retention: value.retention,
+        ...(value.initialFacing === undefined
+          ? {}
+          : { initialFacing: value.initialFacing }),
+        ...(value.initialFlash === undefined
+          ? {}
+          : { initialFlash: value.initialFlash }),
+        ...(watermark === undefined ? {} : { watermark }),
+      }),
+    };
+  } catch {
+    return invalid();
+  }
 }

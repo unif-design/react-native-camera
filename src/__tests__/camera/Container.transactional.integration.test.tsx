@@ -14,10 +14,10 @@ import {
 } from '../../camera/session/fileRegistry';
 import { processPhoto } from '../../camera/image/processPhoto';
 import type {
-  CameraMode,
-  CameraResult,
-  CustomPhotoFile,
-  OpenConfig,
+  CameraModeOptions,
+  CameraSessionOutcome,
+  CapturedFile,
+  CameraInput,
 } from '../../utils';
 import { makePhotoFile } from '../__helpers__/factories';
 import { renderDark } from '../__helpers__/renderDark';
@@ -26,7 +26,7 @@ import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
 type MockCameraProps = {
   device: CameraDevice;
-  currentMode: CameraMode;
+  currentMode: CameraModeOptions;
   aspectRatio?: '4:3' | '16:9';
   isActive?: boolean;
   flash?: 'auto' | 'on' | 'off';
@@ -53,7 +53,7 @@ const originalAppStateDescriptor = Object.getOwnPropertyDescriptor(
   'currentState'
 );
 
-const mockCapture = jest.fn<Promise<CustomPhotoFile | null>, []>();
+const mockCapture = jest.fn<Promise<CapturedFile | null>, []>();
 const mockStartVideo = jest.fn<
   Promise<'started' | 'denied'>,
   [VideoCallbacks]
@@ -128,7 +128,7 @@ const processPhotoMock = jest.mocked(processPhoto);
 type Harness = ReturnType<typeof renderDark> & {
   registry: FileRegistry;
   unlink: jest.Mock<Promise<void>, [string]>;
-  onSettle: jest.Mock<void, [CameraResult]>;
+  onSettle: jest.Mock<void, [CameraSessionOutcome]>;
   getBridge: () => SessionControllerBridge;
 };
 
@@ -162,12 +162,12 @@ async function flushMicrotasks(rounds = 6): Promise<void> {
   });
 }
 
-function renderContainer(config: OpenConfig): Harness {
+function renderContainer(config: CameraInput): Harness {
   const unlink = jest
     .fn<Promise<void>, [string]>()
     .mockResolvedValue(undefined);
   const registry = createFileRegistry(unlink);
-  const onSettle = jest.fn<void, [CameraResult]>();
+  const onSettle = jest.fn<void, [CameraSessionOutcome]>();
   let bridge: SessionControllerBridge | null = null;
   const registerController: RegisterSessionController = (
     _sessionId,
@@ -204,21 +204,18 @@ function renderContainer(config: OpenConfig): Harness {
 }
 
 function photoModes(
-  second: CameraMode = { mode: 'continuous', quality: 0.9 }
-): OpenConfig {
+  second: CameraModeOptions = { mode: 'continuous', quality: 0.9 }
+): CameraInput {
   return {
-    cameraMode: [
-      { mode: 'single', quality: 0.9, type: 'back' },
-      second,
-      { mode: 'video' },
-    ],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'single', quality: 0.9 }, second, { mode: 'video' }],
+    retention: 'retain',
+    initialFacing: 'back',
   };
 }
 
 async function captureWithoutProcessing(
   harness: Harness,
-  file: CustomPhotoFile
+  file: CapturedFile
 ): Promise<void> {
   mockCapture.mockResolvedValueOnce({
     ...file,
@@ -260,7 +257,7 @@ beforeEach(() => {
       id: `${raw.id}-processed`,
       path: `${raw.path}.processed.jpg`,
       uri: `${raw.uri}.processed.jpg`,
-      cameraType: operation.cameraPosition,
+      facing: operation.cameraPosition,
     };
     registry.register(final.path);
     return final;
@@ -299,7 +296,7 @@ it('keeps native-dependent controls truly disabled until the current configurati
   expect(latestCamera().props).toMatchObject({
     currentMode: { mode: 'single' },
     aspectRatio: '16:9',
-    flash: 'off',
+    flash: 'auto',
     sound: false,
     enableFocus: false,
     enableZoom: false,
@@ -369,20 +366,21 @@ it('enters configuring only for real photo quality and device changes', () => {
 
 it('routes the real shutter through the photo transaction with a synchronous token gate and actual device metadata', async () => {
   mockActualPosition = 'front';
-  const pending = deferred<CustomPhotoFile | null>();
+  const pending = deferred<CapturedFile | null>();
   const raw = makePhotoFile({
     id: 'raw-photo',
     path: '/raw-photo.jpg',
     uri: 'file:///raw-photo.jpg',
     width: 1080,
     height: 1920,
-    cameraType: 'back',
+    facing: 'back',
     mode: 'continuous',
   });
   mockCapture.mockReturnValue(pending.promise);
   const harness = renderContainer({
-    cameraMode: [{ mode: 'continuous', type: 'back' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'continuous' }],
+    retention: 'retain',
+    initialFacing: 'back',
   });
   configureLatest();
 
@@ -401,16 +399,15 @@ it('routes the real shutter through the photo transaction with a synchronous tok
   expect(harness.registry.stateOf(raw.path)).toBe('owned');
   fireEvent.press(harness.getByTestId('side-save-btn'));
   expect(harness.onSettle).toHaveBeenCalledWith({
-    code: 200,
-    data: [
+    status: 'success',
+    media: [
       expect.objectContaining({
         path: raw.path,
-        cameraType: 'front',
-        cameraMode: 'continuous',
+        facing: 'front',
+
         mode: 'continuous',
       }),
     ],
-    message: 'ok',
   });
 });
 
@@ -423,8 +420,8 @@ it('registers and removes raw/final files when photo processing fails or becomes
   mockCapture.mockResolvedValue(raw);
   processPhotoMock.mockRejectedValueOnce(new Error('encode failed'));
   const failed = renderContainer({
-    cameraMode: [{ mode: 'single' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'single' }],
+    retention: 'retain',
   });
   configureLatest();
 
@@ -438,7 +435,7 @@ it('registers and removes raw/final files when photo processing fails or becomes
   expect(failed.getByText('相机异常:照片处理失败,请重试')).toBeTruthy();
   failed.unmount();
 
-  const processing = deferred<CustomPhotoFile>();
+  const processing = deferred<CapturedFile>();
   const final = makePhotoFile({
     id: 'late-final',
     path: '/late-final.jpg',
@@ -446,8 +443,8 @@ it('registers and removes raw/final files when photo processing fails or becomes
   });
   processPhotoMock.mockReturnValueOnce(processing.promise);
   const stale = renderContainer({
-    cameraMode: [{ mode: 'single' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'single' }],
+    retention: 'retain',
   });
   configureLatest();
   await act(async () => {
@@ -470,8 +467,8 @@ it('registers and removes raw/final files when photo processing fails or becomes
 
 it('keeps the configured Camera mounted and ready across confirm-preview retake', async () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'single' }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single' }],
+    retention: 'clear',
   });
   const instanceId = latestCamera().instanceId;
   configureLatest();
@@ -500,8 +497,8 @@ it('keeps the configured Camera mounted and ready across confirm-preview retake'
 
 it('keeps the configured Camera mounted and ready across gallery back', async () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'continuous' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'continuous' }],
+    retention: 'retain',
   });
   const instanceId = latestCamera().instanceId;
   configureLatest();
@@ -531,8 +528,8 @@ it('keeps the configured Camera mounted and ready across gallery back', async ()
 
 it('keeps the configured Camera mounted and ready after deleting the last preview file', async () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'continuous' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'continuous' }],
+    retention: 'retain',
   });
   const instanceId = latestCamera().instanceId;
   configureLatest();
@@ -548,7 +545,7 @@ it('keeps the configured Camera mounted and ready after deleting the last previe
   fireEvent.press(harness.getByTestId('thumbnail-stack'));
   fireEvent.press(harness.getByTestId('delete-btn'));
   await act(async () => {
-    fireEvent.press(harness.getByTestId('camera-confirm-ok'));
+    fireEvent.press(harness.getByTestId('confirm-ok'));
     await Promise.resolve();
   });
 
@@ -567,8 +564,8 @@ it.each(['stopped', 'max-duration-reached', 'max-file-size-reached'] as const)(
   'routes %s video completion through one native callback and settles one file',
   async (reason) => {
     const harness = renderContainer({
-      cameraMode: [{ mode: 'video' }],
-      dataRetainedMode: 'retain',
+      modes: [{ mode: 'video' }],
+      retention: 'retain',
     });
     configureLatest();
 
@@ -594,7 +591,7 @@ it.each(['stopped', 'max-duration-reached', 'max-file-size-reached'] as const)(
       path: `/video-${reason}.mp4`,
       uri: `file:///video-${reason}.mp4`,
       mode: 'video',
-      duration: 7,
+      durationMs: 7000,
     });
     act(() => {
       mockVideoCallbacks?.onFinished(video, reason, 7);
@@ -605,9 +602,8 @@ it.each(['stopped', 'max-duration-reached', 'max-file-size-reached'] as const)(
     expect(harness.queryByTestId('recording-timer')).toBeNull();
     fireEvent.press(harness.getByTestId('side-save-btn'));
     expect(harness.onSettle).toHaveBeenCalledWith({
-      code: 200,
-      data: [expect.objectContaining({ path: video.path, mode: 'video' })],
-      message: 'ok',
+      status: 'success',
+      media: [expect.objectContaining({ path: video.path, mode: 'video' })],
     });
   }
 );
@@ -616,8 +612,8 @@ it('accepts callback-before-start once and cleans a late callback after force te
   const starting = deferred<'started' | 'denied'>();
   mockStartVideo.mockReturnValueOnce(starting.promise);
   const early = renderContainer({
-    cameraMode: [{ mode: 'video' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'video' }],
+    retention: 'retain',
   });
   configureLatest();
   fireEvent.press(early.getByTestId('shutter-btn'));
@@ -639,15 +635,14 @@ it('accepts callback-before-start once and cleans a late callback after force te
   });
   fireEvent.press(early.getByTestId('side-save-btn'));
   expect(early.onSettle).toHaveBeenCalledWith({
-    code: 200,
-    data: [expect.objectContaining({ path: earlyFile.path })],
-    message: 'ok',
+    status: 'success',
+    media: [expect.objectContaining({ path: earlyFile.path })],
   });
   early.unmount();
 
   const late = renderContainer({
-    cameraMode: [{ mode: 'video' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'video' }],
+    retention: 'retain',
   });
   configureLatest();
   await act(async () => {
@@ -675,8 +670,8 @@ it('accepts callback-before-start once and cleans a late callback after force te
 
 it('routes the registered recording cancel bridge through confirmation and native cancellation', async () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'video' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'video' }],
+    retention: 'retain',
   });
   configureLatest();
   await act(async () => {
@@ -687,14 +682,10 @@ it('routes the registered recording cancel bridge through confirmation and nativ
   act(() => harness.getBridge().requestUserCancel());
   expect(harness.getByText('放弃录制')).toBeTruthy();
   await act(async () => {
-    fireEvent.press(harness.getByTestId('camera-confirm-ok'));
+    fireEvent.press(harness.getByTestId('confirm-ok'));
     await Promise.resolve();
   });
 
   expect(mockCancelVideo).toHaveBeenCalledTimes(1);
-  expect(harness.onSettle).toHaveBeenCalledWith({
-    code: 0,
-    data: [],
-    message: 'cancelled',
-  });
+  expect(harness.onSettle).toHaveBeenCalledWith({ status: 'cancelled' });
 });

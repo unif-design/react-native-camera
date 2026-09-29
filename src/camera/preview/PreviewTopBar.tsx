@@ -7,15 +7,15 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { CustomPhotoFile, CameraModeName } from '../../utils';
+import type { CapturedFile, CameraCaptureMode } from '../../utils';
 import { distinctTypes, filesOfType, MODE_LABEL } from './groupTypes';
 
 type Props = {
   variant: 'confirm' | 'gallery';
-  files: CustomPhotoFile[];
-  activeType: CameraModeName;
+  files: CapturedFile[];
+  activeType: CameraCaptureMode;
   tabsDisabled?: boolean;
-  onSelectType: (t: CameraModeName) => void;
+  onSelectType: (t: CameraCaptureMode) => void;
 };
 
 export function PreviewTopBar({

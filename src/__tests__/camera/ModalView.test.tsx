@@ -1,4 +1,10 @@
-import { NativeModules, StatusBar, StyleSheet, Text } from 'react-native';
+import {
+  NativeModules,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import {
   act,
   cleanupAsync,
@@ -7,6 +13,7 @@ import {
 } from '@testing-library/react-native';
 import { ThemeProvider, useTheme } from '@unif/react-native-design';
 import { ModalView } from '../../camera/ModalView';
+import { useCameraDialog } from '../../camera/ui/CameraDialogHost';
 
 // 保留真实 iOS Modal 的 isRendered / onDismiss 生命周期，仅替换原生视图边界。
 jest.unmock('react-native/Libraries/Modal/Modal');
@@ -178,4 +185,75 @@ describe('Modal 状态栏归属', () => {
       );
     }
   );
+});
+
+function CameraThemeProbe() {
+  const { scheme, fontScale, colors } = useTheme();
+  return (
+    <Text
+      testID="camera-theme"
+      style={{ color: colors.foreground }}
+    >{`${scheme}:${fontScale}`}</Text>
+  );
+}
+
+it('物理暗色窗口保持读屏对比度，字号随宿主实时继承', () => {
+  const view = render(
+    <ThemeProvider forceScheme="light" fontScale={1.4}>
+      <ModalView visible onClose={() => {}}>
+        <CameraThemeProbe />
+      </ModalView>
+    </ThemeProvider>
+  );
+  expect(view.getByTestId('camera-theme')).toHaveTextContent('dark:1.4');
+  view.rerender(
+    <ThemeProvider forceScheme="dark" fontScale={1.2}>
+      <ModalView visible onClose={() => {}}>
+        <CameraThemeProbe />
+      </ModalView>
+    </ThemeProvider>
+  );
+  expect(view.getByTestId('camera-theme')).toHaveTextContent('dark:1.2');
+});
+
+function DialogTrigger({ onResult }: { onResult(result: boolean): void }) {
+  const { confirm } = useCameraDialog();
+  return (
+    <Pressable
+      testID="ask-dialog"
+      onPress={() => {
+        confirm({ title: '本轮确认' }).then(onResult);
+      }}
+    >
+      <Text>ask</Text>
+    </Pressable>
+  );
+}
+
+it('切换本轮归属只清理内部确认，保留真实 RN Modal 窗口', async () => {
+  const first = jest.fn();
+  const second = jest.fn();
+  const view = render(
+    <ModalView visible sessionId={1} onClose={() => {}}>
+      <DialogTrigger onResult={first} />
+    </ModalView>
+  );
+  const cameraWindow = view.getByTestId('camera-modal');
+  fireEvent.press(view.getByTestId('ask-dialog'));
+  expect(view.getByText('本轮确认')).toBeTruthy();
+  view.rerender(
+    <ModalView visible sessionId={2} onClose={() => {}}>
+      <DialogTrigger onResult={second} />
+    </ModalView>
+  );
+  await act(async () => {});
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(first).toHaveBeenCalledWith(false);
+  expect(view.queryByText('本轮确认')).toBeNull();
+  expect(view.getByTestId('camera-modal')).toBe(cameraWindow);
+  fireEvent.press(view.getByTestId('ask-dialog'));
+  fireEvent.press(view.getByTestId('confirm-ok'));
+  await act(async () => {});
+  expect(second).toHaveBeenCalledTimes(1);
+  expect(second).toHaveBeenCalledWith(true);
 });

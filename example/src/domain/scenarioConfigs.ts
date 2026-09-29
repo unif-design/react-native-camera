@@ -1,21 +1,20 @@
 import type {
-  CameraModeName,
-  CameraType,
-  DataRetainedMode,
-  FlashMode,
-  OpenConfig,
+  CameraCaptureMode,
+  CameraFacing,
+  CameraFlash,
+  CameraInput,
 } from '@unif/react-native-camera';
 
 export type BasicConfigInput = {
-  mode: CameraModeName;
-  type: CameraType;
-  flashMode: FlashMode;
+  mode: CameraCaptureMode;
+  type: CameraFacing;
+  flashMode: CameraFlash;
   quality: number;
-  recTime: number;
+  maxDurationSeconds: number;
 };
 
 type WatermarkPosition = NonNullable<
-  NonNullable<OpenConfig['watermark']>['position']
+  NonNullable<CameraInput['watermark']>['position']
 >;
 
 export type WatermarkConfigInput = {
@@ -28,7 +27,7 @@ export type WatermarkConfigInput = {
 export type WatermarkConfigResult =
   | {
       ok: true;
-      config: OpenConfig;
+      config: CameraInput;
     }
   | {
       ok: false;
@@ -47,44 +46,44 @@ export type QualityConfigInput =
     }
   | {
       kind: 'video';
-      recTime: number;
+      maxDurationSeconds: number;
       videoBitRate: number | null;
     };
 
-export function buildBasicConfig(input: BasicConfigInput): OpenConfig {
+export function buildBasicConfig(input: BasicConfigInput): CameraInput {
   return {
-    cameraMode:
+    modes:
       input.mode === 'video'
         ? [
             {
               mode: 'video',
-              type: input.type,
-              flashMode: input.flashMode,
-              recTime: input.recTime,
+              maxDurationSeconds: input.maxDurationSeconds,
             },
           ]
         : [
             {
               mode: input.mode,
-              type: input.type,
-              flashMode: input.flashMode,
               quality: input.quality,
             },
           ],
-    dataRetainedMode: 'clear',
+    initialFacing: input.type,
+    initialFlash: input.flashMode,
+    retention: 'clear',
   };
 }
 
 export function buildMultiModeConfig(
-  retainedMode: DataRetainedMode
-): OpenConfig {
+  retainedMode: CameraInput['retention']
+): CameraInput {
   return {
-    cameraMode: [
-      { mode: 'single', type: 'back', flashMode: 'auto', quality: 0.9 },
+    modes: [
+      { mode: 'single', quality: 0.9 },
       { mode: 'continuous', quality: 0.9 },
-      { mode: 'video', recTime: 15 },
+      { mode: 'video', maxDurationSeconds: 15 },
     ],
-    dataRetainedMode: retainedMode,
+    initialFacing: 'back',
+    initialFlash: 'auto',
+    retention: retainedMode,
   };
 }
 
@@ -109,10 +108,10 @@ export function buildWatermarkConfig(
   return {
     ok: true,
     config: {
-      cameraMode: [{ mode: 'single', quality: 0.9 }],
-      dataRetainedMode: 'clear',
+      modes: [{ mode: 'single', quality: 0.9 }],
+      retention: 'clear',
       watermark: {
-        content: [
+        lines: [
           title,
           `拍摄时间：${now.toISOString()}`,
           ...(location.length > 0 ? [`地点：${location}`] : []),
@@ -124,23 +123,33 @@ export function buildWatermarkConfig(
   };
 }
 
-export function buildQualityConfig(input: QualityConfigInput): OpenConfig {
+export function buildQualityConfig(input: QualityConfigInput): CameraInput {
   if (input.kind === 'video') {
     return {
-      cameraMode: [{ mode: 'video', recTime: input.recTime }],
-      dataRetainedMode: 'clear',
-      ...(input.videoBitRate === null
-        ? {}
-        : { videoBitRate: input.videoBitRate }),
+      modes: [
+        {
+          mode: 'video',
+          maxDurationSeconds: input.maxDurationSeconds,
+          ...(input.videoBitRate === null
+            ? {}
+            : { bitRate: input.videoBitRate }),
+        },
+      ],
+      retention: 'clear',
     };
   }
 
   return {
-    cameraMode: [{ mode: 'single', quality: input.quality }],
-    dataRetainedMode: 'clear',
-    ...(input.prioritization === 'sdk-default'
-      ? {}
-      : { photoQualityPrioritization: input.prioritization }),
-    ...(input.hdr === 'sdk-default' ? {} : { photoHDR: input.hdr === 'on' }),
+    modes: [
+      {
+        mode: 'single',
+        quality: input.quality,
+        ...(input.prioritization === 'sdk-default'
+          ? {}
+          : { qualityPriority: input.prioritization }),
+        ...(input.hdr === 'sdk-default' ? {} : { hdr: input.hdr === 'on' }),
+      },
+    ],
+    retention: 'clear',
   };
 }

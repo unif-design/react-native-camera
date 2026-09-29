@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { act } from '@testing-library/react-native';
-import type { CameraMode } from '../../utils';
+import type { CameraModeOptions } from '../../utils';
 import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
@@ -51,8 +51,8 @@ import { Camera } from '../../camera/Camera';
 
 const FRAME = { x: 0, y: 0, width: 390, height: 520 };
 const ANIMATED_FRAME = makeAnimatedFrameStub(FRAME);
-const PHOTO_MODE: CameraMode = { mode: 'single', quality: 0.9 };
-const VIDEO_MODE: CameraMode = { mode: 'video', quality: 0.9 };
+const PHOTO_MODE: CameraModeOptions = { mode: 'single', quality: 0.9 };
+const VIDEO_MODE: CameraModeOptions = { mode: 'video' };
 const ZOOM_SHARED = { value: 1 };
 const ORIGINAL_PLATFORM_OS = Object.getOwnPropertyDescriptor(Platform, 'OS');
 
@@ -84,7 +84,7 @@ function cameraElement({
   flash = 'off',
   isActive = true,
 }: {
-  currentMode?: CameraMode;
+  currentMode?: CameraModeOptions;
   device?: ReturnType<typeof makeDeviceStub>;
   flash?: 'auto' | 'on' | 'off';
   isActive?: boolean;

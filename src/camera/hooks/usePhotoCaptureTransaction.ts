@@ -7,11 +7,11 @@ import {
   type RefObject,
 } from 'react';
 import type {
-  CameraMode,
-  CameraType,
-  CustomPhotoFile,
-  OpenConfig,
-  WatermarkType,
+  CameraPhotoMode,
+  CameraFacing,
+  CapturedFile,
+  CameraInput,
+  CameraWatermark,
 } from '../../utils';
 import type { CameraHandle } from '../Camera';
 import { processPhoto, PhotoProcessingError } from '../image/processPhoto';
@@ -29,7 +29,7 @@ export type UsePhotoCaptureTransactionParams = {
   cameraRef: RefObject<CameraHandle | null>;
   controller: CameraSessionController;
   fileRegistry: FileRegistry;
-  config: OpenConfig;
+  config: CameraInput;
   onError: (message: string) => void;
 };
 
@@ -41,18 +41,18 @@ export type PhotoCaptureTransaction = {
   freezeUri: string | null;
   openGallery: () => boolean;
   closePreview: () => boolean;
-  deletePhoto: (file: CustomPhotoFile) => boolean;
+  deletePhoto: (file: CapturedFile) => boolean;
   retake: () => boolean;
   clearForModeSwitch: () => boolean;
   save: () => boolean;
 };
 
 type CaptureSnapshot = {
-  mode: CameraMode;
+  mode: CameraPhotoMode;
   aspectRatio: AspectRatio;
-  watermark?: WatermarkType;
-  cameraPosition: CameraType;
-  dataRetainedMode: OpenConfig['dataRetainedMode'];
+  watermark?: CameraWatermark;
+  cameraPosition: CameraFacing;
+  retention: CameraInput['retention'];
   previewIndex: number;
 };
 
@@ -72,10 +72,10 @@ type PendingFileCleanup = FileCleanupRequest & {
 };
 
 function snapshotCapture(
-  config: OpenConfig,
+  config: CameraInput,
   controller: CameraSessionController
 ): CaptureSnapshot | null {
-  const sourceMode = config.cameraMode[controller.state.modeIndex];
+  const sourceMode = config.modes[controller.state.modeIndex];
   if (sourceMode == null || sourceMode.mode === 'video') return null;
 
   return {
@@ -85,14 +85,14 @@ function snapshotCapture(
       ? {}
       : {
           watermark: {
-            content: [...config.watermark.content],
+            lines: [...config.watermark.lines],
             ...(config.watermark.position == null
               ? {}
               : { position: config.watermark.position }),
           },
         }),
     cameraPosition: controller.state.activePosition,
-    dataRetainedMode: config.dataRetainedMode,
+    retention: config.retention,
     previewIndex: controller.state.files.length,
   };
 }
@@ -213,7 +213,7 @@ export function usePhotoCaptureTransaction({
     if (token == null) return;
     const delegatedCleanupPaths = new Set<string>();
 
-    let raw: CustomPhotoFile | null | undefined;
+    let raw: CapturedFile | null | undefined;
     try {
       raw = await cameraRef.current?.capture();
     } catch {
@@ -234,10 +234,9 @@ export function usePhotoCaptureTransaction({
       return;
     }
 
-    const normalized: CustomPhotoFile = {
+    const normalized: CapturedFile = {
       ...raw,
-      cameraType: captured.cameraPosition,
-      cameraMode: captured.mode.mode,
+      facing: captured.cameraPosition,
       mode: captured.mode.mode,
     };
     if (!controller.photoCaptured(token)) {
@@ -254,7 +253,7 @@ export function usePhotoCaptureTransaction({
       visibleWatermark
     );
     const preview =
-      captured.mode.mode === 'single' && captured.dataRetainedMode === 'clear'
+      captured.mode.mode === 'single' && captured.retention === 'clear'
         ? { variant: 'confirm' as const, index: captured.previewIndex }
         : undefined;
 
@@ -275,7 +274,7 @@ export function usePhotoCaptureTransaction({
       setBurning(true);
     }
 
-    let final: CustomPhotoFile | null = null;
+    let final: CapturedFile | null = null;
     try {
       final = await processPhoto(
         normalized,
@@ -378,7 +377,7 @@ export function usePhotoCaptureTransaction({
   );
 
   const deletePhoto = useCallback(
-    (file: CustomPhotoFile): boolean => {
+    (file: CapturedFile): boolean => {
       const removed = controller.deleteFile(file.path);
       if (removed == null) return false;
       cleanupOwned(fileRegistry, [removed.path]);

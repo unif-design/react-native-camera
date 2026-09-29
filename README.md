@@ -23,11 +23,11 @@ export function CameraEntry() {
 
   const takePhoto = async () => {
     const result = await camera.open({
-      cameraMode: [{ mode: 'single', quality: 0.9 }],
-      dataRetainedMode: 'clear',
+      modes: [{ mode: 'single', quality: 0.9 }],
+      retention: 'clear',
     });
-    if (result.code === 200) {
-      // result.data 是拍摄结果，在这里预览、保存或上传。
+    if (result.status === 'success') {
+      // result.media 是已选用媒体，在这里预览、保存或上传。
     }
   };
 
@@ -40,7 +40,7 @@ export function CameraEntry() {
 }
 ```
 
-`holder` 必须渲染。只有 `code === 200` 表示成功，`0` 表示取消；其余结果见 [API](website/docs/api/camera-api.md)。返回文件位于临时目录，需要长期保留时由应用保存或上传。
+`holder` 必须渲染。结果通过 `status` 区分 `success`、`cancelled` 和 `failed`；错误原因见 [API](website/docs/api/camera-api.md)。可通过 `open(input, { signal })` 为本次调用提供取消信号。返回媒体只暴露可读的 `uri`，录像时长为 `durationMs`；临时文件交付后由应用保存、上传或释放。
 
 相机权限用于拍摄，麦克风权限仅用于录像；库不写入系统相册。真实拍摄、录像、水印成片和内存表现需要真机验证。
 

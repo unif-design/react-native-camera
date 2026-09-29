@@ -10,7 +10,7 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { DataRetainedMode } from '@unif/react-native-camera';
+import type { CameraInput } from '@unif/react-native-camera';
 
 import { ConfigPreview } from '../components/ConfigPreview';
 import {
@@ -30,7 +30,7 @@ export type MultiModeScreenProps = {
 };
 
 export type MultiModeDraft = {
-  retainedMode: DataRetainedMode;
+  retainedMode: CameraInput['retention'];
 };
 
 export const initialMultiModeDraft: MultiModeDraft = {
@@ -38,14 +38,14 @@ export const initialMultiModeDraft: MultiModeDraft = {
 };
 
 const retainedModeItems: {
-  id: DataRetainedMode;
+  id: CameraInput['retention'];
   label: string;
 }[] = [
   { id: 'clear', label: '切换时清理' },
   { id: 'retain', label: '跨模式保留' },
 ];
 
-function isRetainedMode(value: string): value is DataRetainedMode {
+function isRetainedMode(value: string): value is CameraInput['retention'] {
   return value === 'clear' || value === 'retain';
 }
 

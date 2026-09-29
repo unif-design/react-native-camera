@@ -10,31 +10,30 @@ describe('toFileUri', () => {
 });
 
 describe('buildPhotoFile', () => {
-  it('builds image file by default with id/cameraType/cameraMode', () => {
+  it('builds image file by default with id/facing/mode', () => {
     const f = buildPhotoFile(
       { path: '/tmp/a.jpg', width: 100, height: 200 },
       'single',
       'back'
     );
-    expect(f.mime).toBe('image/jpeg');
+    expect(f.mimeType).toBe('image/jpeg');
     expect(f.uri).toBe('file:///tmp/a.jpg');
-    expect(f.duration).toBeUndefined();
-    expect(f.cameraType).toBe('back');
-    expect(f.cameraMode).toBe('single');
+    expect(f.durationMs).toBeUndefined();
+    expect(f.facing).toBe('back');
     expect(f.mode).toBe('single');
     expect(typeof f.id).toBe('string');
-    expect(f.isRemake).toBe(false);
+    expect(f).not.toHaveProperty('isRemake');
   });
   it('builds video file when isVideo=true', () => {
     const f = buildPhotoFile(
-      { path: '/tmp/a.mp4', width: 1920, height: 1080, duration: 5.2 },
+      { path: '/tmp/a.mp4', width: 1920, height: 1080, durationMs: 5200 },
       'video',
       'front',
       true
     );
-    expect(f.mime).toBe('video/mp4');
-    expect(f.duration).toBe(5.2);
-    expect(f.cameraType).toBe('front');
+    expect(f.mimeType).toBe('video/mp4');
+    expect(f.durationMs).toBe(5200);
+    expect(f.facing).toBe('front');
   });
   it('generates unique ids across calls', () => {
     const a = buildPhotoFile(

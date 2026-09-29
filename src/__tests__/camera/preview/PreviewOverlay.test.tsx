@@ -4,7 +4,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 import { PreviewOverlay } from '../../../camera/preview/PreviewOverlay';
 import { CameraDialogProvider } from '../../../camera/ui/CameraDialogHost';
-import type { CustomPhotoFile } from '../../../utils';
+import type { CapturedFile } from '../../../utils';
 import { renderDark } from '../../__helpers__/renderDark';
 import { makePhotoFile } from '../../__helpers__/factories';
 
@@ -30,10 +30,10 @@ const layoutCarousel = (getByTestId: GetByTestId) => {
   });
 };
 
-const f = (cameraMode: CustomPhotoFile['cameraMode'], id: string) =>
+const f = (mode: CapturedFile['mode'], id: string) =>
   makePhotoFile({
     id,
-    mode: cameraMode,
+    mode,
     path: `/${id}`,
     uri: `file:///${id}`,
   });
@@ -97,7 +97,7 @@ it('点击当前 active tab 是 no-op,视觉页/计数/删除目标保持 settle
   expect(getByTestId('preview-counter')).toHaveTextContent('第 2/2 张');
 
   fireEvent.press(getByTestId('delete-btn'));
-  fireEvent.press(getByTestId('camera-confirm-ok'));
+  fireEvent.press(getByTestId('confirm-ok'));
   await waitFor(() => expect(deleted).toEqual(['b']));
 });
 
@@ -116,7 +116,7 @@ it('Carousel 尚未落位时禁用删除,settled 后恢复', () => {
   fireEvent.press(getByTestId('rnrc-scroll-start'));
   expect(getByTestId('delete-btn')).toBeDisabled();
   fireEvent.press(getByTestId('delete-btn'));
-  expect(queryByTestId('camera-confirm')).toBeNull();
+  expect(queryByTestId('confirm-scrim')).toBeNull();
   expect(onDelete).not.toHaveBeenCalled();
 
   fireEvent.press(getByTestId('rnrc-snap-1'));
@@ -186,7 +186,7 @@ it('Carousel moving 期间 viewport width 变化时 remount 到 settled 页并�
     expect(getByTestId('preview-counter')).toHaveTextContent('第 2/2 张');
 
     fireEvent.press(getByTestId('delete-btn'));
-    fireEvent.press(getByTestId('camera-confirm-ok'));
+    fireEvent.press(getByTestId('confirm-ok'));
     await waitFor(() => expect(deleted).toEqual(['b']));
   } finally {
     act(() => {
@@ -212,12 +212,12 @@ it('confirm 等待期间 settled index 改变 → id 复核失败,取消旧图�
 
   // 发起时 settled=a;确认框等待期间 Carousel 落到 b。
   fireEvent.press(getByTestId('delete-btn'));
-  expect(getByTestId('camera-confirm')).toBeTruthy();
+  expect(getByTestId('confirm-scrim')).toBeTruthy();
   fireEvent.press(getByTestId('rnrc-snap-1'));
   expect(getByTestId('preview-counter')).toHaveTextContent('第 2/2 张');
 
-  fireEvent.press(getByTestId('camera-confirm-ok'));
-  await waitFor(() => expect(queryByTestId('camera-confirm')).toBeNull());
+  fireEvent.press(getByTestId('confirm-ok'));
+  await waitFor(() => expect(queryByTestId('confirm-scrim')).toBeNull());
   expect(onDelete).not.toHaveBeenCalled();
 });
 
@@ -226,7 +226,7 @@ it('confirm 等待期间 settled index 改变 → id 复核失败,取消旧图�
 it('gallery 删当前张:total 随之减少,onDelete 命中当前文件', async () => {
   const deleted: string[] = [];
   function Harness() {
-    const [files, setFiles] = useState<CustomPhotoFile[]>([
+    const [files, setFiles] = useState<CapturedFile[]>([
       f('single', 'a'),
       f('single', 'b'),
       f('single', 'c'),
@@ -252,7 +252,7 @@ it('gallery 删当前张:total 随之减少,onDelete 命中当前文件', async 
   // 删当前张 → 弹确认 → 点确认 OK。confirm() 是 Promise(OK 后 resolve),
   // onDelete 在其 then 续体里跑,故需 await 结算后再断言。
   fireEvent.press(getByTestId('delete-btn'));
-  fireEvent.press(getByTestId('camera-confirm-ok'));
+  fireEvent.press(getByTestId('confirm-ok'));
 
   // onDelete 命中当前文件(index 0 → 'a');删后剩 2 张,计数变 1/2(非 1/3 残值,非越界)。
   await waitFor(() => expect(deleted).toEqual(['a']));
@@ -262,7 +262,7 @@ it('gallery 删当前张:total 随之减少,onDelete 命中当前文件', async 
 it('gallery 删除末张:render-time safeIndex 让 remount/计数/下一次删除都落到新末张', async () => {
   const deleted: string[] = [];
   function Harness() {
-    const [files, setFiles] = useState<CustomPhotoFile[]>([
+    const [files, setFiles] = useState<CapturedFile[]>([
       f('single', 'a'),
       f('single', 'b'),
       f('single', 'c'),
@@ -285,7 +285,7 @@ it('gallery 删除末张:render-time safeIndex 让 remount/计数/下一次删�
   fireEvent.press(getByTestId('rnrc-snap-2'));
   expect(getByTestId('preview-counter')).toHaveTextContent('第 3/3 张');
   fireEvent.press(getByTestId('delete-btn'));
-  fireEvent.press(getByTestId('camera-confirm-ok'));
+  fireEvent.press(getByTestId('confirm-ok'));
 
   await waitFor(() => {
     expect(deleted).toEqual(['c']);
@@ -294,7 +294,7 @@ it('gallery 删除末张:render-time safeIndex 让 remount/计数/下一次删�
 
   // 若 current 仍用越界 index fallback data[0],这里会错删 a;正确目标是新末张 b。
   fireEvent.press(getByTestId('delete-btn'));
-  fireEvent.press(getByTestId('camera-confirm-ok'));
+  fireEvent.press(getByTestId('confirm-ok'));
   await waitFor(() => expect(deleted).toEqual(['c', 'b']));
   expect(getByTestId('preview-counter')).toHaveTextContent('第 1/1 张');
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { CustomPhotoFile, CameraModeName } from '../../utils';
+import type { CapturedFile, CameraCaptureMode } from '../../utils';
 import { useCameraDialog } from '../ui/CameraDialogHost';
 import { Carousel, carouselRemountKey } from '../../components/Carousel';
 import { VIEWFINDER } from '../colors/viewfinder';
@@ -9,12 +9,12 @@ import { PreviewTopBar } from './PreviewTopBar';
 import { PreviewBottomBar } from './PreviewBottomBar';
 
 type Props = {
-  files: CustomPhotoFile[];
+  files: CapturedFile[];
   variant: 'confirm' | 'gallery';
   onRetake: () => void;
   onSave: () => void;
   onBack: () => void;
-  onDelete: (f: CustomPhotoFile) => void;
+  onDelete: (f: CapturedFile) => void;
 };
 
 export function PreviewOverlay({
@@ -29,7 +29,7 @@ export function PreviewOverlay({
   // 不走 design 全局 —— 后者会被相机 Modal 盖住。
   const { confirm } = useCameraDialog();
   const types = useMemo(() => distinctTypes(files), [files]);
-  const [activeType, setActiveType] = useState<CameraModeName>(
+  const [activeType, setActiveType] = useState<CameraCaptureMode>(
     types[0] ?? 'single'
   );
   const [index, setIndex] = useState(0);
@@ -55,7 +55,7 @@ export function PreviewOverlay({
   const data = variant === 'confirm' ? files : filesOfType(files, activeType);
   const safeIndex = Math.max(0, Math.min(index, Math.max(data.length - 1, 0)));
   const current = data[safeIndex];
-  const latestSettledCurrentRef = useRef<CustomPhotoFile | undefined>(current);
+  const latestSettledCurrentRef = useRef<CapturedFile | undefined>(current);
   const dataKey = carouselRemountKey(data);
 
   // render 当帧先统一使用 safeIndex,再把 state 追平:删除末张后 Carousel / current / 计数

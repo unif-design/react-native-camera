@@ -27,9 +27,9 @@ function CameraShowcase(): ReactElement {
 
   useEffect(
     () => () => {
-      api.close();
+      run.close();
     },
-    [api]
+    [run]
   );
 
   return (

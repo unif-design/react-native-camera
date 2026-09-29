@@ -1,4 +1,5 @@
-import { fireEvent } from '@testing-library/react-native';
+import { ThemeProvider, type as font } from '@unif/react-native-design';
+import { fireEvent, render } from '@testing-library/react-native';
 import { renderDark } from '../../__helpers__/renderDark';
 import { PreviewBottomBar } from '../../../camera/preview/PreviewBottomBar';
 
@@ -119,4 +120,24 @@ test('gallery moving 时删除按钮禁用并暴露 a11y disabled', () => {
   expect(getByRole('button', { name: '删除', disabled: true })).toBeTruthy();
   fireEvent.press(deleteButton);
   expect(onDelete).not.toHaveBeenCalled();
+});
+
+test('预览计数和操作文字使用宿主字号', () => {
+  const view = render(
+    <ThemeProvider forceScheme="dark" fontScale={1.4}>
+      <PreviewBottomBar
+        variant="gallery"
+        index={0}
+        total={3}
+        onRetake={() => {}}
+        onSave={() => {}}
+        onBack={() => {}}
+        onDelete={() => {}}
+      />
+    </ThemeProvider>
+  );
+  expect(view.getByTestId('preview-counter')).toHaveStyle({
+    fontSize: font.body * 1.4,
+  });
+  expect(view.getByText('删除')).toHaveStyle({ fontSize: font.xxs * 1.4 });
 });

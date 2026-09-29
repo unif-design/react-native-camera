@@ -4,10 +4,11 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import { act, render } from '@testing-library/react-native';
 import { useCamera } from '../hooks';
 import type {
-  CameraApi,
-  CameraResult,
-  CustomPhotoFile,
-  OpenConfig,
+  CameraController,
+  CameraOutcome,
+  CameraSessionOutcome,
+  CapturedFile,
+  CameraInput,
 } from '../utils';
 import type { FileRegistry } from '../camera/session/fileRegistry';
 
@@ -17,10 +18,10 @@ type ControllerBridge = {
 };
 
 type ContainerSnapshot = {
-  config: OpenConfig;
+  config: CameraInput;
   sessionId?: number;
   fileRegistry?: FileRegistry;
-  onSettle: (result: CameraResult) => void;
+  onSettle: (result: CameraSessionOutcome) => void;
   registerContainer?: (sessionId: number) => () => void;
   registerController?: (
     sessionId: number,
@@ -55,8 +56,7 @@ jest.mock('../camera', () => {
 
         // 复刻修复前真实 Container 的 cleanup：StrictMode replay 和真实 unmount
         // 都会同步 settle，用它保证 coordinator 测试能发现生产 cleanup 顺序回归。
-        return () =>
-          props.onSettle({ code: 0, data: [], message: 'cancelled' });
+        return () => props.onSettle({ status: 'cancelled' });
       }, [props.onSettle, props.registerContainer, props.sessionId]);
       return <ReactNative.View testID={`container-${props.sessionId}`} />;
     },
@@ -75,22 +75,14 @@ jest.mock('../camera', () => {
   };
 });
 
-const cancelledResult: CameraResult = {
-  code: 0,
-  data: [],
-  message: 'cancelled',
-};
-const savedResult: CameraResult = {
-  code: 200,
-  data: [],
-  message: 'success',
-};
+const cancelledResult: CameraSessionOutcome = { status: 'cancelled' };
+const savedResult: CameraSessionOutcome = { status: 'success', media: [] };
 const mockUnlink = jest.mocked(RNFS.unlink);
 
-function createConfig(mode: 'single' | 'video' = 'single'): OpenConfig {
+function createConfig(mode: 'single' | 'video' = 'single'): CameraInput {
   return {
-    cameraMode: [{ mode }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode }],
+    retention: 'clear',
   };
 }
 
@@ -117,7 +109,7 @@ function DetachableHolderHarness() {
 function StrictModeOpenHarness({
   onOpen,
 }: {
-  onOpen: (promise: Promise<CameraResult>) => void;
+  onOpen: (promise: Promise<CameraOutcome>) => void;
 }) {
   const [api, holder] = useCamera();
   const openedRef = React.useRef(false);
@@ -132,18 +124,20 @@ function StrictModeOpenHarness({
   return holder;
 }
 
-let currentApi: CameraApi | null = null;
+let currentAbortController: AbortController;
+let currentApi: CameraController | null = null;
 let detachHolder: (() => void) | null = null;
 
-function getApi(): CameraApi {
+function getApi(): CameraController {
   if (!currentApi) throw new Error('camera API is not mounted');
   return currentApi;
 }
 
-function open(config: OpenConfig): Promise<CameraResult> {
-  let promise: Promise<CameraResult> | undefined;
+function open(config: CameraInput): Promise<CameraOutcome> {
+  let promise: Promise<CameraOutcome> | undefined;
   act(() => {
-    promise = getApi().open(config);
+    currentAbortController = new AbortController();
+    promise = getApi().open(config, { signal: currentAbortController.signal });
   });
   if (!promise) throw new Error('open did not return a promise');
   return promise;
@@ -181,18 +175,17 @@ function registerController(
   return dispose;
 }
 
-function createPhoto(path: string): CustomPhotoFile {
+function createPhoto(path: string): CapturedFile {
   return {
     id: path,
-    cameraType: 'back',
-    cameraMode: 'single',
+    facing: 'back',
+
     path,
     uri: `file://${path}`,
     width: 1080,
     height: 1440,
-    mime: 'image/jpeg',
+    mimeType: 'image/jpeg',
     mode: 'single',
-    isRemake: false,
   };
 }
 
@@ -256,7 +249,7 @@ it('supersedes the old session before mounting an isolated new session', async (
   expect(registryOf(secondContainer)).not.toBe(registryOf(firstContainer));
 });
 
-it('returns invalid_config without replacing the active valid session', async () => {
+it('returns invalid_input without replacing the active valid session', async () => {
   render(<Harness />);
   const activePromise = open(createConfig());
   const activeResolved = jest.fn();
@@ -264,17 +257,16 @@ it('returns invalid_config without replacing the active valid session', async ()
   const activeContainer = latestContainer();
 
   const invalidPromise = open({
-    cameraMode: [],
-    dataRetainedMode: 'clear',
+    modes: [],
+    retention: 'clear',
   });
   const invalidResolved = jest.fn();
   invalidPromise.then(invalidResolved);
   await flushMicrotasks();
 
   expect(invalidResolved).toHaveBeenCalledWith({
-    code: 500,
-    data: [],
-    message: 'invalid_config',
+    status: 'failed',
+    error: { reason: 'invalid_input', message: expect.any(String) },
   });
   expect(activeResolved).not.toHaveBeenCalled();
   expect(latestContainer()).toBe(activeContainer);
@@ -297,24 +289,23 @@ it('rejects sparse public config arrays without replacing the active session', a
 
   const invalidConfigs = [
     {
-      cameraMode: sparseModes,
-      dataRetainedMode: 'clear',
+      modes: sparseModes,
+      retention: 'clear',
     },
     {
-      cameraMode: [{ mode: 'single' }],
-      dataRetainedMode: 'clear',
-      watermark: { content: sparseContent },
+      modes: [{ mode: 'single' }],
+      retention: 'clear',
+      watermark: { lines: sparseContent },
     },
-  ] as unknown as OpenConfig[];
+  ] as unknown as CameraInput[];
 
   for (const invalidConfig of invalidConfigs) {
     const invalidResolved = jest.fn();
     open(invalidConfig).then(invalidResolved);
     await flushMicrotasks();
     expect(invalidResolved).toHaveBeenCalledWith({
-      code: 500,
-      data: [],
-      message: 'invalid_config',
+      status: 'failed',
+      error: { reason: 'invalid_input', message: expect.any(String) },
     });
   }
   await flushMicrotasks();
@@ -338,19 +329,24 @@ it('transfers saved files and drains other owned files before resolving without 
   registry.register('/intermediate.jpg');
 
   act(() => {
-    container.onSettle({
-      code: 200,
-      data: [savedPhoto],
-      message: 'success',
-    });
+    container.onSettle({ status: 'success', media: [savedPhoto] });
   });
 
   expect(registry.stateOf('/returned.jpg')).toBe('transferred');
   expect(registry.stateOf('/intermediate.jpg')).toBe('deleted');
   await expect(promise).resolves.toEqual({
-    code: 200,
-    data: [savedPhoto],
-    message: 'success',
+    status: 'success',
+    media: [
+      {
+        id: '/returned.jpg',
+        facing: 'back',
+        mode: 'single',
+        uri: 'file:///returned.jpg',
+        width: 1080,
+        height: 1440,
+        mimeType: 'image/jpeg',
+      },
+    ],
   });
   expect(mockUnlink).toHaveBeenCalledTimes(1);
   expect(mockUnlink).toHaveBeenCalledWith('/intermediate.jpg');
@@ -367,7 +363,7 @@ it('close synchronously drains owned files and settles without waiting for unlin
   const registry = registryOf(latestContainer());
   registry.register('/cancelled.jpg');
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
 
   expect(registry.stateOf('/cancelled.jpg')).toBe('deleted');
   await expect(promise).resolves.toEqual(cancelledResult);
@@ -393,7 +389,7 @@ it('supersede drains only the old session registry', async () => {
   expect(mockUnlink).toHaveBeenCalledTimes(1);
   expect(mockUnlink).toHaveBeenCalledWith('/old-session.jpg');
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
   await expect(secondPromise).resolves.toEqual(cancelledResult);
 });
 
@@ -470,7 +466,7 @@ it('unlink failure cannot change the exactly-once cancelled result', async () =>
   const registry = registryOf(latestContainer());
   registry.register('/cleanup-fails.jpg');
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
 
   await expect(promise).resolves.toEqual(cancelledResult);
   await flushMicrotasks();
@@ -482,7 +478,7 @@ it('unlink failure cannot change the exactly-once cancelled result', async () =>
 });
 
 it('does not cancel an active session during React StrictMode effect replay', async () => {
-  const onOpen = jest.fn<void, [Promise<CameraResult>]>();
+  const onOpen = jest.fn<void, [Promise<CameraOutcome>]>();
   render(
     <React.StrictMode>
       <StrictModeOpenHarness onOpen={onOpen} />
@@ -538,7 +534,7 @@ it.each([
   act(() => {
     for (const event of events) {
       if (event === 'save') container.onSettle(savedResult);
-      if (event === 'close') getApi().close();
+      if (event === 'close') currentAbortController.abort();
       if (event === 'cleanup') container.onSettle(cancelledResult);
     }
   });
@@ -609,13 +605,7 @@ it('locks holder detach to cancelled before stale save and still tears down once
     if (!detachHolder) throw new Error('holder detach control is unavailable');
     detachHolder();
   });
-  act(() =>
-    container.onSettle({
-      code: 200,
-      data: [savedPhoto],
-      message: 'success',
-    })
-  );
+  act(() => container.onSettle({ status: 'success', media: [savedPhoto] }));
 
   expect(bridge.forceTeardown).not.toHaveBeenCalled();
   expect(registry.stateOf(savedPhoto.path)).toBe('deleted');
@@ -699,7 +689,7 @@ it('keeps a replacement bridge when the previous bridge disposer runs late', asy
   expect(firstBridge.requestUserCancel).not.toHaveBeenCalled();
   expect(secondBridge.requestUserCancel).toHaveBeenCalledTimes(1);
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
   await expect(promise).resolves.toEqual(cancelledResult);
 });
 
@@ -725,7 +715,7 @@ it('does not let delayed controller cleanup clear a replacement registration', a
   expect(firstBridge.requestUserCancel).not.toHaveBeenCalled();
   expect(secondBridge.requestUserCancel).toHaveBeenCalledTimes(1);
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
   await expect(promise).resolves.toEqual(cancelledResult);
 });
 
@@ -781,7 +771,7 @@ it('ignores stale session registration and disposal after a new session owns the
   expect(staleBridge.requestUserCancel).not.toHaveBeenCalled();
   expect(secondBridge.requestUserCancel).toHaveBeenCalledTimes(1);
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
   await expect(secondPromise).resolves.toEqual(cancelledResult);
 });
 
@@ -808,7 +798,7 @@ it('ignores an old session presence disposer after the new session mounts', asyn
   await flushMicrotasks();
 
   expect(secondResolved).not.toHaveBeenCalled();
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
   await expect(secondPromise).resolves.toEqual(cancelledResult);
 });
 
@@ -821,7 +811,7 @@ it('uses force teardown for close, supersede, and unmount', async () => {
     forceTeardown: jest.fn(),
   };
   registerController(latestContainer(), closeBridge);
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
   await expect(closePromise).resolves.toEqual(cancelledResult);
   expect(closeBridge.forceTeardown).toHaveBeenCalledTimes(1);
 
@@ -863,7 +853,7 @@ it.each(['close', 'supersede', 'unmount'] as const)(
 
     expect(() => {
       act(() => {
-        if (action === 'close') getApi().close();
+        if (action === 'close') currentAbortController.abort();
         if (action === 'supersede') getApi().open(createConfig('video'));
         if (action === 'unmount') view.unmount();
       });
@@ -893,7 +883,7 @@ it('settles once when force teardown reentrantly settles before throwing', async
   registerController(container, bridge);
 
   expect(() => {
-    act(() => getApi().close());
+    act(() => currentAbortController.abort());
   }).not.toThrow();
   await flushMicrotasks();
 
@@ -911,16 +901,12 @@ it('normalizes a saved result emitted reentrantly during force teardown to cance
   const bridge: ControllerBridge = {
     requestUserCancel: jest.fn(),
     forceTeardown: jest.fn(() => {
-      container.onSettle({
-        code: 200,
-        data: [savedPhoto],
-        message: 'success',
-      });
+      container.onSettle({ status: 'success', media: [savedPhoto] });
     }),
   };
   registerController(container, bridge);
 
-  act(() => getApi().close());
+  act(() => currentAbortController.abort());
 
   await expect(promise).resolves.toEqual(cancelledResult);
   expect(bridge.forceTeardown).toHaveBeenCalledTimes(1);

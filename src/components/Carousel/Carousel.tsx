@@ -6,7 +6,7 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { Carousel as RNCarousel } from 'react-native-reanimated-carousel';
-import type { CustomPhotoFile } from '../../utils';
+import type { CapturedFile } from '../../utils';
 import { SlideItem } from './SlideItem';
 
 /**
@@ -16,14 +16,14 @@ import { SlideItem } from './SlideItem';
  * Reanimated spring 且不触发 onSnapToItem;remount 可回到父级最后 settled index。
  */
 export function carouselRemountKey(
-  data: CustomPhotoFile[],
+  data: CapturedFile[],
   itemSize?: number
 ): string {
   return JSON.stringify([itemSize ?? null, data.map((item) => item.id)]);
 }
 
 type Props = {
-  data: CustomPhotoFile[];
+  data: CapturedFile[];
   /** 已落位的当前下标(删除后由父级 clamp);用作 defaultIndex,删除 remount 后落回正确张。 */
   index?: number;
   /** 手势真正开始移动时触发;父级据此冻结会依赖 settled index 的操作。 */

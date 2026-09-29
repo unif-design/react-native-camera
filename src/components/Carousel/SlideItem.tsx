@@ -1,15 +1,15 @@
 import { Image, StyleSheet, View } from 'react-native';
-import type { CustomPhotoFile } from '../../utils';
+import type { CapturedFile } from '../../utils';
 import { VIEWFINDER } from '../../camera/colors/viewfinder';
 import { VideoPlayer } from '../VideoPlayer';
 
-export function SlideItem({ file }: { file: CustomPhotoFile }) {
+export function SlideItem({ file }: { file: CapturedFile }) {
   return (
     <View style={styles.root}>
       {/* 固定灰色画布:外层容器恒定(铺满 slide),4:3/16:9 只是画布内图片比例不同
           (灰边多少不同)—— 不同画幅下预览的「外层观感」一致,不再忽大忽小。 */}
       <View style={styles.canvas} testID="slide-canvas">
-        {file.mime === 'video/mp4' ? (
+        {file.mimeType === 'video/mp4' ? (
           <VideoPlayer uri={file.uri} />
         ) : (
           <Image

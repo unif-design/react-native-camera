@@ -11,9 +11,9 @@ import {
   type ColorTokens,
 } from '@unif/react-native-design';
 import type {
-  CameraModeName,
-  CameraType,
-  FlashMode,
+  CameraCaptureMode,
+  CameraFacing,
+  CameraFlash,
 } from '@unif/react-native-camera';
 
 import { ConfigPreview } from '../components/ConfigPreview';
@@ -34,43 +34,43 @@ export type BasicCaptureScreenProps = {
 };
 
 export type BasicCaptureDraft = {
-  mode: CameraModeName;
-  cameraType: CameraType;
-  flashMode: FlashMode;
+  mode: CameraCaptureMode;
+  facing: CameraFacing;
+  flashMode: CameraFlash;
 };
 
 export const initialBasicCaptureDraft: BasicCaptureDraft = {
   mode: 'single',
-  cameraType: 'back',
+  facing: 'back',
   flashMode: 'auto',
 };
 
-const modeItems: { id: CameraModeName; label: string }[] = [
+const modeItems: { id: CameraCaptureMode; label: string }[] = [
   { id: 'single', label: '单拍' },
   { id: 'continuous', label: '连拍' },
   { id: 'video', label: '录像' },
 ];
 
-const cameraTypeItems: { id: CameraType; label: string }[] = [
+const cameraTypeItems: { id: CameraFacing; label: string }[] = [
   { id: 'back', label: '后摄' },
   { id: 'front', label: '前摄' },
 ];
 
-const flashItems: { id: FlashMode; label: string }[] = [
+const flashItems: { id: CameraFlash; label: string }[] = [
   { id: 'auto', label: '自动' },
   { id: 'on', label: '开启' },
   { id: 'off', label: '关闭' },
 ];
 
-function isCameraMode(value: string): value is CameraModeName {
+function isCameraMode(value: string): value is CameraCaptureMode {
   return value === 'single' || value === 'continuous' || value === 'video';
 }
 
-function isCameraType(value: string): value is CameraType {
+function isCameraType(value: string): value is CameraFacing {
   return value === 'front' || value === 'back';
 }
 
-function isFlashMode(value: string): value is FlashMode {
+function isFlashMode(value: string): value is CameraFlash {
   return value === 'auto' || value === 'on' || value === 'off';
 }
 
@@ -106,15 +106,15 @@ export function BasicCaptureScreen({
   onBack,
 }: BasicCaptureScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
-  const { mode, cameraType, flashMode } = draft;
+  const { mode, facing, flashMode } = draft;
   const snapshot = useCameraRunSnapshot(run);
   const opening = snapshot.phase === 'opening';
   const config = buildBasicConfig({
     mode,
-    type: cameraType,
+    type: facing,
     flashMode,
     quality: 0.9,
-    recTime: 15,
+    maxDurationSeconds: 15,
   });
   const latestRecord = [...snapshot.records]
     .reverse()
@@ -131,7 +131,7 @@ export function BasicCaptureScreen({
   return (
     <ShowcaseScaffold
       title="基础拍摄"
-      description="一次只传入一个 cameraMode，便于复制最小公开配置。"
+      description="一次只传入一个 modes 项，便于复制最小公开配置。"
       onBack={onBack}
     >
       <Card variant="plain">
@@ -151,11 +151,11 @@ export function BasicCaptureScreen({
           <View style={styles.control}>
             <Text style={styles.label}>初始镜头</Text>
             <Segmented
-              value={cameraType}
+              value={facing}
               items={cameraTypeItems}
               onChange={(value) => {
                 if (isCameraType(value)) {
-                  onDraftChange({ ...draft, cameraType: value });
+                  onDraftChange({ ...draft, facing: value });
                 }
               }}
             />

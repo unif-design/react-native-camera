@@ -6,47 +6,41 @@ description: '使用 useCamera 打开相机并处理拍摄结果。'
 
 # 快速上手
 
-完成[安装与权限配置](/docs/getting-started/installation)后，在真机运行以下示例。
-
-## 代码示例
+先完成[依赖与权限安装](/docs/getting-started/installation)。下面的组件使用公开入口拍一张照片。
 
 ```tsx
-import React from 'react';
-import { View, Button } from 'react-native';
-import { useCamera, type CameraResult } from '@unif/react-native-camera';
+import { Button, Text, View } from 'react-native';
+import { useState } from 'react';
+import { useCamera } from '@unif/react-native-camera';
 
-export default function PhotoScreen() {
-  const [api, holder] = useCamera(); // ① 取 api + holder
-
-  const onShoot = async () => {
-    const res: CameraResult = await api.open({
-      // ③ 弹出相机,await 结果
-      cameraMode: [{ mode: 'single', quality: 0.9 }],
-      dataRetainedMode: 'clear',
+export function PhotoScreen() {
+  const [camera, holder] = useCamera();
+  const [message, setMessage] = useState('');
+  async function takePhoto() {
+    const result = await camera.open({
+      modes: [{ mode: 'single', quality: 0.9 }],
+      retention: 'clear',
     });
-    if (res.code === 200) {
-      // ④ 200 才是成功
-      // res.data 是 CustomPhotoFile[],每项含 .uri / .path / .width / .height / .mime
-      console.log(res.data[0]?.uri);
+    switch (result.status) {
+      case 'success':
+        setMessage(result.media.map((media) => media.uri).join('\n'));
+        break;
+      case 'cancelled':
+        setMessage('已取消');
+        break;
+      case 'failed':
+        setMessage(result.error.message);
+        break;
     }
-    // 其余 code:0 取消 / 403 无权限 / 404 无设备 / 500 配置非法(拍摄失败走相机内重试)
-  };
-
+  }
   return (
     <View>
-      <Button title="拍照" onPress={onShoot} />
+      <Button title="拍照" onPress={takePhoto} />
+      <Text>{message}</Text>
       {holder}
-      {/* ② holder 必须渲染进树,否则相机不弹且 Promise 保持 pending */}
     </View>
   );
 }
 ```
 
-## 接入要点
-
-- 在稳定的组件树中渲染 `holder`。
-- 将拍摄模式等配置传给 `api.open()`。
-- 仅在 `code === 200` 时处理媒体，`0` 表示取消。
-- 需要长期保留文件时，由应用保存或上传。
-
-多次打开、局部拍摄失败和文件归属见[调用与资源](/docs/getting-started/concepts)。参数见[类型参考](/docs/api/types)，遇到问题查看[FAQ](/docs/troubleshooting)。
+宿主必须挂载；缺少宿主会明确失败。需要外部取消时传入本次调用的 `AbortSignal`，见[调用生命周期](/docs/api/camera-api#open-lifecycle)。成功结果是临时媒体，实际业务应及时保存或上传。

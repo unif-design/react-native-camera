@@ -1,15 +1,15 @@
 import { Image } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { SlideItem } from '../../../components/Carousel/SlideItem';
-import type { CustomPhotoFile } from '../../../utils';
+import type { CapturedFile } from '../../../utils';
 import { makePhotoFile } from '../../__helpers__/factories';
 
-const img: CustomPhotoFile = makePhotoFile({
+const img: CapturedFile = makePhotoFile({
   id: '1',
   path: '/a.jpg',
   uri: 'file:///a.jpg',
 });
-const vid: CustomPhotoFile = makePhotoFile({
+const vid: CapturedFile = makePhotoFile({
   id: '1',
   mode: 'video',
   path: '/v.mp4',

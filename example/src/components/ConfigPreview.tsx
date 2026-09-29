@@ -9,10 +9,10 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { OpenConfig } from '@unif/react-native-camera';
+import type { CameraInput } from '@unif/react-native-camera';
 
 export type ConfigPreviewProps = {
-  config: OpenConfig;
+  config: CameraInput;
 };
 
 const makeStyles = (colors: ColorTokens) =>
@@ -41,7 +41,7 @@ export function ConfigPreview({ config }: ConfigPreviewProps): ReactElement {
   return (
     <Card variant="plain">
       <View style={styles.header}>
-        <Text style={styles.title}>本次 OpenConfig</Text>
+        <Text style={styles.title}>本次 CameraInput</Text>
         <Tag label="只读" variant="outline" />
       </View>
       <Text selectable style={styles.code}>

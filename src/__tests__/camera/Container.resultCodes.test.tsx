@@ -1,14 +1,14 @@
 import type { ReactElement } from 'react';
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
-import type { CameraResult } from '../../utils';
+import type { CameraSessionOutcome } from '../../utils';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
 import { createContainerSessionProps } from '../__helpers__/containerSession';
 import { renderDark } from '../__helpers__/renderDark';
 
 // 结果码行为路径(与 Container.test.tsx 的 device-ready/zoom 守护互补,独立文件不相扰):
-//   403 = 权限被拒 → NoPermission → 点取消 → onSettle(code 403)
-//   404 = 已授权但无设备 → NoCamera → 点关闭 → onSettle(code 404)
+//   403 = 权限被拒 → NoPermission → 点取消 → onSettle(failed / permission_denied)
+//   404 = 已授权但无设备 → NoCamera → 点关闭 → onSettle(failed / no_device)
 //
 // 两条路径要不同的 vision-camera 行为(403 拒权限 / 404 授权但 device=undefined),而
 // jest.mock 工厂被 babel 提升、整文件只执行一次、不能闭包捕获顶层 import。故工厂内 require
@@ -51,11 +51,12 @@ jest.mock('react-native-vision-camera', () => {
 });
 
 const baseConfig = {
-  dataRetainedMode: 'retain' as const,
-  cameraMode: [{ mode: 'single' as const, type: 'back' as const }],
+  modes: [{ mode: 'single' as const }],
+  retention: 'retain' as const,
+  initialFacing: 'back' as const,
 };
 
-function renderContainer(onSettle: (r: CameraResult) => void) {
+function renderContainer(onSettle: (r: CameraSessionOutcome) => void) {
   const ui: ReactElement = (
     <CameraDialogProvider>
       <Container
@@ -90,7 +91,7 @@ afterEach(() => {
   delete (globalThis as { __vcResultCodeState?: VcState }).__vcResultCodeState;
 });
 
-it('403:权限被拒 → NoPermission → 点取消 → onSettle(code 403)', async () => {
+it('permission_denied:权限被拒 → NoPermission → 点取消 → onSettle(failed / permission_denied)', async () => {
   let resolvePermission: ((granted: boolean) => void) | undefined;
   // 保持权限请求挂起，直到 act 内结算；否则 Promise 自行结算的 state 更新会逃出测试边界。
   (globalThis as { __vcResultCodeState?: VcState }).__vcResultCodeState = {
@@ -115,13 +116,12 @@ it('403:权限被拒 → NoPermission → 点取消 → onSettle(code 403)', asy
 
   expect(onSettle).toHaveBeenCalledTimes(1);
   expect(onSettle).toHaveBeenCalledWith({
-    code: 403,
-    data: [],
-    message: 'permission_denied',
+    status: 'failed',
+    error: { reason: 'permission_denied', message: expect.any(String) },
   });
 });
 
-it('404:已授权但无设备 → NoCamera → 点关闭 → onSettle(code 404)', async () => {
+it('no_device:已授权但无设备 → NoCamera → 点关闭 → onSettle(failed / no_device)', async () => {
   // hasPermission=true → state 同步 'granted';device=undefined → 落到 NoCamera 分支。
   (globalThis as { __vcResultCodeState?: VcState }).__vcResultCodeState = {
     hasPermission: true,
@@ -137,8 +137,7 @@ it('404:已授权但无设备 → NoCamera → 点关闭 → onSettle(code 404)'
 
   expect(onSettle).toHaveBeenCalledTimes(1);
   expect(onSettle).toHaveBeenCalledWith({
-    code: 404,
-    data: [],
-    message: 'no_device',
+    status: 'failed',
+    error: { reason: 'no_device', message: expect.any(String) },
   });
 });

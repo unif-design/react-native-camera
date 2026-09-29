@@ -8,6 +8,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.media.ExifInterface
+import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import android.os.Trace
 import android.text.Layout
@@ -19,6 +20,7 @@ import android.text.style.StyleSpan
 import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
+import org.json.JSONObject
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -26,7 +28,6 @@ import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import org.json.JSONObject
 
 /**
  * 文件级照片处理：只读 JPEG 文件头，按目标尺寸采样解码，在一个目标 Bitmap 上完成
@@ -60,6 +61,39 @@ class UnifPhotoProcessorModule(
         promise.reject(error.errorCode, "Photo metadata inspection failed", error)
       } catch (error: Throwable) {
         promise.reject(E_READ, "Photo metadata inspection failed", error)
+      }
+    }
+  }
+
+  override fun inspectVideoFile(
+    inputPath: String,
+    promise: Promise,
+  ) {
+    executor.execute {
+      val retriever = MediaMetadataRetriever()
+      try {
+        retriever.setDataSource(inputPath)
+        val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
+        val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
+        require(width != null && width > 0 && height != null && height > 0) {
+          "Invalid video dimensions"
+        }
+        val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()
+        val swapsDimensions = rotation == 90 || rotation == 270
+        val metadata =
+          JSONObject()
+            .put("width", if (swapsDimensions) height else width)
+            .put("height", if (swapsDimensions) width else height)
+        retriever
+          .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+          ?.toLongOrNull()
+          ?.takeIf { it >= 0 }
+          ?.let { metadata.put("durationMs", it) }
+        promise.resolve(metadata.toString())
+      } catch (error: Throwable) {
+        promise.reject("E_VIDEO_READ", "Video metadata inspection failed", error)
+      } finally {
+        retriever.release()
       }
     }
   }
@@ -221,7 +255,7 @@ class UnifPhotoProcessorModule(
       Log.i(
         TAG,
         "stage=complete input=${metadata.displayWidth}x${metadata.displayHeight} " +
-          "output=${outputWidth}x${outputHeight} sampled=${sampleSize > 1} durationMs=$duration",
+          "output=${outputWidth}x$outputHeight sampled=${sampleSize > 1} durationMs=$duration",
       )
       return JSONObject()
         .put("width", outputWidth)
@@ -283,7 +317,7 @@ class UnifPhotoProcessorModule(
       val halfWidth = width / 2
       while (
         halfHeight / sample >= requestedHeight &&
-          halfWidth / sample >= requestedWidth
+        halfWidth / sample >= requestedWidth
       ) {
         sample *= 2
       }
@@ -367,9 +401,9 @@ class UnifPhotoProcessorModule(
   ): Pair<Int, Int> =
     if (
       orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
-        orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
-        orientation == ExifInterface.ORIENTATION_TRANSVERSE ||
-        orientation == ExifInterface.ORIENTATION_ROTATE_270
+      orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+      orientation == ExifInterface.ORIENTATION_TRANSVERSE ||
+      orientation == ExifInterface.ORIENTATION_ROTATE_270
     ) {
       height to width
     } else {
@@ -440,7 +474,8 @@ class UnifPhotoProcessorModule(
         )
       }
     val layout =
-      StaticLayout.Builder.obtain(styled, 0, styled.length, paint, paragraphWidth)
+      StaticLayout.Builder
+        .obtain(styled, 0, styled.length, paint, paragraphWidth)
         .setAlignment(alignment)
         .setIncludePad(false)
         .build()
@@ -467,12 +502,15 @@ class UnifPhotoProcessorModule(
       ExifInterface.ORIENTATION_ROTATE_180,
       ExifInterface.ORIENTATION_FLIP_VERTICAL,
       -> "down"
+
       ExifInterface.ORIENTATION_TRANSPOSE,
       ExifInterface.ORIENTATION_ROTATE_90,
       -> "right"
+
       ExifInterface.ORIENTATION_TRANSVERSE,
       ExifInterface.ORIENTATION_ROTATE_270,
       -> "left"
+
       else -> "up"
     }
 

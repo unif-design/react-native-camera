@@ -1,6 +1,6 @@
 import type { CameraOrientation } from 'react-native-vision-camera';
 import NativePhotoProcessor from '../../NativePhotoProcessor';
-import type { AspectRatio, WatermarkType } from '../../utils';
+import type { AspectRatio, CameraWatermark } from '../../utils';
 
 export type PhotoFileMetadata = {
   width: number;
@@ -15,7 +15,7 @@ export type PhotoFileProcessingRequest = {
   targetWidth: number;
   targetHeight: number;
   quality: number;
-  watermark?: WatermarkType;
+  watermark?: CameraWatermark;
 };
 
 export type PhotoProcessingDiagnostics = {
@@ -99,7 +99,14 @@ export async function processPhotoFile(
       request.targetWidth,
       request.targetHeight,
       request.quality,
-      JSON.stringify(request.watermark ?? null)
+      JSON.stringify(
+        request.watermark
+          ? {
+              content: request.watermark.lines,
+              position: request.watermark.position,
+            }
+          : null
+      )
     )
   );
   const diagnosticsRaw =

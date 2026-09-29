@@ -1,6 +1,6 @@
 # Camera 示例
 
-通过公开的 `useCamera()` 和 `OpenConfig` 展示四种拍摄场景。
+通过公开的 `useCamera()` 和 `CameraInput` 展示四种拍摄场景。
 
 ## 运行
 
@@ -36,12 +36,12 @@ yarn example android --deviceId "ANDROID_DEVICE_SERIAL"
 | 水印存证   | 标题、手工地点、备注和当前时间；不请求定位      |
 | 质量实验室 | SDK 默认与显式照片质量、HDR、录像时长和码率     |
 
-配置从[同一组类型化工厂](src/domain/scenarioConfigs.ts)产生。完整字段和结果码见[参数类型](../website/docs/api/types.md)与[相机 API](../website/docs/api/camera-api.md)。
+配置从[同一组类型化工厂](src/domain/scenarioConfigs.ts)产生。完整字段和结果状态见[参数类型](../website/docs/api/types.md)与[相机 API](../website/docs/api/camera-api.md)。
 
 ## 使用边界
 
 - 返回媒体仍在临时目录，结果历史只保存在当前进程；示例不上传或持久化文件。
-- `code === 200` 才处理媒体，`0` 为取消；错误不能转换为空结果或成功。
+- `status === 'success'` 才处理 `media`，`cancelled` 为取消；失败读取 `error`。
 - 相机内的拍摄、处理或麦克风错误与最终调用结果分开处理，详见 API。
 - 模拟器和 mock 可验证普通 UI／调用交接，不能代替真实录像、水印及设备内存验证。
 

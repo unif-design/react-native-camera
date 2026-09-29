@@ -6,96 +6,49 @@ description: 'useCamera 的调用、宿主节点和返回值。'
 
 # useCamera
 
-`@unif/react-native-camera` 的**唯一入口 Hook**。无参调用，返回 `[api, holder]` 二元组：`api` 用来打开 / 关闭相机，`holder` 是相机全屏模态的宿主节点，必须渲染进 React 树。
+`useCamera()` 返回稳定的调用接口和需要渲染的相机宿主。宿主挂载不会预先启动相机，调用 `open()` 才开始拍摄交互。
 
----
-
-## 引用 / 签名 {#signature}
-
-```ts
-import { useCamera } from '@unif/react-native-camera';
-```
-
-```ts
-const [api, holder] = useCamera();
-```
-
-**TypeScript 签名：**
-
-```ts
-function useCamera(): [CameraApi, React.ReactElement];
-```
-
-`useCamera()` **不接受任何参数**——所有拍摄配置都在调用 [`api.open(config)`](/docs/api/camera-api) 时传入。
-
----
-
-## 返回值 {#return}
-
-返回一个二元组 `[CameraApi, React.ReactElement]`：
-
-| 返回值   | 类型                                | 说明                                                   |
-| -------- | ----------------------------------- | ------------------------------------------------------ |
-| `api`    | [`CameraApi`](/docs/api/camera-api) | 相机控制对象，提供 `open()` / `close()` 方法           |
-| `holder` | `React.ReactElement`                | 相机 UI（全屏模态）的宿主节点，**必须渲染进 React 树** |
-
-`holder` 本质是一个 `<ModalView>` 节点（内部已自带 `SafeAreaProvider` + `ThemeProvider`），相机未打开时不显示任何内容。**没有 `holder` 挂载就没有相机 `Container`**：合法的 `api.open()` 仍会创建会话并返回 Promise，但 UI 不会弹出，`Container` 也无法通过拍摄完成这个 Promise。它会保持 pending，直到调用 `api.close()`、后续合法 `open()` 取消旧会话，或使用该 Hook 的组件卸载。
-
----
-
-## 示例 {#example}
+## 签名 {#signature}
 
 ```tsx
-import React from 'react';
-import { View, TouchableOpacity, Text } from 'react-native';
 import { useCamera } from '@unif/react-native-camera';
 
-const PhotoScreen = () => {
-  const [api, holder] = useCamera();
+const [camera, holder] = useCamera();
+// readonly [CameraController, ReactElement]
+```
 
-  const handleOpen = async () => {
-    const res = await api.open({
-      cameraMode: [{ mode: 'single', quality: 0.9 }],
-      dataRetainedMode: 'clear',
+所有拍摄参数通过 `camera.open(input, options?)` 提供，Hook 本身无参数。
+
+## 挂载宿主 {#return}
+
+在稳定的组件树中渲染 `{holder}`。未挂载宿主时，合法输入明确返回 `failed / unavailable`，不会排队等待。真实卸载宿主会取消当前调用；React effect 的临时重放不视为用户取消。
+
+```tsx
+import { Button, View } from 'react-native';
+import { useCamera } from '@unif/react-native-camera';
+
+export function PhotoScreen() {
+  const [camera, holder] = useCamera();
+  const takePhoto = async () => {
+    const outcome = await camera.open({
+      modes: [{ mode: 'single', quality: 0.9 }],
+      retention: 'clear',
     });
-    if (res.code === 200) {
-      // res.data 是 CustomPhotoFile[] 文件列表
+    if (outcome.status === 'success') {
+      console.log(outcome.media[0]?.uri);
     }
   };
-
   return (
     <View>
-      <TouchableOpacity onPress={handleOpen}>
-        <Text>打开相机</Text>
-      </TouchableOpacity>
+      <Button title="拍照" onPress={takePhoto} />
       {holder}
     </View>
   );
-};
+}
 ```
 
----
+完整取消与替换行为见 [CameraController](/docs/api/camera-api)。官方测试 mock 返回空宿主，详见[测试](/docs/testing)。
 
-## 注意事项 {#notes}
+## 平台
 
-- **`holder` 必须渲染进 React 树。** 它的位置不影响视觉（相机打开时会全屏覆盖），但节点必须存在；缺少它时相机无法显示，合法 `open()` 返回的 Promise 还会持续 pending。这是最高频的接入错误。
-- **只有 `code === 200` 才是成功。** 用户取消走 `code: 0`，`data` 为空——不要把取消当成功。完整状态码见 [`CameraResult`](/docs/api/types#cameraresult)。
-- **测试 mock 时 `holder` 为 `null`。** 使用官方 mock（`jest.mock('@unif/react-native-camera', () => require('@unif/react-native-camera/mock'))`）时，`useCamera()` 返回 `[api, null]`，渲染时仍可直接写 `{holder}`（React 忽略 `null`）。详见 [测试](/docs/testing)。
-
----
-
-## 平台兼容性 {#platforms}
-
-| 平台    | 支持 |
-| ------- | ---- |
-| iOS     | ✅   |
-| Android | ✅   |
-| Web     | ❌   |
-
----
-
-## 相关 {#related}
-
-- [CameraApi](/docs/api/camera-api) — `open()` / `close()` 方法完整文档
-- [类型](/docs/api/types) — `OpenConfig` / `CameraResult` / `CustomPhotoFile` 类型定义
-- [快速上手](/docs/getting-started/quick-start) — 最小可运行示例
+iOS 与 Android 使用原生拍摄。Web 入口隔离原生模块，`open()` 返回 `failed / unsupported`；Mock 仅用于测试。

@@ -6,33 +6,32 @@ import {
 } from '../../../camera/hooks/useCameraSessionController';
 import type { SessionControllerBridge } from '../../../camera/session/controllerBridge';
 import type { CameraSessionPhase } from '../../../camera/session/types';
-import type { CameraResult, CustomPhotoFile } from '../../../utils';
+import type { CameraSessionOutcome, CapturedFile } from '../../../utils';
 
-const photo: CustomPhotoFile = {
+const photo: CapturedFile = {
   id: 'photo-1',
-  cameraType: 'back',
-  cameraMode: 'single',
+  facing: 'back',
+
   path: '/tmp/photo-1.jpg',
   uri: 'file:///tmp/photo-1.jpg',
   width: 3024,
   height: 4032,
-  mime: 'image/jpeg',
+  mimeType: 'image/jpeg',
   mode: 'single',
-  isRemake: false,
 };
 
-const video: CustomPhotoFile = {
+const video: CapturedFile = {
   ...photo,
   id: 'video-1',
-  cameraMode: 'video',
+
   path: '/tmp/video-1.mp4',
   uri: 'file:///tmp/video-1.mp4',
-  mime: 'video/mp4',
+  mimeType: 'video/mp4',
   mode: 'video',
-  duration: 12,
+  durationMs: 12000,
 };
 
-function photoWithId(id: string): CustomPhotoFile {
+function photoWithId(id: string): CapturedFile {
   return {
     ...photo,
     id,
@@ -41,11 +40,7 @@ function photoWithId(id: string): CustomPhotoFile {
   };
 }
 
-const savedResult: CameraResult = {
-  code: 200,
-  data: [photo],
-  message: 'ok',
-};
+const savedResult: CameraSessionOutcome = { status: 'success', media: [photo] };
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -58,10 +53,10 @@ function deferred<T>() {
 }
 
 type SetupOverrides = {
-  files?: CustomPhotoFile[];
+  files?: CapturedFile[];
   confirm?: jest.Mock<Promise<boolean>, [unknown]>;
   cancelRecording?: jest.Mock<void | Promise<void>, []>;
-  onSettle?: jest.Mock<void, [CameraResult]>;
+  onSettle?: jest.Mock<void, [CameraSessionOutcome]>;
   registerController?: jest.Mock<() => void, [number, SessionControllerBridge]>;
 };
 
@@ -78,7 +73,8 @@ function setup(overrides: SetupOverrides = {}) {
   const cancelRecording =
     overrides.cancelRecording ??
     jest.fn<void | Promise<void>, []>().mockResolvedValue(undefined);
-  const onSettle = overrides.onSettle ?? jest.fn<void, [CameraResult]>();
+  const onSettle =
+    overrides.onSettle ?? jest.fn<void, [CameraSessionOutcome]>();
 
   const hook = renderHook(() =>
     useCameraSessionController({
@@ -433,7 +429,7 @@ describe('useCameraSessionController', () => {
       preview: { variant: 'gallery', index: 0 },
     });
 
-    let removed: CustomPhotoFile[] | null = null;
+    let removed: CapturedFile[] | null = null;
     act(() => {
       removed = harness.result.current.clearFiles();
     });
@@ -467,12 +463,9 @@ describe('useCameraSessionController', () => {
 
     expect(harness.onSettle).toHaveBeenCalledTimes(1);
     const result = harness.onSettle.mock.calls[0]![0];
-    expect(result).toEqual({
-      code: 200,
-      data: [second],
-      message: 'ok',
-    });
-    expect(result.data).not.toBe(harness.result.current.state.files);
+    expect(result).toEqual({ status: 'success', media: [second] });
+    if (result.status !== 'success') throw new Error('expected success');
+    expect(result.media).not.toBe(harness.result.current.state.files);
     expect(harness.result.current.state.phase).toBe('settling');
     expect(harness.result.current.save()).toBe(false);
   });
@@ -574,11 +567,7 @@ describe('useCameraSessionController', () => {
 
       expect(harness.result.current.state.phase).toBe('settling');
       expect(harness.onSettle).toHaveBeenCalledTimes(1);
-      expect(harness.onSettle).toHaveBeenCalledWith({
-        code: 0,
-        data: [],
-        message: 'cancelled',
-      });
+      expect(harness.onSettle).toHaveBeenCalledWith({ status: 'cancelled' });
       expect(harness.confirm).not.toHaveBeenCalled();
     }
   );
@@ -749,11 +738,7 @@ describe('useCameraSessionController', () => {
       await cancelled.promise;
     });
     expect(harness.onSettle).toHaveBeenCalledTimes(1);
-    expect(harness.onSettle).toHaveBeenCalledWith({
-      code: 0,
-      data: [],
-      message: 'cancelled',
-    });
+    expect(harness.onSettle).toHaveBeenCalledWith({ status: 'cancelled' });
   });
 
   it('does not notify user-cancel settle when force teardown takes ownership while native cancel is pending', async () => {
@@ -962,7 +947,7 @@ describe('useCameraSessionController', () => {
   it('settles exactly once even when onSettle synchronously reenters', () => {
     let controllerResult: ReturnType<typeof setup>['result'] | undefined;
     const accepted: boolean[] = [];
-    const onSettle = jest.fn<void, [CameraResult]>((_result) => {
+    const onSettle = jest.fn<void, [CameraSessionOutcome]>((_result) => {
       accepted.push(controllerResult!.current.settle(savedResult));
     });
     const harness = setup({ onSettle });

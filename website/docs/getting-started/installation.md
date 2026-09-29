@@ -207,7 +207,7 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 相机的**二次确认弹窗 / Toast 是内部自洽的** —— 由相机 Modal 子树内的本地弹窗系统(`CameraDialogHost`)渲染,**不依赖** `@unif/react-native-design` 的全局 `ConfirmHost` / `ToastHost`。因此接入本库时:
 
 - **无需为相机在 App 根挂 `<ConfirmHost />` / `<ToastHost />`** —— 切模式 / 放弃拍摄的确认弹窗、保存提示 Toast 都直接显示在相机之上,开箱即用。
-- 相机内部用 `ThemeProvider`(强制深色 token)+ `useColors`,模态内 UI 不依赖宿主的主题 Provider。
+- 取景窗口保持物理暗色；控件使用局部暗色配色，并继承有效的 Design 字号设置，消费者可通过自己的 `ThemeProvider` 配置。
 
 :::note 为什么相机要用本地弹窗
 相机是全屏 RN `<Modal>`。design 的 `ConfirmHost` / `ToastHost` 挂在消费者 App 根节点,而 App 根的弹窗 / Toast **无法叠加到已经 present 的相机 Modal 之上**(会被相机盖住)。所以相机内部改用挂在相机 Modal 子树里的高 `zIndex` 浮层渲染确认弹窗 / Toast,确保正常显示。

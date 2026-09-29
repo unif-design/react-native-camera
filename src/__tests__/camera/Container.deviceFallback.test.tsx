@@ -5,7 +5,11 @@ import type { CameraHandle } from '../../camera/Camera';
 import { Container } from '../../camera/Container';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
 import type { CameraFrameRect } from '../../camera/session/frameRect';
-import type { CameraMode, CameraResult, CustomPhotoFile } from '../../utils';
+import type {
+  CameraModeOptions,
+  CameraSessionOutcome,
+  CapturedFile,
+} from '../../utils';
 import {
   createContainerSessionProps,
   layoutCameraViewport,
@@ -21,7 +25,7 @@ type MockInventory = {
 
 type MockCameraProps = {
   device: CameraDevice;
-  currentMode: CameraMode;
+  currentMode: CameraModeOptions;
   frame: CameraFrameRect;
   isActive?: boolean;
   enableZoom?: boolean;
@@ -41,7 +45,7 @@ const mockDeviceHookCalls: Array<{
 }> = [];
 const mockCameraSnapshots: MockCameraSnapshot[] = [];
 let mockCameraInstanceSequence = 0;
-const mockCapture = jest.fn<Promise<CustomPhotoFile | null>, []>();
+const mockCapture = jest.fn<Promise<CapturedFile | null>, []>();
 
 jest.mock('react-native-vision-camera', () => {
   const vc = require('../__helpers__/visionCameraMock');
@@ -113,15 +117,16 @@ function deferred<T>() {
 
 function renderContainer(
   requested: 'back' | 'front',
-  onSettle: (result: CameraResult) => void = () => {}
+  onSettle: (result: CameraSessionOutcome) => void = () => {}
 ) {
   const element: ReactElement = (
     <CameraDialogProvider>
       <Container
         {...createContainerSessionProps()}
         config={{
-          cameraMode: [{ mode: 'continuous', type: requested }],
-          dataRetainedMode: 'retain',
+          modes: [{ mode: 'continuous' }],
+          retention: 'retain',
+          initialFacing: requested,
         }}
         onSettle={onSettle}
       />
@@ -144,7 +149,7 @@ beforeEach(() => {
       uri: 'file:///raw-fallback.jpg',
       width: 1080,
       height: 1920,
-      cameraType: 'back',
+      facing: 'back',
       mode: 'continuous',
     })
   );
@@ -172,7 +177,7 @@ it('每次 render 都固定按 back/front 顺序查询同一个稳定 filter', (
 
 it('requested back 缺失时 fallback 到实际 front，并用实际方向禁用 zoom/flip 与返回 metadata', async () => {
   mockInventory = { front: cameraDevice('front') };
-  const onSettle = jest.fn<void, [CameraResult]>();
+  const onSettle = jest.fn<void, [CameraSessionOutcome]>();
   const harness = renderContainer('back', onSettle);
   layoutCameraViewport(harness);
 
@@ -196,14 +201,13 @@ it('requested back 缺失时 fallback 到实际 front，并用实际方向禁用
   fireEvent.press(harness.getByTestId('side-save-btn'));
 
   expect(onSettle).toHaveBeenCalledWith({
-    code: 200,
-    data: [
+    status: 'success',
+    media: [
       expect.objectContaining({
         path: '/raw-fallback.jpg',
-        cameraType: 'front',
+        facing: 'front',
       }),
     ],
-    message: 'ok',
   });
 });
 
@@ -280,7 +284,7 @@ it('capture 期间只保留 committed device，回到 ready 后才原子提交 p
   const back = cameraDevice('back', 'capture-device');
   const front = cameraDevice('front', 'capture-fallback');
   mockInventory = { back };
-  const capture = deferred<CustomPhotoFile | null>();
+  const capture = deferred<CapturedFile | null>();
   mockCapture.mockReturnValueOnce(capture.promise);
   const harness = renderContainer('back');
   layoutCameraViewport(harness);
@@ -300,7 +304,7 @@ it('capture 期间只保留 committed device，回到 ready 后才原子提交 p
     uri: 'file:///capture-pending-selection.jpg',
     width: 1080,
     height: 1920,
-    cameraType: 'back',
+    facing: 'back',
     mode: 'continuous',
   });
   await act(async () => {
@@ -316,7 +320,7 @@ it('capture 期间只保留 committed device，回到 ready 后才原子提交 p
 it('inventory 消失时忙态保留 committed device，回到 ready 后进入 no-device', async () => {
   const back = cameraDevice('back', 'removed-during-capture');
   mockInventory = { back };
-  const capture = deferred<CustomPhotoFile | null>();
+  const capture = deferred<CapturedFile | null>();
   mockCapture.mockReturnValueOnce(capture.promise);
   const harness = renderContainer('back');
   layoutCameraViewport(harness);
@@ -334,7 +338,7 @@ it('inventory 消失时忙态保留 committed device，回到 ready 后进入 no
     uri: 'file:///removed-inventory-photo.jpg',
     width: 1080,
     height: 1920,
-    cameraType: 'back',
+    facing: 'back',
     mode: 'continuous',
   });
   await act(async () => {

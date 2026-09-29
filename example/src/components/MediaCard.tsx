@@ -76,7 +76,7 @@ export function MediaCard({ media }: MediaCardProps): ReactElement {
   const [previewFailed, setPreviewFailed] = useState(false);
   const colors = useColors();
   const styles = useThemedStyles(makeStyles);
-  const isPhoto = media.mime === 'image/jpeg';
+  const isPhoto = media.mimeType === 'image/jpeg';
 
   return (
     <Card variant="plain">
@@ -112,23 +112,16 @@ export function MediaCard({ media }: MediaCardProps): ReactElement {
 
         <View style={styles.metadata}>
           <Text style={styles.value}>{media.id}</Text>
-          <Text style={styles.value}>{media.mime}</Text>
+          <Text style={styles.value}>{media.mimeType}</Text>
           <Text style={styles.secondary}>
-            {media.mode} · {media.cameraType}
+            {media.mode} · {media.facing}
           </Text>
           <Text style={styles.secondary}>
             {media.width} × {media.height}
           </Text>
-          {media.duration === undefined ? null : (
-            <Text style={styles.secondary}>时长 {media.duration} 秒</Text>
+          {media.durationMs === undefined ? null : (
+            <Text style={styles.secondary}>时长 {media.durationMs} 毫秒</Text>
           )}
-          <Text style={styles.secondary}>
-            翻拍标记：{media.isRemake ? '是' : '否'}
-          </Text>
-          <Text style={styles.pathLabel}>path</Text>
-          <Text selectable style={styles.path}>
-            {media.path}
-          </Text>
           <Text style={styles.pathLabel}>uri</Text>
           <Text selectable style={styles.path}>
             {media.uri}

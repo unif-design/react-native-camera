@@ -1,14 +1,14 @@
 import type { CameraDevice } from 'react-native-vision-camera';
-import type { CameraType } from '../../utils';
+import type { CameraFacing } from '../../utils';
 
 export type SelectedCameraDevice = {
   device: CameraDevice;
-  activePosition: CameraType;
+  activePosition: CameraFacing;
   canFlip: boolean;
 };
 
 export function selectCameraDevice(
-  requested: CameraType,
+  requested: CameraFacing,
   back: CameraDevice | undefined,
   front: CameraDevice | undefined
 ): SelectedCameraDevice | null {

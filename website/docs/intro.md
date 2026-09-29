@@ -16,7 +16,7 @@ description: 'React Native 相机库：单拍、连拍、录像、预览确认�
 
 1. 按[安装指南](/docs/getting-started/installation)配置依赖和权限。
 2. 按[快速上手](/docs/getting-started/quick-start)挂载 `holder` 并调用 `open()`。
-3. 通过 `code === 200` 处理成功结果；`0` 表示取消。
+3. 通过 `status === 'success'` 处理成功结果；`cancelled` 表示取消。
 
 ## 功能与文档
 
@@ -25,7 +25,7 @@ description: 'React Native 相机库：单拍、连拍、录像、预览确认�
 | 单拍与连拍   | [拍照](/docs/guides/taking-photos)       |
 | 录像         | [录制视频](/docs/guides/recording-video) |
 | 照片文字水印 | [水印](/docs/guides/watermark)           |
-| 调用与结果   | [CameraApi](/docs/api/camera-api)        |
+| 调用与结果   | [CameraController](/docs/api/camera-api) |
 | 参数类型     | [类型参考](/docs/api/types)              |
 
 ## 平台说明

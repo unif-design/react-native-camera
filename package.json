@@ -6,8 +6,12 @@
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
     ".": {
-      "source": "./src/index.tsx",
       "types": "./lib/typescript/src/index.d.ts",
+      "browser": {
+        "source": "./src/index.web.tsx",
+        "default": "./lib/module/index.web.js"
+      },
+      "source": "./src/index.tsx",
       "default": "./lib/module/index.js"
     },
     "./mock": {
@@ -241,5 +245,6 @@
       "eslint"
     ],
     "version": "0.62.0"
-  }
+  },
+  "browser": "./lib/module/index.web.js"
 }
