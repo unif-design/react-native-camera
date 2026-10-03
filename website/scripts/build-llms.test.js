@@ -11,21 +11,18 @@ const b = {
 require('./build-llms-core.test.js');
 require('./build-llms-site.test.js');
 
-const customPhotoFileFields = [
+const cameraMediaFields = [
   'id',
-  'cameraType',
-  'cameraMode',
-  'path',
+  'facing',
   'uri',
   'width',
   'height',
-  'mime',
+  'mimeType',
   'mode',
-  'isRemake',
 ];
 
 function findTypeScriptSnippet(markdown, predicate) {
-  const snippets = [...markdown.matchAll(/```ts\n([\s\S]*?)```/g)].map(
+  const snippets = [...markdown.matchAll(/```tsx?\n([\s\S]*?)```/g)].map(
     (match) => match[1]
   );
   return snippets.find(predicate);
@@ -39,14 +36,14 @@ function assertMockSuccessSnippet(snippet) {
   );
   assert.match(
     snippet,
-    /const \[api\] = result\.current/,
+    /const \[camera, holder\] = result\.current/,
     'mock 示例必须从 renderHook result.current 取得 api'
   );
-  for (const field of customPhotoFileFields) {
+  for (const field of cameraMediaFields) {
     assert.match(
       snippet,
       new RegExp(`\\b${field}\\s*:`),
-      `mock 成功 fixture 缺少 CustomPhotoFile.${field}`
+      `mock 成功 fixture 缺少 CameraMedia.${field}`
     );
   }
 }
@@ -115,18 +112,32 @@ const overrideSnippet = findTypeScriptSnippet(
   testingDoc,
   (snippet) =>
     snippet.includes('mockResolvedValueOnce') &&
-    snippet.includes("id: '1700000000000-0'")
+    snippet.includes("id: 'photo-1'")
 );
 assert(overrideSnippet, 'testing.md 必须有覆盖单次成功返回的 TypeScript 示例');
 assertMockSuccessSnippet(overrideSnippet);
 
+assert.match(
+  overrideSnippet,
+  /status:\s*'success'/,
+  'mock 使用 status 判别结果'
+);
+assert.match(overrideSnippet, /media:\s*\[/, '成功 fixture 使用 media');
+for (const field of ['path', 'cameraMode', 'isRemake', 'code', 'data']) {
+  assert.doesNotMatch(
+    overrideSnippet,
+    new RegExp(`\\b${field}\\s*:`),
+    `mock 不公开 ${field}`
+  );
+}
+
 const missingFieldSnippet = overrideSnippet.replace(
-  /\s*isRemake:\s*false,?/,
+  /\s*facing:\s*'back',?/,
   ''
 );
 assert.throws(
   () => assertMockSuccessSnippet(missingFieldSnippet),
-  /CustomPhotoFile\.isRemake/,
+  /CameraMedia\.facing/,
   '文档门禁必须拒绝缺少公开文件字段的成功 fixture'
 );
 

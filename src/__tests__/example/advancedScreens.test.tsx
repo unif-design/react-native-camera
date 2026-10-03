@@ -92,10 +92,10 @@ it('水印页在点击时注入当前时间、trim 手工字段并提交所选�
 
   expect(now).toHaveBeenCalledTimes(1);
   expect(run.open).toHaveBeenCalledWith('watermark-evidence', {
-    cameraMode: [{ mode: 'single', quality: 0.9 }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
     watermark: {
-      content: [
+      lines: [
         '设备巡检记录',
         '拍摄时间：2026-08-03T10:20:30.000Z',
         '地点：A 区东门',
@@ -122,7 +122,7 @@ it('水印页阻止空标题提交，并显示字段错误', () => {
   expect(run.open).not.toHaveBeenCalled();
 });
 
-it('质量页照片默认值从 OpenConfig 完全省略 SDK 可选 key', () => {
+it('质量页照片默认值从 CameraInput 完全省略 SDK 可选 key', () => {
   const run = createRun();
   renderScreen(<QualityLabHarness run={run} />);
 
@@ -131,8 +131,8 @@ it('质量页照片默认值从 OpenConfig 完全省略 SDK 可选 key', () => {
   expect(run.open).toHaveBeenCalledTimes(1);
   const config = jest.mocked(run.open).mock.calls[0]?.[1];
   expect(config).toEqual({
-    cameraMode: [{ mode: 'single', quality: 0.9 }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
   });
   expect(Object.hasOwn(config ?? {}, 'photoQualityPrioritization')).toBe(false);
   expect(Object.hasOwn(config ?? {}, 'photoHDR')).toBe(false);
@@ -150,14 +150,14 @@ it('质量页提交精确照片 quality、prioritization 与 HDR 配置', () => 
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
 
   expect(run.open).toHaveBeenCalledWith('quality-lab', {
-    cameraMode: [{ mode: 'single', quality: 0.85 }],
-    dataRetainedMode: 'clear',
-    photoQualityPrioritization: 'quality',
-    photoHDR: true,
+    modes: [
+      { mode: 'single', quality: 0.85, hdr: true, qualityPriority: 'quality' },
+    ],
+    retention: 'clear',
   });
 });
 
-it('质量页录像实验只提交 recTime 与显式 24Mbps', () => {
+it('质量页录像实验只提交 maxDurationSeconds 与显式 24Mbps', () => {
   const run = createRun();
   renderScreen(<QualityLabHarness run={run} />);
 
@@ -167,8 +167,7 @@ it('质量页录像实验只提交 recTime 与显式 24Mbps', () => {
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
 
   expect(run.open).toHaveBeenCalledWith('quality-lab', {
-    cameraMode: [{ mode: 'video', recTime: 15 }],
-    dataRetainedMode: 'clear',
-    videoBitRate: 24_000_000,
+    modes: [{ mode: 'video', maxDurationSeconds: 15, bitRate: 24_000_000 }],
+    retention: 'clear',
   });
 });

@@ -1,4 +1,4 @@
-import type { AspectRatio, CustomPhotoFile } from '../../utils';
+import type { AspectRatio, CapturedFile } from '../../utils';
 
 export type PhotoTargetResolution = {
   width: number;
@@ -39,11 +39,11 @@ function hasTargetAspect(
 }
 
 export function needsPhotoFileProcessing(
-  raw: Pick<CustomPhotoFile, 'mime' | 'width' | 'height'>,
+  raw: Pick<CapturedFile, 'mimeType' | 'width' | 'height'>,
   aspectRatio: AspectRatio,
   hasWatermark: boolean
 ): boolean {
-  if (raw.mime !== 'image/jpeg') return false;
+  if (raw.mimeType !== 'image/jpeg') return false;
   if (hasWatermark) return true;
   const target = orientedPhotoTarget(aspectRatio, raw.width, raw.height);
   return (

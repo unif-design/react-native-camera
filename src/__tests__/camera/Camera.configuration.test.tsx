@@ -3,7 +3,7 @@ import type { CameraDevice } from 'react-native-vision-camera';
 import { Camera } from '../../camera/Camera';
 import { cameraSessionReducer } from '../../camera/session/reducer';
 import type { CameraSessionState } from '../../camera/session/types';
-import type { CameraMode } from '../../utils';
+import type { CameraModeOptions } from '../../utils';
 import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
@@ -79,7 +79,7 @@ jest.mock('react-native-vision-camera', () => {
 
 const frame = { x: 0, y: 0, width: 390, height: 520 };
 const animatedFrame = makeAnimatedFrameStub(frame);
-const mode: CameraMode = { mode: 'single' };
+const mode: CameraModeOptions = { mode: 'single' };
 
 function cameraElement(
   device: CameraDevice,

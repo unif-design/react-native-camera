@@ -1,35 +1,14 @@
 import type {
-  CameraResult,
-  CameraResultCode,
-  CameraType,
-  CameraModeName,
-  CustomPhotoFile,
+  CameraOutcome,
+  CameraFailure,
+  CameraMedia,
 } from '@unif/react-native-camera';
 
 export type ResultTone = 'success' | 'neutral' | 'error';
-
-export type ResultDiagnostic =
-  | 'cancelled'
-  | 'permission_denied'
-  | 'no_device'
-  | 'invalid_config'
-  | 'reserved_video_failure';
-
-export type MediaPresentation = {
-  id: string;
-  cameraType: CameraType;
-  mode: CameraModeName;
-  path: string;
-  uri: string;
-  width: number;
-  height: number;
-  mime: CustomPhotoFile['mime'];
-  isRemake: boolean;
-  duration?: number;
-};
-
+export type ResultDiagnostic = 'cancelled' | CameraFailure['reason'];
+export type MediaPresentation = CameraMedia;
 export type ResultPresentation = {
-  code: CameraResultCode;
+  status: CameraOutcome['status'];
   label: string;
   tone: ResultTone;
   diagnostic: ResultDiagnostic | null;
@@ -38,68 +17,59 @@ export type ResultPresentation = {
   temporaryFileWarning: boolean;
 };
 
-type ResultDescriptor = Pick<
-  ResultPresentation,
-  'label' | 'tone' | 'diagnostic'
->;
-
-const resultDescriptors: Record<CameraResultCode, ResultDescriptor> = {
-  0: {
-    label: '已取消',
-    tone: 'neutral',
-    diagnostic: 'cancelled',
-  },
-  200: {
-    label: '拍摄成功',
-    tone: 'success',
-    diagnostic: null,
-  },
-  403: {
-    label: '相机权限被拒绝',
-    tone: 'error',
-    diagnostic: 'permission_denied',
-  },
-  404: {
-    label: '无可用相机设备',
-    tone: 'error',
-    diagnostic: 'no_device',
-  },
-  500: {
-    label: '配置无效',
-    tone: 'error',
-    diagnostic: 'invalid_config',
-  },
-  503: {
-    label: '录像失败（保留码，当前实现不主动触发）',
-    tone: 'error',
-    diagnostic: 'reserved_video_failure',
-  },
+const failureLabels: Record<CameraFailure['reason'], string> = {
+  invalid_input: '配置无效',
+  permission_denied: '相机权限被拒绝',
+  no_device: '无可用相机设备',
+  unavailable: '相机暂不可用',
+  unsupported: '当前平台不支持拍摄',
 };
 
-export function projectMedia(file: CustomPhotoFile): MediaPresentation {
+export function projectMedia(file: CameraMedia): MediaPresentation {
   return {
     id: file.id,
-    cameraType: file.cameraType,
+    facing: file.facing,
     mode: file.mode,
-    path: file.path,
     uri: file.uri,
     width: file.width,
     height: file.height,
-    mime: file.mime,
-    isRemake: file.isRemake,
-    ...(file.duration === undefined ? {} : { duration: file.duration }),
+    mimeType: file.mimeType,
+    ...(file.durationMs === undefined ? {} : { durationMs: file.durationMs }),
   };
 }
 
-export function classifyCameraResult(result: CameraResult): ResultPresentation {
-  const descriptor = resultDescriptors[result.code];
-  const succeeded = result.code === 200;
-
+export function classifyCameraResult(
+  result: CameraOutcome
+): ResultPresentation {
+  if (result.status === 'success') {
+    return {
+      status: result.status,
+      label: '拍摄成功',
+      tone: 'success',
+      diagnostic: null,
+      message: '用户已确认拍摄结果',
+      media: result.media.map(projectMedia),
+      temporaryFileWarning: true,
+    };
+  }
+  if (result.status === 'cancelled') {
+    return {
+      status: result.status,
+      label: '已取消',
+      tone: 'neutral',
+      diagnostic: 'cancelled',
+      message: '本次拍摄已取消',
+      media: [],
+      temporaryFileWarning: false,
+    };
+  }
   return {
-    code: result.code,
-    ...descriptor,
-    message: result.message,
-    media: succeeded ? result.data.map(projectMedia) : [],
-    temporaryFileWarning: succeeded,
+    status: result.status,
+    label: failureLabels[result.error.reason],
+    tone: 'error',
+    diagnostic: result.error.reason,
+    message: result.error.message,
+    media: [],
+    temporaryFileWarning: false,
   };
 }

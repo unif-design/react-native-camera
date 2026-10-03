@@ -1,10 +1,10 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import type {
   AspectRatio,
-  CameraMode,
-  CameraType,
-  CustomPhotoFile,
-  WatermarkType,
+  CameraPhotoMode,
+  CameraFacing,
+  CapturedFile,
+  CameraWatermark,
 } from '../../utils';
 import { toFileUri } from '../../utils';
 import type { FileRegistry } from '../session/fileRegistry';
@@ -43,9 +43,9 @@ export type PhotoProcessingSnapshot = {
   sessionId: number;
   captureId: string | number;
   aspectRatio: AspectRatio;
-  mode: Pick<CameraMode, 'quality'>;
-  watermark?: WatermarkType;
-  cameraPosition: CameraType;
+  mode: Pick<CameraPhotoMode, 'quality'>;
+  watermark?: CameraWatermark;
+  cameraPosition: CameraFacing;
 };
 
 export type PhotoProcessingContext = {
@@ -65,7 +65,7 @@ function snapshotOperation(
       ? {}
       : {
           watermark: {
-            content: [...operation.watermark.content],
+            lines: [...operation.watermark.lines],
             ...(operation.watermark.position == null
               ? {}
               : { position: operation.watermark.position }),
@@ -126,11 +126,11 @@ function requestCleanup(
 }
 
 export async function processPhoto(
-  raw: CustomPhotoFile,
+  raw: CapturedFile,
   operation: PhotoProcessingSnapshot,
   registry: FileRegistry,
   context?: PhotoProcessingContext
-): Promise<CustomPhotoFile> {
+): Promise<CapturedFile> {
   const captured = snapshotOperation(operation);
   const watermark = hasVisibleWatermark(captured.watermark)
     ? captured.watermark
@@ -147,7 +147,7 @@ export async function processPhoto(
   let outputMayExist = false;
   let stage: PhotoProcessingStage = 'read';
   let failure: PhotoProcessingError | null = null;
-  let result: CustomPhotoFile | null = null;
+  let result: CapturedFile | null = null;
 
   try {
     assertCurrent(context, stage);
@@ -181,7 +181,7 @@ export async function processPhoto(
 
     result = {
       ...raw,
-      cameraType: captured.cameraPosition,
+      facing: captured.cameraPosition,
       path: outputPath,
       uri: toFileUri(outputPath),
       width: processed.width,

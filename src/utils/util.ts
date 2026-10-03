@@ -1,40 +1,32 @@
 import type {
-  CustomPhotoFile,
-  CameraModeName,
-  CameraType,
-  CameraResult,
-} from './interface';
-
-/** 取消/关闭的标准结果(code 0、空 data)。统一各处散落的 `{code:0,data:[],message:'cancelled'}` 字面量。 */
-export function cancelledResult(): CameraResult {
-  return { code: 0, data: [], message: 'cancelled' };
+  CapturedFile,
+  CameraCaptureMode,
+  CameraFacing,
+  CameraCancelled,
+  RawCapturedFile,
+} from './types';
+export function cancelledResult(): CameraCancelled {
+  return { status: 'cancelled' };
 }
-
 export function toFileUri(path: string): string {
-  if (path.startsWith('file://')) return path;
-  return `file://${path}`;
+  return path.startsWith('file://') ? path : `file://${path}`;
 }
-
-// 单调递增计数器,保证同毫秒多张照片 id 不撞(原版用纯时间戳有撞 id 风险)。
 let photoIdCounter = 0;
-
 export function buildPhotoFile(
-  raw: { path: string; width: number; height: number; duration?: number },
-  mode: CameraModeName,
-  cameraType: CameraType,
-  isVideo: boolean = false
-): CustomPhotoFile {
+  raw: RawCapturedFile,
+  mode: CameraCaptureMode,
+  facing: CameraFacing,
+  isVideo = false
+): CapturedFile {
   return {
     id: `${Date.now()}-${photoIdCounter++}`,
-    cameraType,
-    cameraMode: mode,
     path: raw.path,
     uri: toFileUri(raw.path),
+    mode,
+    facing,
+    mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
     width: raw.width,
     height: raw.height,
-    mime: isVideo ? 'video/mp4' : 'image/jpeg',
-    mode,
-    isRemake: false,
-    ...(raw.duration != null ? { duration: raw.duration } : {}),
+    ...(raw.durationMs === undefined ? {} : { durationMs: raw.durationMs }),
   };
 }

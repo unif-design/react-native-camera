@@ -13,7 +13,7 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { OpenConfig } from '@unif/react-native-camera';
+import type { CameraInput } from '@unif/react-native-camera';
 
 import { ConfigPreview } from '../components/ConfigPreview';
 import {
@@ -46,7 +46,7 @@ export type QualityLabDraft = {
   prioritization: PhotoPrioritization;
   hdrPolicy: ExplicitPolicy;
   hdrEnabled: boolean;
-  recTime: number;
+  maxDurationSeconds: number;
   bitRatePolicy: ExplicitPolicy;
   videoBitRateText: string;
 };
@@ -57,7 +57,7 @@ export const initialQualityLabDraft: QualityLabDraft = {
   prioritization: 'sdk-default',
   hdrPolicy: 'sdk-default',
   hdrEnabled: false,
-  recTime: 15,
+  maxDurationSeconds: 15,
   bitRatePolicy: 'sdk-default',
   videoBitRateText: '24000000',
 };
@@ -150,7 +150,7 @@ export function QualityLabScreen({
     prioritization,
     hdrPolicy,
     hdrEnabled,
-    recTime,
+    maxDurationSeconds,
     bitRatePolicy,
     videoBitRateText,
   } = draft;
@@ -164,7 +164,7 @@ export function QualityLabScreen({
     bitRatePolicy === 'sdk-default' ||
     (videoBitRate !== null && videoBitRate > 0);
 
-  let config: OpenConfig | null = null;
+  let config: CameraInput | null = null;
   if (kind === 'photo' && validPhotoQuality) {
     config = buildQualityConfig({
       kind: 'photo',
@@ -176,7 +176,7 @@ export function QualityLabScreen({
   } else if (kind === 'video' && validVideoBitRate) {
     config = buildQualityConfig({
       kind: 'video',
-      recTime,
+      maxDurationSeconds,
       videoBitRate: bitRatePolicy === 'sdk-default' ? null : videoBitRate,
     });
   }
@@ -205,7 +205,7 @@ export function QualityLabScreen({
       <Card variant="plain">
         <View style={styles.form}>
           <Text style={styles.explanation}>
-            “SDK 默认”会从 OpenConfig 完全省略对应 key，由相机 SDK
+            “SDK 默认”会从 CameraInput 完全省略对应 key，由相机 SDK
             自行协商；本页不暴露分辨率或画幅配置。
           </Text>
           <View style={styles.field}>
@@ -280,9 +280,9 @@ export function QualityLabScreen({
               <View style={styles.field}>
                 <Text style={styles.label}>最长录制秒数</Text>
                 <Stepper
-                  value={recTime}
+                  value={maxDurationSeconds}
                   onChange={(value) => {
-                    onDraftChange({ ...draft, recTime: value });
+                    onDraftChange({ ...draft, maxDurationSeconds: value });
                   }}
                   min={5}
                   max={120}

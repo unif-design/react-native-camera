@@ -1,20 +1,12 @@
-import type {
-  AspectRatio,
-  CameraMode,
-  CameraType,
-  OpenConfig,
-} from '../../utils';
+import type { AspectRatio, CameraModeOptions, CameraFacing } from '../../utils';
 
 export type NativeConfiguration = {
   device: {
     id: string;
-    position: CameraType;
+    position: CameraFacing;
   };
-  mode: CameraMode;
+  mode: CameraModeOptions;
   aspectRatio: AspectRatio;
-  photoQualityPrioritization?: OpenConfig['photoQualityPrioritization'];
-  photoHDR?: boolean;
-  videoBitRate?: number;
 };
 
 function optionalValue(value: string | number | boolean | undefined): string {
@@ -29,7 +21,7 @@ export function nativeConfigurationKey(
     `device=${encodeURIComponent(device.id)}`,
     `position=${device.position}`,
     `output=${mode.mode === 'video' ? 'video' : 'photo'}`,
-    `photoHDR=${optionalValue(configuration.photoHDR)}`,
+    `photoHDR=${optionalValue(mode.mode === 'video' ? undefined : mode.hdr)}`,
   ];
 
   if (mode.mode === 'video') {
@@ -38,7 +30,7 @@ export function nativeConfigurationKey(
       `resolution=${configuration.aspectRatio === '4:3' ? '3024x4032' : '2160x3840'}`,
       'audio=true',
       'fileType=mp4',
-      `bitrate=${optionalValue(configuration.videoBitRate)}`,
+      `bitrate=${optionalValue(mode.bitRate)}`,
     ].join('|');
   }
 
@@ -47,6 +39,6 @@ export function nativeConfigurationKey(
     `resolution=${configuration.aspectRatio === '4:3' ? '1440x1920' : '1080x1920'}`,
     'container=jpeg',
     `quality=${mode.quality ?? 0.9}`,
-    `prioritization=${optionalValue(configuration.photoQualityPrioritization)}`,
+    `prioritization=${optionalValue(mode.qualityPriority)}`,
   ].join('|');
 }

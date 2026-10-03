@@ -14,13 +14,13 @@ it('基础照片只生成照片 mode 字段', () => {
       type: 'back',
       flashMode: 'auto',
       quality: 0.9,
-      recTime: 15,
+      maxDurationSeconds: 15,
     })
   ).toEqual({
-    cameraMode: [
-      { mode: 'single', type: 'back', flashMode: 'auto', quality: 0.9 },
-    ],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
+    initialFacing: 'back',
+    initialFlash: 'auto',
   });
 });
 
@@ -31,24 +31,26 @@ it('基础录像只生成录像 mode 字段', () => {
       type: 'front',
       flashMode: 'off',
       quality: 0.8,
-      recTime: 30,
+      maxDurationSeconds: 30,
     })
   ).toEqual({
-    cameraMode: [
-      { mode: 'video', type: 'front', flashMode: 'off', recTime: 30 },
-    ],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'video', maxDurationSeconds: 30 }],
+    retention: 'clear',
+    initialFacing: 'front',
+    initialFlash: 'off',
   });
 });
 
 it('多模式使用固定公开配置并透传 retained mode', () => {
   expect(buildMultiModeConfig('retain')).toEqual({
-    cameraMode: [
-      { mode: 'single', type: 'back', flashMode: 'auto', quality: 0.9 },
+    modes: [
+      { mode: 'single', quality: 0.9 },
       { mode: 'continuous', quality: 0.9 },
-      { mode: 'video', recTime: 15 },
+      { mode: 'video', maxDurationSeconds: 15 },
     ],
-    dataRetainedMode: 'retain',
+    retention: 'retain',
+    initialFacing: 'back',
+    initialFlash: 'auto',
   });
 });
 
@@ -66,10 +68,10 @@ it('水印 trim 输入并使用注入时间生成可见内容', () => {
   ).toEqual({
     ok: true,
     config: {
-      cameraMode: [{ mode: 'single', quality: 0.9 }],
-      dataRetainedMode: 'clear',
+      modes: [{ mode: 'single', quality: 0.9 }],
+      retention: 'clear',
       watermark: {
-        content: [
+        lines: [
           '巡检记录',
           '拍摄时间：2026-08-03T10:20:30.000Z',
           '地点：A 区',
@@ -94,10 +96,10 @@ it('水印移除 trim 后的空地点与备注并默认 top-right', () => {
   ).toEqual({
     ok: true,
     config: {
-      cameraMode: [{ mode: 'single', quality: 0.9 }],
-      dataRetainedMode: 'clear',
+      modes: [{ mode: 'single', quality: 0.9 }],
+      retention: 'clear',
       watermark: {
-        content: ['设备复核', '拍摄时间：2026-08-03T10:20:30.000Z'],
+        lines: ['设备复核', '拍摄时间：2026-08-03T10:20:30.000Z'],
         position: 'top-right',
       },
     },
@@ -132,10 +134,10 @@ it('照片质量配置只生成显式照片偏好', () => {
       hdr: 'on',
     })
   ).toEqual({
-    cameraMode: [{ mode: 'single', quality: 0.85 }],
-    dataRetainedMode: 'clear',
-    photoQualityPrioritization: 'quality',
-    photoHDR: true,
+    modes: [
+      { mode: 'single', quality: 0.85, hdr: true, qualityPriority: 'quality' },
+    ],
+    retention: 'clear',
   });
 });
 
@@ -148,8 +150,8 @@ it('照片 SDK 默认完全省略可选 key', () => {
   });
 
   expect(config).toEqual({
-    cameraMode: [{ mode: 'single', quality: 0.9 }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
   });
   expect(Object.hasOwn(config, 'photoQualityPrioritization')).toBe(false);
   expect(Object.hasOwn(config, 'photoHDR')).toBe(false);
@@ -160,26 +162,25 @@ it('录像质量配置只生成显式 bitrate', () => {
   expect(
     buildQualityConfig({
       kind: 'video',
-      recTime: 45,
+      maxDurationSeconds: 45,
       videoBitRate: 24_000_000,
     })
   ).toEqual({
-    cameraMode: [{ mode: 'video', recTime: 45 }],
-    dataRetainedMode: 'clear',
-    videoBitRate: 24_000_000,
+    modes: [{ mode: 'video', maxDurationSeconds: 45, bitRate: 24_000_000 }],
+    retention: 'clear',
   });
 });
 
 it('录像 SDK 默认完全省略 bitrate 与照片专用 key', () => {
   const config = buildQualityConfig({
     kind: 'video',
-    recTime: 15,
+    maxDurationSeconds: 15,
     videoBitRate: null,
   });
 
   expect(config).toEqual({
-    cameraMode: [{ mode: 'video', recTime: 15 }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'video', maxDurationSeconds: 15 }],
+    retention: 'clear',
   });
   expect(Object.hasOwn(config, 'videoBitRate')).toBe(false);
   expect(Object.hasOwn(config, 'photoQualityPrioritization')).toBe(false);
@@ -192,14 +193,14 @@ it('基础配置每次调用都返回新的对象、数组与 mode', () => {
     type: 'back',
     flashMode: 'auto',
     quality: 0.9,
-    recTime: 15,
+    maxDurationSeconds: 15,
   } as const;
   const basicA = buildBasicConfig(input);
   const basicB = buildBasicConfig(input);
 
   expect(basicA).not.toBe(basicB);
-  expect(basicA.cameraMode).not.toBe(basicB.cameraMode);
-  expect(basicA.cameraMode[0]).not.toBe(basicB.cameraMode[0]);
+  expect(basicA.modes).not.toBe(basicB.modes);
+  expect(basicA.modes[0]).not.toBe(basicB.modes[0]);
 });
 
 it('多模式配置每次调用都返回新的数组与全部 mode', () => {
@@ -207,10 +208,10 @@ it('多模式配置每次调用都返回新的数组与全部 mode', () => {
   const multiB = buildMultiModeConfig('clear');
 
   expect(multiA).not.toBe(multiB);
-  expect(multiA.cameraMode).not.toBe(multiB.cameraMode);
-  expect(multiA.cameraMode[0]).not.toBe(multiB.cameraMode[0]);
-  expect(multiA.cameraMode[1]).not.toBe(multiB.cameraMode[1]);
-  expect(multiA.cameraMode[2]).not.toBe(multiB.cameraMode[2]);
+  expect(multiA.modes).not.toBe(multiB.modes);
+  expect(multiA.modes[0]).not.toBe(multiB.modes[0]);
+  expect(multiA.modes[1]).not.toBe(multiB.modes[1]);
+  expect(multiA.modes[2]).not.toBe(multiB.modes[2]);
 });
 
 it('水印配置每次调用都返回新的全部可变嵌套值', () => {
@@ -229,13 +230,11 @@ it('水印配置每次调用都返回新的全部可变嵌套值', () => {
 
   expect(watermarkA).not.toBe(watermarkB);
   expect(watermarkA.config).not.toBe(watermarkB.config);
-  expect(watermarkA.config.cameraMode).not.toBe(watermarkB.config.cameraMode);
-  expect(watermarkA.config.cameraMode[0]).not.toBe(
-    watermarkB.config.cameraMode[0]
-  );
+  expect(watermarkA.config.modes).not.toBe(watermarkB.config.modes);
+  expect(watermarkA.config.modes[0]).not.toBe(watermarkB.config.modes[0]);
   expect(watermarkA.config.watermark).not.toBe(watermarkB.config.watermark);
-  expect(watermarkA.config.watermark?.content).not.toBe(
-    watermarkB.config.watermark?.content
+  expect(watermarkA.config.watermark?.lines).not.toBe(
+    watermarkB.config.watermark?.lines
   );
 });
 
@@ -248,7 +247,7 @@ it('照片与录像质量配置每次调用都返回新的数组与 mode', () =>
   } as const;
   const videoInput = {
     kind: 'video',
-    recTime: 15,
+    maxDurationSeconds: 15,
     videoBitRate: null,
   } as const;
   const photoA = buildQualityConfig(photoInput);
@@ -257,9 +256,9 @@ it('照片与录像质量配置每次调用都返回新的数组与 mode', () =>
   const videoB = buildQualityConfig(videoInput);
 
   expect(photoA).not.toBe(photoB);
-  expect(photoA.cameraMode).not.toBe(photoB.cameraMode);
-  expect(photoA.cameraMode[0]).not.toBe(photoB.cameraMode[0]);
+  expect(photoA.modes).not.toBe(photoB.modes);
+  expect(photoA.modes[0]).not.toBe(photoB.modes[0]);
   expect(videoA).not.toBe(videoB);
-  expect(videoA.cameraMode).not.toBe(videoB.cameraMode);
-  expect(videoA.cameraMode[0]).not.toBe(videoB.cameraMode[0]);
+  expect(videoA.modes).not.toBe(videoB.modes);
+  expect(videoA.modes[0]).not.toBe(videoB.modes[0]);
 });

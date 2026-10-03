@@ -42,8 +42,9 @@ jest.mock('../../camera/Camera', () => {
 });
 
 const baseConfig = {
-  dataRetainedMode: 'retain' as const,
-  cameraMode: [{ mode: 'single' as const, type: 'back' as const }],
+  modes: [{ mode: 'single' as const }],
+  retention: 'retain' as const,
+  initialFacing: 'back' as const,
 };
 
 function renderContainer(onSettle: (r: unknown) => void) {

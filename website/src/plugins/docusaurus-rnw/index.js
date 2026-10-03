@@ -89,13 +89,13 @@ module.exports = function reactNativeWebPlugin(context) {
             // 在该 RN 组件的 wrapper 旁边加 `<Comp>.web.tsx` 条件入口用 CSS 等价物重写。
             'react-native/Libraries': false,
             'react-native/src': false,
-            // 把 npm 包名 `@unif/react-native-camera` 显式指向 src/index.ts 源码:
+            // 把 npm 包名 `@unif/react-native-camera` 显式指向 src/index.web.tsx 源码:
             //  - webpack 5 默认不识 package.json 的 `exports.source` 条件,直接 import npm 名
             //    会拿到 lib/module/index.js(bob 编译产物),热更新链路断;
             //  - 即便仓库内通过 yarn workspaces 把 npm 名 symlink 到本地源码,源码里又有 `@/*`
             //    barrel,也得让 webpack 解析到源码本体而非编译产物。
             //  - `$` 精确匹配,不影响 `@unif/react-native-camera/<subpath>` 写法。
-            '@unif/react-native-camera$': path.resolve(srcDir, 'index.tsx'),
+            '@unif/react-native-camera$': path.resolve(srcDir, 'index.web.tsx'),
           },
           // RNW / 多平台库会用 .web.js / .web.tsx 等后缀提供 web-specific 实现。
           extensions: [

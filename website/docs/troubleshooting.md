@@ -6,155 +6,47 @@ description: '按使用场景排查接入、平台和结果处理问题。'
 
 # 常见问题
 
-按**症状 → 原因 → 解法**排查。多数问题集中在「缺 holder」「缺 peerDeps」「不在真机上跑」三类。
+## open 返回 unavailable
 
----
+确保 `useCamera()` 返回的 `holder` 已在稳定 React 树中挂载，再执行 `open()`。缺少宿主会明确失败。宿主真实卸载取消所属调用。也应读取 `error.message`，确认原生相机是否无法维持交互。
 
-## 症状:相机打开后画面全黑 / `api.open()` 没反应
+## 权限拒绝或没有设备
 
-两个最常见原因,逐一排查:
+`failed / permission_denied` 表示相机权限拒绝；按系统设置恢复权限后再调用。`failed / no_device` 表示没有可用相机。相机和麦克风声明见[安装](/docs/getting-started/installation#权限配置)。麦克风仅在实际开始录像时请求；其局部失败留在相机内提示。
 
-### 因 1:`holder` 没渲染进树 → UI 不挂载且 Promise 持续 pending
+## Web 与模拟器
 
-`useCamera()` 返回的 `holder` 必须出现在 React 树里。缺少它时,合法 `api.open()` 仍会创建会话并返回 Promise,但相机 `Container` 没有挂载,所以 UI 不弹、拍摄流程也无法完成该 Promise。Promise 会保持 pending,直到 `api.close()`、后续合法 `open()` 或 Hook 卸载取消它。
+Web 的真实入口隔离原生模块，返回 `failed / unsupported`。模拟器不能替代真实拍摄设备；Jest 使用[官方 mock](/docs/testing)。
 
-```tsx
-// ❌ Incorrect:拿了 holder 却没放进树
-const [api, holder] = useCamera();
-return <Button title="拍照" onPress={() => api.open(cfg)} />; // 会话创建,但 Promise 持续 pending
+## 水印未出现
 
-// ✅ Correct:holder 必须在 React 树里(位置不限)
-const [api, holder] = useCamera();
-return (
-  <View>
-    <Button title="拍照" onPress={() => api.open(cfg)} />
-    {holder}
-  </View>
-);
-```
+确认当前模式是照片，且 `watermark.lines` 非空。录像不烧录水印。检查原生照片处理模块是否已重新编译，以及 Skia 等依赖是否完整。处理失败会在相机内提示，不返回未加水印的原图。
 
-### 因 2:缺权限声明(画面黑但模态弹出了)
+## 模块找不到或原生符号缺失
 
-模态弹出但取景画面全黑,通常是**缺权限键**:
+按[完整依赖清单](/docs/getting-started/installation#安装依赖)安装并重新构建。VisionCamera 的 worklets 包需要一起安装；文件系统使用 `@dr.pogodin/react-native-fs`。iOS 原生依赖变化后执行 `pod install`，重新编译 App。
 
-- **iOS** —— `ios/<App>/Info.plist` 缺 `NSCameraUsageDescription`;只有使用录像模式时还需 `NSMicrophoneUsageDescription`。
-- **Android** —— `android/app/src/main/AndroidManifest.xml` 缺 `android.permission.CAMERA`;只有使用录像模式时还需 `RECORD_AUDIO`。
-
-本库只返回 App 临时目录中的拍摄文件,不读写系统相册,因此不会无条件要求 `NSPhotoLibraryAddUsageDescription` 或 `READ_MEDIA_IMAGES`。若 App 另有保存 / 选择相册内容的业务,再按那项能力单独配置。
-
-补齐后重新编译(iOS 还要 `pod install`)。完整权限键见[安装 → 权限配置](/docs/getting-started/installation#权限配置)。若权限本身被用户拒绝,`api.open()` 会 resolve `code: 403`,按下文处理。
-
----
-
-## 症状:打包 / 运行报 `Unable to resolve module ...`
-
-缺同伴包。缺少必要的 peer 依赖会导致模块解析或运行失败,最常漏的是 `react-native-vision-camera-worklets`。
-
-### `Unable to resolve module react-native-vision-camera-worklets`
-
-```sh
-# ❌ Incorrect:只装相机引擎,缺 worklets
-yarn add @unif/react-native-camera react-native-vision-camera
-
-# ✅ Correct:补 worklets(版本与 vision-camera 对齐,同为 ^5.x)
-yarn add react-native-vision-camera-worklets
-cd ios && bundle exec pod install
-```
-
-:::danger 为什么没用 Frame Processor 也要装 worklets
-vision-camera 5.x 内部对 `react-native-vision-camera-worklets` 做了懒 `require`,Metro 在静态分析阶段就会解析它。**即使本库不使用 Frame Processor**,缺这个包打包期也会报 `Unable to resolve module react-native-vision-camera-worklets`,运行时报 `Cannot use Frame Processors - react-native-vision-camera-worklets is not installed`。
-:::
-
-### 其他 `Unable to resolve` / 原生符号缺失
-
-逐项核对[安装 → 完整 peer 清单](/docs/getting-started/installation#安装依赖)是否装齐。两个易错点:
-
-- **文件系统装错包** —— 本库用 fork `@dr.pogodin/react-native-fs`,**不是** `react-native-fs`。装错或两者并存会冲突,先卸 `react-native-fs` 再装 fork。
-- **安装本库或升级原生包后没 `pod install`** —— 本库自身、vision-camera / Skia / fs / video 都含原生代码,iOS 必须重新 `cd ios && bundle exec pod install`,否则报原生模块或符号缺失。
-
----
-
-## 症状:照片上没出现水印
-
-### 因 1:对录像加水印(水印仅照片)
+## 处理结果
 
 ```ts
-// ❌ Incorrect:期望 video 出水印
-await api.open({
-  cameraMode: [{ mode: 'video' }],
-  dataRetainedMode: 'clear',
-  watermark: { content: ['现场'] },
-}); // 录像不会有水印
-```
-
-**水印仅对照片(`image/jpeg`)生效,录像(`video/mp4`)没有水印。** 这是设计行为。
-
-### 因 2:缺水印依赖
-
-Skia 负责取景器水印预览，RNFS 负责 session 临时路径/清理；成片由本库原生文件处理器直接写 JPEG。peer 缺失或安装本库后未重新原生构建都会失败:
-
-```sh
-yarn add @shopify/react-native-skia @dr.pogodin/react-native-fs
-cd ios && bundle exec pod install
-```
-
-> 设备协商输出需精裁或可见水印处理失败时，不会返回 raw / 半成品并以 `200` 成功；相机会保留当前 session 与此前文件，提示“照片处理失败，请重试”。水印仍只是**可视标记,不是防篡改手段**。用法见[指南 → 水印](/docs/guides/watermark)。
-
----
-
-## 症状:相机 / 水印在模拟器或浏览器里跑不起来
-
-✅ **这是预期行为,不是 bug。** vision-camera 依赖真实相机硬件；模拟器可验证部分界面/原生编译，却不能证明真实照片输出、相机 IOSurface 或旧设备峰值内存。**完整相机链路请始终在真机上验证。**
-
-:::tip 在 CI / 模拟器里测逻辑
-不要在模拟器里测真实拍摄。单元测试用[测试(Mock)](/docs/testing)页的 `jest.mock` 方案,在无硬件环境跑通拍照流程逻辑。
-:::
-
----
-
-## 处理 `api.open()` 的 result code
-
-正常渲染 `holder` 后,每个 `api.open()` 会话都会以 `CameraResult` resolve(取消也不 reject),按 `code` 兜底。若缺少 `holder`,合法调用会因 `Container` 未挂载而保持 pending,需由 `close()`、后续合法 `open()` 或 Hook 卸载取消:
-
-```ts
-const res = await api.open(cfg);
-switch (res.code) {
-  case 200:
-    use(res.data);
-    break; // 成功:取文件
-  case 0:
-    /* 用户取消,静默 */ break;
-  case 403:
-    /* 无权限:引导去系统设置 */ break;
-  case 404:
-    /* 无摄像设备:提示不支持 */ break;
-  case 500:
-    /* 配置非法（必填项或可选字段未通过运行时校验）*/ break;
-  case 503:
-    /* 保留码，当前不触发（录像失败走相机内重试）*/ break;
+switch (result.status) {
+  case 'success':
+    console.log(result.media);
+    break;
+  case 'cancelled':
+    break;
+  case 'failed':
+    console.error(result.error.reason, result.error.message);
+    break;
 }
 ```
 
-```ts
-// ❌ Incorrect:把 0 当成功 —— 取消时 data 为空
-if (res.code === 0) use(res.data);
+取消不会作为成功返回，失败也没有媒体集合。`invalid_input` 不会关闭当前有效交互。取消某次调用应使用它自己的 `AbortController`。
 
-// ✅ Correct:只有 200 是成功
-if (res.code === 200) use(res.data);
-```
+## 成功后文件是否永久保存
 
-各 code 含义见[核心概念 → result code](/docs/getting-started/concepts)。
+文件仍在临时目录。成功交付后由消费者负责保存或上传以及后续释放，不能把拍摄成功当作上传完成。库仅清理仍属于本轮的未交付文件。
 
----
+## 录像时长与码率
 
-## iOS:`pod install` 报 LICENSE 警告
-
-```
-[!] The `...` pod ... has a license ... which doesn't provide any official binaries...
-```
-
-先区分 LICENSE 提示与安装错误；结合 `pod install` 的退出状态、实际依赖和后续编译结果判断。此提示本身不代表设备行为已通过验证。
-
-## 拍照成功后，文件会自动永久保存吗？
-
-不会。`code === 200` 表示用户确认了临时媒体。应用需要保存或上传以长期保留；可预览的 URI 不等于已写入相册，也不表示业务请求成功。文件责任见[调用与资源](/docs/getting-started/concepts)。
+输入 `maxDurationSeconds` 单位为秒，输出 `durationMs` 单位为毫秒；没有真实时长时字段缺省。`bitRate` 放在 video 模式项中。显式能力按 SDK 真实支持处理，局部录制错误会在相机内显示。

@@ -10,17 +10,17 @@ describe('watermark Paragraph', () => {
     jest.clearAllMocks();
   });
 
-  it('空数组或仅空白 content 不创建有效水印', () => {
+  it('空数组或仅空白 lines 不创建有效水印', () => {
     expect(hasVisibleWatermark(undefined)).toBe(false);
-    expect(hasVisibleWatermark({ content: [] })).toBe(false);
-    expect(hasVisibleWatermark({ content: [' ', '\n'] })).toBe(false);
-    expect(hasVisibleWatermark({ content: ['', '正文'] })).toBe(true);
+    expect(hasVisibleWatermark({ lines: [] })).toBe(false);
+    expect(hasVisibleWatermark({ lines: [' ', '\n'] })).toBe(false);
+    expect(hasVisibleWatermark({ lines: ['', '正文'] })).toBe(true);
   });
 
   it('preview 与 burn 共用首行 SemiBold、正文 Normal、行高、阴影和系统 fallback', () => {
     const skia = require('@shopify/react-native-skia');
     const prepared = createWatermarkParagraph(1200, 800, {
-      content: ['标题', '正文'],
+      lines: ['标题', '正文'],
       position: 'top-right',
     });
     const builder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
@@ -55,7 +55,7 @@ describe('watermark Paragraph', () => {
 
   it('使用共享 paragraphWidth 排版，并按 bottom anchor 放置', () => {
     const prepared = createWatermarkParagraph(1000, 800, {
-      content: ['a'],
+      lines: ['a'],
       position: 'bottom-center',
     });
 
@@ -71,7 +71,7 @@ describe('watermark Paragraph', () => {
 
   it('dispose 按 paragraph → builder 且 exactly once', () => {
     const prepared = createWatermarkParagraph(1000, 800, {
-      content: ['a'],
+      lines: ['a'],
     });
     const order: string[] = [];
     prepared.paragraph.dispose = jest.fn(() => order.push('paragraph'));

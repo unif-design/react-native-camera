@@ -4,10 +4,10 @@ import type { CameraHandle, VideoCallbacks } from '../../camera/Camera';
 import { processPhoto } from '../../camera/image/processPhoto';
 import { useCamera } from '../../hooks';
 import type {
-  CameraApi,
-  CameraResult,
-  CustomPhotoFile,
-  OpenConfig,
+  CameraController,
+  CameraOutcome,
+  CapturedFile,
+  CameraInput,
 } from '../../utils';
 import { makePhotoFile } from '../__helpers__/factories';
 import { layoutCameraViewport } from '../__helpers__/containerSession';
@@ -17,7 +17,7 @@ type MockCameraProps = {
 };
 
 const mockCameraProps: MockCameraProps[] = [];
-const mockCapture = jest.fn<Promise<CustomPhotoFile | null>, []>();
+const mockCapture = jest.fn<Promise<CapturedFile | null>, []>();
 const mockStartVideo = jest.fn<
   Promise<'started' | 'denied'>,
   [VideoCallbacks]
@@ -81,7 +81,8 @@ jest.mock('../../camera/image/processPhoto', () => {
 
 const processPhotoMock = jest.mocked(processPhoto);
 const unlinkMock = jest.mocked(RNFS.unlink);
-let currentApi: CameraApi | null = null;
+let currentAbortController: AbortController;
+let currentApi: CameraController | null = null;
 
 function Harness() {
   const [api, holder] = useCamera();
@@ -89,15 +90,18 @@ function Harness() {
   return holder;
 }
 
-function getApi(): CameraApi {
+function getApi(): CameraController {
   if (currentApi == null) throw new Error('camera API is not mounted');
   return currentApi;
 }
 
-function open(openConfig: OpenConfig): Promise<CameraResult> {
-  let promise: Promise<CameraResult> | undefined;
+function open(openConfig: CameraInput): Promise<CameraOutcome> {
+  let promise: Promise<CameraOutcome> | undefined;
   act(() => {
-    promise = getApi().open(openConfig);
+    currentAbortController = new AbortController();
+    promise = getApi().open(openConfig, {
+      signal: currentAbortController.signal,
+    });
   });
   if (promise == null) throw new Error('open did not return a promise');
   return promise;
@@ -127,10 +131,10 @@ async function flushMicrotasks(rounds = 8): Promise<void> {
   });
 }
 
-function makeConfig(mode: 'single' | 'video'): OpenConfig {
+function makeConfig(mode: 'single' | 'video'): CameraInput {
   return {
-    cameraMode: [{ mode }],
-    dataRetainedMode: mode === 'single' ? 'clear' : 'retain',
+    modes: [{ mode }],
+    retention: mode === 'single' ? 'clear' : 'retain',
   };
 }
 
@@ -180,9 +184,8 @@ it('saves through the real Container and transfers only the returned final file 
   );
   fireEvent.press(harness.getByTestId('save-btn'));
   await expect(resultPromise).resolves.toEqual({
-    code: 200,
-    data: [expect.objectContaining({ path: final.path })],
-    message: 'ok',
+    status: 'success',
+    media: [expect.objectContaining({ uri: final.uri })],
   });
 
   expect(unlinkMock).toHaveBeenCalledWith(raw.path);
@@ -202,16 +205,12 @@ it('routes the real Modal hardware back through the registered recording control
   act(() => harness.getByTestId('camera-modal').props.onRequestClose());
   expect(harness.getByText('放弃录制')).toBeTruthy();
   await act(async () => {
-    fireEvent.press(harness.getByTestId('camera-confirm-ok'));
+    fireEvent.press(harness.getByTestId('confirm-ok'));
     await Promise.resolve();
   });
 
   expect(mockCancelVideo).toHaveBeenCalledTimes(1);
-  await expect(resultPromise).resolves.toEqual({
-    code: 0,
-    data: [],
-    message: 'cancelled',
-  });
+  await expect(resultPromise).resolves.toEqual({ status: 'cancelled' });
 });
 
 it('supersedes through the real bridge and rejects stale UI/native continuations without touching the replacement session', async () => {
@@ -228,11 +227,7 @@ it('supersedes through the real bridge and rejects stale UI/native continuations
     harness.getByTestId('camera-modal').props.onRequestClose;
 
   const secondPromise = open(makeConfig('single'));
-  await expect(firstPromise).resolves.toEqual({
-    code: 0,
-    data: [],
-    message: 'cancelled',
-  });
+  await expect(firstPromise).resolves.toEqual({ status: 'cancelled' });
   expect(mockCancelVideo).toHaveBeenCalledTimes(1);
   await configureLatest(harness);
 
@@ -258,12 +253,8 @@ it('supersedes through the real bridge and rejects stale UI/native continuations
   expect(secondSettled).toBe(false);
   expect(harness.getByTestId('mock-native-camera')).toBeTruthy();
 
-  act(() => getApi().close());
-  await expect(secondPromise).resolves.toEqual({
-    code: 0,
-    data: [],
-    message: 'cancelled',
-  });
+  act(() => currentAbortController.abort());
+  await expect(secondPromise).resolves.toEqual({ status: 'cancelled' });
 });
 
 it('real hook unmount force-tears down the mounted Container recording exactly once', async () => {
@@ -279,9 +270,5 @@ it('real hook unmount force-tears down the mounted Container recording exactly o
   await flushMicrotasks();
 
   expect(mockCancelVideo).toHaveBeenCalledTimes(1);
-  await expect(resultPromise).resolves.toEqual({
-    code: 0,
-    data: [],
-    message: 'cancelled',
-  });
+  await expect(resultPromise).resolves.toEqual({ status: 'cancelled' });
 });

@@ -5,6 +5,8 @@ import { TurboModuleRegistry } from 'react-native';
 export interface Spec extends TurboModule {
   inspectPhotoFile(inputPath: string): Promise<string>;
 
+  inspectVideoFile(inputPath: string): Promise<string>;
+
   processPhoto(
     inputPath: string,
     outputPath: string,

@@ -22,7 +22,11 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { CameraMode, CameraResult, OpenConfig } from '../utils';
+import type {
+  CameraModeOptions,
+  CameraSessionOutcome,
+  CameraInput,
+} from '../utils';
 import type {
   RegisterSessionContainer,
   RegisterSessionController,
@@ -40,6 +44,7 @@ import { useAppActive } from './hooks/useAppActive';
 import { useCameraSessionController } from './hooks/useCameraSessionController';
 import { usePermissionFlow } from './hooks/usePermissionFlow';
 import { usePhotoCaptureTransaction } from './hooks/usePhotoCaptureTransaction';
+import { useCameraMediaActions } from './hooks/useCameraMediaActions';
 import { useVideoTransaction } from './hooks/useVideoTransaction';
 import { useZoomController } from './hooks/useZoomController';
 import { clamp } from './hooks/zoomMath';
@@ -78,8 +83,8 @@ type Props = {
   fileRegistry: FileRegistry;
   registerContainer: RegisterSessionContainer;
   registerController: RegisterSessionController;
-  config: OpenConfig;
-  onSettle: (r: CameraResult) => void;
+  config: CameraInput;
+  onSettle: (r: CameraSessionOutcome) => void;
 };
 
 const UNCONFIGURED_NATIVE_KEY = 'unconfigured';
@@ -106,7 +111,7 @@ export function Container({
   const state = usePermissionFlow();
 
   const insets = useSafeAreaInsets();
-  // 初始 requested 前/后摄由 config 首个 mode 的 type 决定(H5 传入),缺省 back。
+  // 初始 requested 前/后摄由 config.initialFacing 决定，缺省 back。
   // requested 只表示用户意图；actual device/position 统一由 selectCameraDevice 给出。
   // 两个 hook 每次 render 固定按 back/front 调用，缺一侧时才能可靠 fallback 到另一侧，
   // 也避免 requested 改变后违反 Hooks 顺序或把「该侧缺失」误判成「整机无相机」。
@@ -115,10 +120,10 @@ export function Container({
   // physicalDevices 是 best-match 排序、非硬过滤(vision-camera 文档:「filter
   // never excludes cameras」):不支持超广角的机型会自动 fallback 到 wide-angle
   // (minZoom=1、无 0.5x 但照常工作),不会因缺超广角而 device==null；只有 back/front
-  // inventory 都为空时 selection 才为 null，并由下方 NoCamera(code 404)兜底。
+  // inventory 都为空时 selection 才为 null，并由下方 NoCamera(reason no_device)兜底。
   // 历史上单 'wide-angle' 为规避 iOS #3773,启用超广角后需真机验证不复现。
-  const firstMode = config.cameraMode[0];
-  const initialPosition = firstMode?.type ?? 'back';
+  const firstMode = config.modes[0];
+  const initialPosition = config.initialFacing ?? 'back';
   const [requestedPosition, setRequestedPosition] = useState<'back' | 'front'>(
     initialPosition
   );
@@ -156,9 +161,6 @@ export function Container({
           },
           mode: firstMode,
           aspectRatio: '16:9',
-          photoQualityPrioritization: config.photoQualityPrioritization,
-          photoHDR: config.photoHDR,
-          videoBitRate: config.videoBitRate,
         });
   const controller = useCameraSessionController({
     sessionId,
@@ -168,7 +170,7 @@ export function Container({
       aspectRatio: '16:9',
       activePosition: committedSelection?.activePosition ?? initialPosition,
       canFlip: committedSelection?.canFlip ?? false,
-      flash: firstMode?.flashMode ?? 'off',
+      flash: config.initialFlash ?? 'auto',
       sound: false,
       nativeConfigurationKey: initialNativeConfigurationKey,
     },
@@ -177,6 +179,7 @@ export function Container({
     cancelRecording: video.cancel,
     onSettle,
   });
+  const media = useCameraMediaActions(controller, fileRegistry);
   const photo = usePhotoCaptureTransaction({
     sessionId,
     cameraRef,
@@ -191,7 +194,7 @@ export function Container({
     beginConfiguration,
     configured,
   } = controller;
-  const currentMode = config.cameraMode[session.modeIndex];
+  const currentMode = config.modes[session.modeIndex];
   const { files: photos, aspectRatio, flash, sound, preview } = session;
   const recording =
     session.phase === 'recording' || session.phase === 'stoppingVideo';
@@ -200,7 +203,7 @@ export function Container({
   const configurationKeyFor = useCallback(
     (
       nextSelection: SelectedCameraDevice,
-      mode: CameraMode,
+      mode: CameraModeOptions,
       nextAspectRatio = aspectRatio
     ) =>
       nativeConfigurationKey({
@@ -210,16 +213,8 @@ export function Container({
         },
         mode,
         aspectRatio: nextAspectRatio,
-        photoQualityPrioritization: config.photoQualityPrioritization,
-        photoHDR: config.photoHDR,
-        videoBitRate: config.videoBitRate,
       }),
-    [
-      aspectRatio,
-      config.photoHDR,
-      config.photoQualityPrioritization,
-      config.videoBitRate,
-    ]
+    [aspectRatio]
   );
 
   // pending selection 的 actual position / canFlip 与 native identity 一起原子提交；
@@ -264,7 +259,7 @@ export function Container({
   ]);
 
   const applyMode = (nextIndex: number): void => {
-    const nextMode = config.cameraMode[nextIndex];
+    const nextMode = config.modes[nextIndex];
     if (nextMode == null || committedSelection == null) return;
     beginConfiguration(configurationKeyFor(committedSelection, nextMode), {
       modeIndex: nextIndex,
@@ -275,16 +270,16 @@ export function Container({
     if (
       !capabilities.mode ||
       nextIndex === session.modeIndex ||
-      config.cameraMode[nextIndex] == null
+      config.modes[nextIndex] == null
     ) {
       return;
     }
-    if (config.dataRetainedMode === 'clear' && photos.length > 0) {
+    if (config.retention === 'clear' && photos.length > 0) {
       const accepted = await confirm({
         title: '切换拍摄模式',
         message: '切换后将清空已拍内容,是否继续?',
       });
-      if (!accepted || !photo.clearForModeSwitch()) return;
+      if (!accepted || !media.clear()) return;
     }
     applyMode(nextIndex);
   };
@@ -350,9 +345,11 @@ export function Container({
       <NoPermission
         onCancel={() =>
           controller.settle({
-            code: 403,
-            data: [],
-            message: 'permission_denied',
+            status: 'failed',
+            error: {
+              reason: 'permission_denied',
+              message: 'Camera permission denied',
+            },
           })
         }
         onOpenSettings={() => Linking.openSettings()}
@@ -372,7 +369,10 @@ export function Container({
     return (
       <NoCamera
         onCancel={() =>
-          controller.settle({ code: 404, data: [], message: 'no_device' })
+          controller.settle({
+            status: 'failed',
+            error: { reason: 'no_device', message: 'No camera available' },
+          })
         }
       />
     );
@@ -383,16 +383,15 @@ export function Container({
       <NoCamera
         onCancel={() =>
           controller.settle({
-            code: 500,
-            data: [],
-            message: 'invalid_config',
+            status: 'failed',
+            error: { reason: 'invalid_input', message: 'Invalid camera input' },
           })
         }
       />
     );
   }
 
-  const modeItems: ModeItem[] = config.cameraMode.map((m, i) => ({
+  const modeItems: ModeItem[] = config.modes.map((m, i) => ({
     key: `${m.mode}-${i}`,
     label: MODE_LABEL[m.mode],
   }));
@@ -443,10 +442,8 @@ export function Container({
                   // pinch 结束回写一次 JS 侧 zoom(vzf):供设备切换 clamp 基准,不 pinch 全程回写(性能)。
                   onZoomEnd={setZoom}
                   sound={sound}
-                  // 拍摄质量参数从 OpenConfig 透传;三者缺省 undefined → Camera 内按需加键、不传则走 SDK 默认。
-                  photoQualityPrioritization={config.photoQualityPrioritization}
-                  photoHDR={config.photoHDR}
-                  videoBitRate={config.videoBitRate}
+                  // 拍摄质量参数从 CameraInput 透传;三者缺省 undefined → Camera 内按需加键、不传则走 SDK 默认。
+
                   // session 出错 → 顶部非阻塞错误条(showError 自带去抖,可恢复错误连发不刷屏)。
                   // 绝不 settle(500):onError 含可恢复瞬时错误,误当致命会让重开报错关闭(见 Camera.tsx)。
                   onCameraError={(e) =>
@@ -495,7 +492,7 @@ export function Container({
                 canSave={capabilities.save}
                 backDisabled={!capabilities.userCancel}
                 onBack={controller.requestUserCancel}
-                onSave={photo.save}
+                onSave={media.save}
               />
             </View>
           )}
@@ -577,7 +574,7 @@ export function Container({
               count={photos.length}
               onShutter={onShutter}
               onFlip={onFlip}
-              onOpenPreview={photo.openGallery}
+              onOpenPreview={media.openGallery}
             />
           </View>
         </View>
@@ -586,10 +583,10 @@ export function Container({
         <PreviewOverlay
           files={photos}
           variant={preview.variant}
-          onRetake={photo.retake}
-          onSave={photo.save}
-          onBack={photo.closePreview}
-          onDelete={photo.deletePhoto}
+          onRetake={media.clear}
+          onSave={media.save}
+          onBack={media.closePreview}
+          onDelete={media.deleteMedia}
         />
       )}
     </View>

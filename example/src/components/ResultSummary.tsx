@@ -158,7 +158,7 @@ export function ResultSummary({
                   ? colors.error
                   : colors.foregroundMuted
             }
-            testID={`result-status-icon-${presentation.code}`}
+            testID={`result-status-icon-${presentation.status}`}
           />
           <Tag
             label={presentation.label}
@@ -167,7 +167,7 @@ export function ResultSummary({
         </View>
       </View>
       <Text style={styles.details}>
-        结果码 {presentation.code} · {mediaLabel}
+        结果 {presentation.status} · {mediaLabel}
       </Text>
       <Text style={styles.diagnostic}>message：{presentation.message}</Text>
       {presentation.diagnostic ? (
@@ -175,7 +175,7 @@ export function ResultSummary({
           diagnostic：{presentation.diagnostic}
         </Text>
       ) : null}
-      {presentation.code === 403 ? (
+      {presentation.diagnostic === 'permission_denied' ? (
         <Text style={styles.recovery}>
           请到系统设置授权或恢复相机权限后重试。
         </Text>
@@ -197,7 +197,7 @@ export function ResultSummary({
         <>
           {presentation.temporaryFileWarning ? (
             <Text style={styles.warning}>
-              返回媒体仍位于临时目录。code 200
+              返回媒体仍位于临时目录。success
               只表示库把文件所有权转交给调用方，不代表文件已持久化；生产业务必须立即复制到持久目录或上传。
             </Text>
           ) : null}
@@ -212,7 +212,7 @@ export function ResultSummary({
           <Text selectable style={styles.raw}>
             {JSON.stringify(record.config, null, 2)}
           </Text>
-          <Text style={styles.rawTitle}>原始 CameraResult</Text>
+          <Text style={styles.rawTitle}>原始 CameraOutcome</Text>
           <Text selectable style={styles.raw}>
             {JSON.stringify(record.result, null, 2)}
           </Text>

@@ -3,7 +3,7 @@ import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
 import type {
   useCamera as useCameraHook,
-  OpenConfig,
+  CameraInput,
 } from '@unif/react-native-camera';
 
 import '@unif/react-native-design/docs-home.css';
@@ -143,21 +143,25 @@ const DIM = (s: string) => <span className="tok-dim">{s}</span>;
 
 // 主页代码窗与公开类型绑定；只 import type，浏览器不会加载 native 相机 runtime，
 // 但 website typecheck 会在公开 API 漂移时立即失败。
-const homepageOpenConfig = {
-  cameraMode: [{ mode: 'continuous' }, { mode: 'video', recTime: 15 }],
-  dataRetainedMode: 'retain',
+const homepageCameraInput = {
+  modes: [{ mode: 'continuous' }, { mode: 'video', maxDurationSeconds: 15 }],
+  retention: 'retain',
   watermark: {
-    content: ['Unif · 巡检记录', '上海市', '2026-08-02'],
+    lines: ['Unif · 巡检记录', '上海市', '2026-08-02'],
     position: 'top-right',
   },
-} satisfies OpenConfig;
+} satisfies CameraInput;
 
 export function HomepageCameraContract(
   useCamera: typeof useCameraHook
 ): React.ReactElement {
   const [api, holder] = useCamera();
-  void api.open(homepageOpenConfig);
-  return holder;
+  return (
+    <>
+      {holder}
+      <button onClick={() => void api.open(homepageCameraInput)}>拍摄</button>
+    </>
+  );
 }
 
 const CODE_LINES: CodeLine[] = [
@@ -178,18 +182,18 @@ const CODE_LINES: CodeLine[] = [
     {K('const')} open = () =&gt; api.{FN('open')}({'{'}
   </>,
   <>
-    {'    '}cameraMode: [{'{'} mode: {ST("'continuous'")} {'}'},
+    {'    '}modes: [{'{'} mode: {ST("'continuous'")} {'}'},
   </>,
   <>
     {'    '}
-    {'{'} mode: {ST("'video'")}, recTime: <span className="tok-id">15</span>{' '}
-    {'}'}],
+    {'{'} mode: {ST("'video'")}, maxDurationSeconds:{' '}
+    <span className="tok-id">15</span> {'}'}],
   </>,
   <>
-    {'    '}dataRetainedMode: {ST("'retain'")},
+    {'    '}retention: {ST("'retain'")},
   </>,
   <>
-    {'    '}watermark: {'{'} content: [{ST("'Unif · 巡检'")}], position:{' '}
+    {'    '}watermark: {'{'} lines: [{ST("'Unif · 巡检'")}], position:{' '}
     {ST("'top-right'")} {'}'},
   </>,
   <>

@@ -32,6 +32,7 @@ jest.mock('./src/NativePhotoProcessor', () => ({
   __esModule: true,
   default: {
     inspectPhotoFile: jest.fn(),
+    inspectVideoFile: jest.fn(),
     processPhoto: jest.fn(),
   },
 }));

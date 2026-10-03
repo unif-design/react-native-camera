@@ -12,7 +12,7 @@ import {
   useThemedStyles,
   type ColorTokens,
 } from '@unif/react-native-design';
-import type { OpenConfig } from '@unif/react-native-camera';
+import type { CameraInput } from '@unif/react-native-camera';
 
 import { ConfigPreview } from '../components/ConfigPreview';
 import {
@@ -33,7 +33,7 @@ export type WatermarkEvidenceScreenProps = {
 };
 
 export type WatermarkPosition = NonNullable<
-  NonNullable<OpenConfig['watermark']>['position']
+  NonNullable<CameraInput['watermark']>['position']
 >;
 
 export type WatermarkEvidenceDraft = {
@@ -110,7 +110,7 @@ export function WatermarkEvidenceScreen({
 }: WatermarkEvidenceScreenProps): ReactElement {
   const styles = useThemedStyles(makeStyles);
   const [titleError, setTitleError] = useState<string | undefined>();
-  const [submittedConfig, setSubmittedConfig] = useState<OpenConfig | null>(
+  const [submittedConfig, setSubmittedConfig] = useState<CameraInput | null>(
     null
   );
   const { title, location, note, position } = draft;
@@ -216,7 +216,7 @@ export function WatermarkEvidenceScreen({
       ) : (
         <Card variant="plain">
           <Text style={styles.previewPending}>
-            点击打开相机时生成当前时间，并展示实际提交的 OpenConfig。
+            点击打开相机时生成当前时间，并展示实际提交的 CameraInput。
           </Text>
         </Card>
       )}

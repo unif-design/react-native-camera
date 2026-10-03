@@ -1,4 +1,4 @@
-import type { CustomPhotoFile } from '../../../utils';
+import type { CapturedFile } from '../../../utils';
 import {
   cameraSessionReducer,
   selectCapabilities,
@@ -9,20 +9,19 @@ import type {
   CameraSessionState,
 } from '../../../camera/session/types';
 
-const photo: CustomPhotoFile = {
+const photo: CapturedFile = {
   id: 'photo-1',
-  cameraType: 'back',
-  cameraMode: 'single',
+  facing: 'back',
+
   path: '/tmp/photo-1.jpg',
   uri: 'file:///tmp/photo-1.jpg',
   width: 3024,
   height: 4032,
-  mime: 'image/jpeg',
+  mimeType: 'image/jpeg',
   mode: 'single',
-  isRemake: false,
 };
 
-function photoWithId(id: string): CustomPhotoFile {
+function photoWithId(id: string): CapturedFile {
   return {
     ...photo,
     id,
@@ -286,10 +285,10 @@ describe('cameraSessionReducer', () => {
           id: 'video-1',
           path: '/tmp/video-1.mp4',
           uri: 'file:///tmp/video-1.mp4',
-          mime: 'video/mp4',
+          mimeType: 'video/mp4',
           mode: 'video',
-          cameraMode: 'video',
-          duration: 12,
+
+          durationMs: 12000,
         },
         duration: 12,
         reason: 'completed',

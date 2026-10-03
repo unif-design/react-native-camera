@@ -1,7 +1,7 @@
 import type {
-  CameraApi,
-  CameraResult,
-  OpenConfig,
+  CameraController,
+  CameraOutcome,
+  CameraInput,
 } from '@unif/react-native-camera';
 import type { ShowcaseRoute } from '../navigation/localNavigation';
 
@@ -10,8 +10,8 @@ export type CameraRunRecord = {
   scenario: Exclude<ShowcaseRoute['name'], 'home'>;
   startedAt: string;
   endedAt: string;
-  config: OpenConfig;
-  result: CameraResult;
+  config: CameraInput;
+  result: CameraOutcome;
 };
 
 export type RuntimeDiagnostic = {
@@ -34,7 +34,7 @@ export type RunOutcome =
 export type CameraRunController = {
   open: (
     scenario: CameraRunRecord['scenario'],
-    config: OpenConfig
+    config: CameraInput
   ) => Promise<RunOutcome>;
   close: () => void;
   getSnapshot: () => CameraRunSnapshot;
@@ -43,25 +43,25 @@ export type CameraRunController = {
 };
 
 export type CameraRunControllerDeps = {
-  api: CameraApi;
+  api: CameraController;
   now: () => Date;
   nextId: () => string;
 };
 
 type ActiveRun = {
   token: symbol;
-  closeRequested: boolean;
+  abortController: AbortController;
 };
 
-function cloneConfig(config: OpenConfig): OpenConfig {
+function cloneConfig(config: CameraInput): CameraInput {
   return {
     ...config,
-    cameraMode: config.cameraMode.map((mode) => ({ ...mode })),
+    modes: config.modes.map((mode) => ({ ...mode })),
     ...(config.watermark
       ? {
           watermark: {
             ...config.watermark,
-            content: [...config.watermark.content],
+            lines: [...config.watermark.lines],
           },
         }
       : {}),
@@ -108,11 +108,14 @@ export function createCameraRunController(
       const runId = deps.nextId();
       const startedAt = deps.now().toISOString();
       const configSnapshot = cloneConfig(config);
-      activeRun = { token, closeRequested: false };
+      const abortController = new AbortController();
+      activeRun = { token, abortController };
       publish({ ...snapshot, phase: 'opening' });
 
       try {
-        const result = await deps.api.open(config);
+        const result = await deps.api.open(config, {
+          signal: abortController.signal,
+        });
         if (activeRun?.token !== token) {
           throw new Error('相机会话状态已失效');
         }
@@ -159,11 +162,10 @@ export function createCameraRunController(
     },
 
     close() {
-      if (!activeRun || activeRun.closeRequested) {
+      if (!activeRun) {
         return;
       }
-      activeRun.closeRequested = true;
-      deps.api.close();
+      activeRun.abortController.abort();
     },
 
     getSnapshot() {

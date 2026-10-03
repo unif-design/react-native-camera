@@ -74,7 +74,7 @@ export function RuntimeDiagnosticNotice({
         </View>
         <Text style={styles.message}>{diagnostic.message}</Text>
         <Text style={styles.guidance}>
-          本次没有生成 CameraResult，请检查运行环境后重试。
+          本次没有生成 CameraOutcome，请检查运行环境后重试。
         </Text>
       </View>
     </Card>

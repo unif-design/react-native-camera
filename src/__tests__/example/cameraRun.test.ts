@@ -1,8 +1,8 @@
 import { renderHook } from '@testing-library/react-native';
 import {
   useCamera,
-  type CameraResult,
-  type OpenConfig,
+  type CameraOutcome,
+  type CameraInput,
 } from '@unif/react-native-camera';
 import { createCameraRunController } from '../../../example/src/domain/cameraRun';
 
@@ -11,29 +11,22 @@ jest.mock('@unif/react-native-camera', () =>
 );
 
 const fixedDate = new Date('2026-08-03T10:20:30.000Z');
-const successResult: CameraResult = {
-  code: 200,
-  data: [
+const successResult: CameraOutcome = {
+  status: 'success',
+  media: [
     {
       id: 'photo-1',
-      cameraType: 'back',
-      cameraMode: 'single',
-      path: '/tmp/photo.jpg',
+      facing: 'back',
+
       uri: 'file:///tmp/photo.jpg',
       width: 4032,
       height: 3024,
-      mime: 'image/jpeg',
+      mimeType: 'image/jpeg',
       mode: 'single',
-      isRemake: false,
     },
   ],
-  message: 'ok',
 };
-const cancelledResult: CameraResult = {
-  code: 0,
-  data: [],
-  message: 'cancelled',
-};
+const cancelledResult: CameraOutcome = { status: 'cancelled' };
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -57,7 +50,6 @@ function createSubject() {
     api,
     controller,
     mockOpen: jest.mocked(api.open),
-    mockClose: jest.mocked(api.close),
     nextId,
     now,
   };
@@ -65,16 +57,16 @@ function createSubject() {
 
 it('把 factory 新建的 config 原对象交给 api.open，并保存深拷贝历史', async () => {
   const { controller, mockOpen } = createSubject();
-  const config: OpenConfig = {
-    cameraMode: [
-      { mode: 'single', type: 'back', flashMode: 'auto', quality: 0.9 },
-    ],
-    dataRetainedMode: 'clear',
+  const config = {
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
     watermark: {
-      content: ['巡检记录', '拍摄时间：2026-08-03T10:20:30.000Z'],
+      lines: ['巡检记录', '拍摄时间：2026-08-03T10:20:30.000Z'],
       position: 'bottom-right',
     },
-  };
+    initialFacing: 'back',
+    initialFlash: 'auto',
+  } satisfies CameraInput;
   mockOpen.mockResolvedValueOnce(successResult);
   const listener = jest.fn();
   controller.subscribe(listener);
@@ -96,31 +88,31 @@ it('把 factory 新建的 config 原对象交给 api.open，并保存深拷贝�
     result: successResult,
   });
   expect(outcome.record.config).not.toBe(config);
-  expect(outcome.record.config.cameraMode).not.toBe(config.cameraMode);
-  expect(outcome.record.config.cameraMode[0]).not.toBe(config.cameraMode[0]);
+  expect(outcome.record.config.modes).not.toBe(config.modes);
+  expect(outcome.record.config.modes[0]).not.toBe(config.modes[0]);
   expect(outcome.record.config.watermark).not.toBe(config.watermark);
-  expect(outcome.record.config.watermark?.content).not.toBe(
-    config.watermark?.content
+  expect(outcome.record.config.watermark?.lines).not.toBe(
+    config.watermark?.lines
   );
   expect(outcome.snapshot).toBe(controller.getSnapshot());
   expect(outcome.snapshot.phase).toBe('idle');
   expect(outcome.snapshot.records).toHaveLength(1);
-  expect(outcome.snapshot.records[0]?.result.code).toBe(200);
+  expect(outcome.snapshot.records[0]?.result.status).toBe('success');
   expect(listener).toHaveBeenCalledTimes(2);
 
-  config.cameraMode[0]!.quality = 0.1;
-  config.watermark!.content[0] = '被调用方修改';
-  expect(outcome.record.config.cameraMode[0]?.quality).toBe(0.9);
-  expect(outcome.record.config.watermark?.content[0]).toBe('巡检记录');
+  config.modes[0]!.quality = 0.1;
+  config.watermark!.lines[0] = '被调用方修改';
+  expect(outcome.record.config.modes[0]).toMatchObject({ quality: 0.9 });
+  expect(outcome.record.config.watermark?.lines[0]).toBe('巡检记录');
 });
 
 it('opening 期间拒绝第二次 open，且不再次调用 api.open 或分配 run id', async () => {
   const { controller, mockOpen, nextId } = createSubject();
-  const pending = deferred<CameraResult>();
+  const pending = deferred<CameraOutcome>();
   mockOpen.mockReturnValueOnce(pending.promise);
-  const config: OpenConfig = {
-    cameraMode: [{ mode: 'continuous', quality: 0.9 }],
-    dataRetainedMode: 'retain',
+  const config: CameraInput = {
+    modes: [{ mode: 'continuous', quality: 0.9 }],
+    retention: 'retain',
   };
 
   const firstOutcomePromise = controller.open('multi-mode', config);
@@ -139,20 +131,25 @@ it('opening 期间拒绝第二次 open，且不再次调用 api.open 或分配 r
   await firstOutcomePromise;
 });
 
-it('close 不立即写历史，原 open resolve code 0 后只写一次', async () => {
-  const { controller, mockClose, mockOpen } = createSubject();
-  const pending = deferred<CameraResult>();
+it('close 不立即写历史，原 open resolve cancelled 后只写一次', async () => {
+  const { controller, mockOpen } = createSubject();
+  const pending = deferred<CameraOutcome>();
   mockOpen.mockReturnValueOnce(pending.promise);
-  const config: OpenConfig = {
-    cameraMode: [{ mode: 'video', recTime: 15 }],
-    dataRetainedMode: 'clear',
+  const config: CameraInput = {
+    modes: [{ mode: 'video', maxDurationSeconds: 15 }],
+    retention: 'clear',
   };
 
   const outcomePromise = controller.open('quality-lab', config);
+  const signal = mockOpen.mock.calls[0]?.[1]?.signal;
+  const onAbort = jest.fn();
+  signal?.addEventListener('abort', onAbort);
+  expect(signal?.aborted).toBe(false);
   controller.close();
   controller.close();
 
-  expect(mockClose).toHaveBeenCalledTimes(1);
+  expect(onAbort).toHaveBeenCalledTimes(1);
+  expect(signal?.aborted).toBe(true);
   expect(controller.getSnapshot()).toMatchObject({
     phase: 'opening',
     records: [],
@@ -165,20 +162,21 @@ it('close 不立即写历史，原 open resolve code 0 后只写一次', async (
   expect(outcome.accepted).toBe(true);
   expect(controller.getSnapshot().phase).toBe('idle');
   expect(controller.getSnapshot().records).toHaveLength(1);
-  expect(controller.getSnapshot().records[0]?.result.code).toBe(0);
+  expect(controller.getSnapshot().records[0]?.result.status).toBe('cancelled');
 
   controller.close();
-  expect(mockClose).toHaveBeenCalledTimes(1);
+  expect(onAbort).toHaveBeenCalledTimes(1);
+  expect(signal?.aborted).toBe(true);
   expect(controller.getSnapshot().records).toHaveLength(1);
 });
 
-it('unexpected reject 只写 RuntimeDiagnostic，不伪造 CameraResult', async () => {
+it('unexpected reject 只写 RuntimeDiagnostic，不伪造 CameraOutcome', async () => {
   const { controller, mockOpen } = createSubject();
   const runtimeError = new Error('native bridge unavailable');
   mockOpen.mockRejectedValueOnce(runtimeError);
-  const config: OpenConfig = {
-    cameraMode: [{ mode: 'single', quality: 0.9 }],
-    dataRetainedMode: 'clear',
+  const config: CameraInput = {
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
   };
 
   await expect(controller.open('watermark-evidence', config)).rejects.toBe(
@@ -206,8 +204,8 @@ it('clear 清空已有记录与 diagnostic，并允许取消订阅', async () =>
   const unsubscribe = controller.subscribe(listener);
 
   await controller.open('basic-capture', {
-    cameraMode: [{ mode: 'single' }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single' }],
+    retention: 'clear',
   });
   controller.clear();
 

@@ -55,7 +55,7 @@ function makeOperation(
     captureId: 'capture-7',
     aspectRatio: '16:9',
     mode: { quality: 0.734 },
-    watermark: { content: ['标题', '正文'], position: 'bottom-right' },
+    watermark: { lines: ['标题', '正文'], position: 'bottom-right' },
     cameraPosition: 'front',
     ...overrides,
   };
@@ -95,7 +95,7 @@ it('目标内 4:3 且无有效水印时返回 raw，不重复编码', async () =
     raw,
     makeOperation({
       aspectRatio: '4:3',
-      watermark: { content: [' ', '\n'] },
+      watermark: { lines: [' ', '\n'] },
     }),
     registry
   );
@@ -156,7 +156,7 @@ it('双平台后处理只走文件级 native 边界，不创建 Base64/RNFS 写�
     targetWidth: 1080,
     targetHeight: 1920,
     quality: 73,
-    watermark: { content: ['标题', '正文'], position: 'bottom-right' },
+    watermark: { lines: ['标题', '正文'], position: 'bottom-right' },
   });
   expect(RNFS.writeFile).not.toHaveBeenCalled();
   expect(result).toMatchObject({
@@ -164,7 +164,7 @@ it('双平台后处理只走文件级 native 边界，不创建 Base64/RNFS 写�
     uri: 'file:///tmp/camera_capture-7_42_capture-7.jpg',
     width: 1080,
     height: 1920,
-    cameraType: 'front',
+    facing: 'front',
   });
   expect(registry.stateOf(result.path)).toBe('owned');
   expect(registry.stateOf(raw.path)).toBe('owned');
@@ -282,7 +282,7 @@ it('video 直接返回且不登记、不调用照片处理器', async () => {
     path: '/video.mp4',
     uri: 'file:///video.mp4',
     mode: 'video',
-    mime: 'video/mp4',
+    mimeType: 'video/mp4',
   });
   const registry = createFileRegistry(jest.fn(async () => {}));
 
@@ -294,9 +294,10 @@ it('video 直接返回且不登记、不调用照片处理器', async () => {
 it('await 期间外部 mode/aspect/watermark/position 改变不影响快门快照', async () => {
   const pending = deferred<NativeResult>();
   nativePhotoProcessor.processPhotoFile.mockReturnValue(pending.promise);
+  const sourceLines = ['原始水印'];
   const operation = makeOperation({
     mode: { quality: 0.77 },
-    watermark: { content: ['原始水印'], position: 'bottom-right' },
+    watermark: { lines: sourceLines, position: 'bottom-right' },
   });
 
   const processing = processPhoto(
@@ -306,7 +307,7 @@ it('await 期间外部 mode/aspect/watermark/position 改变不影响快门快�
   );
   operation.aspectRatio = '4:3';
   operation.mode.quality = 0.1;
-  operation.watermark!.content[0] = '变化后水印';
+  sourceLines[0] = '变化后水印';
   operation.watermark!.position = 'top-left';
   operation.cameraPosition = 'back';
   pending.resolve(nativeResult());
@@ -317,10 +318,10 @@ it('await 期间外部 mode/aspect/watermark/position 改变不影响快门快�
     expect.objectContaining({
       aspectRatio: '16:9',
       quality: 77,
-      watermark: { content: ['原始水印'], position: 'bottom-right' },
+      watermark: { lines: ['原始水印'], position: 'bottom-right' },
     })
   );
-  expect(result.cameraType).toBe('front');
+  expect(result.facing).toBe('front');
 });
 
 it('入口已过期时同步摘除 raw 所有权，不调用 native', async () => {

@@ -27,26 +27,23 @@ const historyRecord: CameraRunRecord = {
   startedAt: '2026-08-03T10:20:30.000Z',
   endedAt: '2026-08-03T10:20:31.000Z',
   config: {
-    cameraMode: [{ mode: 'single', quality: 0.9 }],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'single', quality: 0.9 }],
+    retention: 'clear',
   },
   result: {
-    code: 200,
-    data: [
+    status: 'success',
+    media: [
       {
         id: 'photo-1',
-        cameraType: 'back',
-        cameraMode: 'single',
-        path: '/tmp/photo.jpg',
+        facing: 'back',
+
         uri: 'file:///tmp/photo.jpg',
         width: 4032,
         height: 3024,
-        mime: 'image/jpeg',
+        mimeType: 'image/jpeg',
         mode: 'single',
-        isRemake: false,
       },
     ],
-    message: 'ok',
   },
 };
 
@@ -141,10 +138,10 @@ it('基础拍摄切换录像、前摄与关闭闪光后只提交录像字段', (
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
 
   expect(run.open).toHaveBeenCalledWith('basic-capture', {
-    cameraMode: [
-      { mode: 'video', type: 'front', flashMode: 'off', recTime: 15 },
-    ],
-    dataRetainedMode: 'clear',
+    modes: [{ mode: 'video', maxDurationSeconds: 15 }],
+    retention: 'clear',
+    initialFacing: 'front',
+    initialFlash: 'off',
   });
 });
 
@@ -155,21 +152,23 @@ it('多模式 retain 同时更新解释、实际 JSON 与 controller 参数', ()
   expect(
     screen.getByText('切换拍摄模式时先确认，再清理已有文件。')
   ).toBeOnTheScreen();
-  expect(screen.getByText(/"dataRetainedMode": "clear"/)).toBeOnTheScreen();
+  expect(screen.getByText(/"retention": "clear"/)).toBeOnTheScreen();
   fireEvent.press(screen.getByRole('tab', { name: '跨模式保留' }));
 
   expect(
     screen.getByText('切换拍摄模式时保留已有文件，并继续累计。')
   ).toBeOnTheScreen();
-  expect(screen.getByText(/"dataRetainedMode": "retain"/)).toBeOnTheScreen();
+  expect(screen.getByText(/"retention": "retain"/)).toBeOnTheScreen();
   fireEvent.press(screen.getByRole('button', { name: '打开相机' }));
   expect(run.open).toHaveBeenCalledWith('multi-mode', {
-    cameraMode: [
-      { mode: 'single', type: 'back', flashMode: 'auto', quality: 0.9 },
+    modes: [
+      { mode: 'single', quality: 0.9 },
       { mode: 'continuous', quality: 0.9 },
-      { mode: 'video', recTime: 15 },
+      { mode: 'video', maxDurationSeconds: 15 },
     ],
-    dataRetainedMode: 'retain',
+    retention: 'retain',
+    initialFacing: 'back',
+    initialFlash: 'auto',
   });
 });
 

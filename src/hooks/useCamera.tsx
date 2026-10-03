@@ -7,60 +7,31 @@ import React, {
 } from 'react';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import { cancelledResult } from '../utils';
-import type { CameraApi, CameraResult, OpenConfig } from '../utils';
+import type {
+  CameraController,
+  CameraSessionOutcome,
+  CameraOutcome,
+  CameraInput,
+} from '../utils';
+import { CameraHostPresence } from './CameraHostPresence';
 import { validateOpenConfig } from '../utils/validateOpenConfig';
 import { Container, ModalView } from '../camera';
 import type {
   RegisterSessionContainer,
   RegisterSessionController,
-  SessionControllerBridge,
 } from '../camera/session/controllerBridge';
-import {
-  createFileRegistry,
-  type FileRegistry,
-} from '../camera/session/fileRegistry';
+import { createFileRegistry } from '../camera/session/fileRegistry';
 
-type RegisteredController = {
-  bridge: SessionControllerBridge;
-  active: boolean;
-};
+import type {
+  RegisteredController,
+  RegisteredContainer,
+  PendingContainerDetach,
+  SessionRecord,
+  PendingHookUnmount,
+  RenderedSession,
+} from './types';
 
-type RegisteredContainer = Record<string, never>;
-
-type PendingContainerDetach = {
-  intent: object;
-  controller: RegisteredController | null;
-};
-
-type SessionResources = {
-  files: FileRegistry;
-  controller: RegisteredController | null;
-  container: RegisteredContainer | null;
-  pendingContainerDetach: PendingContainerDetach | null;
-};
-
-type SessionRecord = {
-  id: number;
-  config: OpenConfig;
-  status: 'active' | 'settling' | 'settled';
-  forceCancelRequested: boolean;
-  pendingCancelIntents: Set<object>;
-  teardownStarted: boolean;
-  resolve: (result: CameraResult) => void;
-  resources: SessionResources;
-};
-
-type PendingHookUnmount = {
-  session: SessionRecord;
-  intent: object;
-  controller: RegisteredController | null;
-};
-
-type RenderedSession = Pick<SessionRecord, 'id' | 'config'> & {
-  fileRegistry: FileRegistry;
-};
-
-export function useCamera(): [CameraApi, React.ReactElement] {
+export function useCamera(): readonly [CameraController, React.ReactElement] {
   const [visible, setVisible] = useState(false);
   const [renderedSession, setRenderedSession] =
     useState<RenderedSession | null>(null);
@@ -68,11 +39,13 @@ export function useCamera(): [CameraApi, React.ReactElement] {
   const renderedSessionRef = useRef<RenderedSession | null>(null);
   const nextSessionIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const hostMountedRef = useRef(false);
+  const hostGenerationRef = useRef(0);
   const mountGenerationRef = useRef(0);
   const pendingHookUnmountRef = useRef<PendingHookUnmount | null>(null);
 
   const finish = useCallback(
-    (sessionId: number, result: CameraResult): void => {
+    (sessionId: number, result: CameraSessionOutcome): void => {
       const session = currentSessionRef.current;
       if (session?.id !== sessionId || session.status !== 'active') {
         return;
@@ -81,13 +54,14 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       session.status = 'settling';
       const finalResult =
         mountedRef.current &&
+        hostMountedRef.current &&
         !session.forceCancelRequested &&
         session.pendingCancelIntents.size === 0
           ? result
           : cancelledResult();
-      if (finalResult.code === 200) {
+      if (finalResult.status === 'success') {
         session.resources.files.transfer(
-          finalResult.data.map((file) => file.path)
+          finalResult.media.map((file) => file.path)
         );
       }
       // drain 在首个 await 前同步摘除 owned；unlink I/O 永远不阻塞 Promise settle。
@@ -96,7 +70,17 @@ export function useCamera(): [CameraApi, React.ReactElement] {
       });
       currentSessionRef.current = null;
       session.status = 'settled';
-      session.resolve(finalResult);
+      session.removeAbortListener?.();
+      session.resolve(
+        finalResult.status === 'success'
+          ? {
+              status: 'success',
+              media: finalResult.media.map(
+                ({ path: _path, ...media }) => media
+              ),
+            }
+          : finalResult
+      );
 
       if (!mountedRef.current || renderedSessionRef.current?.id !== sessionId) {
         return;
@@ -192,22 +176,29 @@ export function useCamera(): [CameraApi, React.ReactElement] {
     };
   }, [cancelUnmountedGeneration]);
 
-  const api = useMemo<CameraApi>(
+  const api = useMemo<CameraController>(
     () => ({
-      open: (config: OpenConfig) => {
+      open: (config: Readonly<CameraInput>, options) => {
         const validated = validateOpenConfig(config);
         if (!validated.ok) {
           return Promise.resolve(validated.result);
         }
-        if (!mountedRef.current) {
-          return Promise.resolve(cancelledResult());
+        if (options?.signal?.aborted) return Promise.resolve(cancelledResult());
+        if (!mountedRef.current || !hostMountedRef.current) {
+          return Promise.resolve({
+            status: 'failed',
+            error: {
+              reason: 'unavailable',
+              message: 'Camera host is not mounted',
+            },
+          });
         }
 
         const sessionId = ++nextSessionIdRef.current;
         const previousSession = currentSessionRef.current;
         if (previousSession) forceCancel(previousSession);
 
-        return new Promise<CameraResult>((resolve) => {
+        return new Promise<CameraOutcome>((resolve) => {
           const files = createFileRegistry(RNFS.unlink);
           const session: SessionRecord = {
             id: sessionId,
@@ -231,14 +222,21 @@ export function useCamera(): [CameraApi, React.ReactElement] {
           };
 
           currentSessionRef.current = session;
+          const signal = options?.signal;
+          if (signal) {
+            const handleAbort = () => forceCancel(session);
+            session.removeAbortListener = () =>
+              signal.removeEventListener('abort', handleAbort);
+            signal.addEventListener('abort', handleAbort, { once: true });
+            if (signal.aborted) {
+              handleAbort();
+              return;
+            }
+          }
           renderedSessionRef.current = nextRenderedSession;
           setRenderedSession(nextRenderedSession);
           setVisible(true);
         });
-      },
-      close: () => {
-        const session = currentSessionRef.current;
-        if (session) forceCancel(session);
       },
     }),
     [forceCancel]
@@ -358,25 +356,48 @@ export function useCamera(): [CameraApi, React.ReactElement] {
     [teardownAndFinish]
   );
 
+  const registerHost = useCallback(() => {
+    const generation = ++hostGenerationRef.current;
+    hostMountedRef.current = true;
+    return () => {
+      hostMountedRef.current = false;
+      const session = currentSessionRef.current;
+      const controller = session?.resources.controller ?? null;
+      queueMicrotask(() => {
+        if (
+          !hostMountedRef.current &&
+          hostGenerationRef.current === generation &&
+          session
+        ) {
+          session.forceCancelRequested = true;
+          teardownAndFinish(session, controller);
+        }
+      });
+    };
+  }, [teardownAndFinish]);
+
   const holder = (
-    <ModalView
-      visible={visible}
-      onClose={() => {
-        if (renderedSession) requestUserCancel(renderedSession.id);
-      }}
-    >
-      {renderedSession && (
-        <Container
-          key={renderedSession.id}
-          sessionId={renderedSession.id}
-          fileRegistry={renderedSession.fileRegistry}
-          config={renderedSession.config}
-          onSettle={(result) => finish(renderedSession.id, result)}
-          registerContainer={registerContainer}
-          registerController={registerController}
-        />
-      )}
-    </ModalView>
+    <CameraHostPresence register={registerHost}>
+      <ModalView
+        visible={visible}
+        sessionId={renderedSession?.id}
+        onClose={() => {
+          if (renderedSession) requestUserCancel(renderedSession.id);
+        }}
+      >
+        {renderedSession && (
+          <Container
+            key={renderedSession.id}
+            sessionId={renderedSession.id}
+            fileRegistry={renderedSession.fileRegistry}
+            config={renderedSession.config}
+            onSettle={(result) => finish(renderedSession.id, result)}
+            registerContainer={registerContainer}
+            registerController={registerController}
+          />
+        )}
+      </ModalView>
+    </CameraHostPresence>
   );
 
   return [api, holder];

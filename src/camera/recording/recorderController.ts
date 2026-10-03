@@ -4,6 +4,7 @@ import type {
 } from 'react-native-vision-camera';
 
 export type RecorderLike = {
+  readonly filePath: string;
   readonly recordedDuration: number;
   startRecording: (
     onFinished: (path: string, reason: RecordingFinishedReason) => void,
@@ -52,7 +53,10 @@ export type RecorderController = {
 };
 
 type RecorderControllerDependencies = {
-  createRecorder: (settings: RecorderSettings) => Promise<RecorderLike>;
+  createRecorder: (
+    settings: RecorderSettings,
+    signal: AbortSignal
+  ) => Promise<RecorderLike>;
   now?: () => number;
   /** 有界 teardown 的定时器；缺省 setTimeout。测试注入后可手动触发，无需 fake timers。 */
   scheduleTimeout?: (callback: () => void, ms: number) => () => void;
@@ -115,6 +119,7 @@ type RecorderAttempt = {
   callbacks: RecorderControllerCallbacks;
   cancelIntent: Promise<'denied'>;
   markCancelIntent: () => void;
+  abortController: AbortController;
 };
 
 function asError(error: unknown): Error {
@@ -520,13 +525,25 @@ export function createRecorderController({
     }
   };
 
-  const cleanupUnstartedRecorder = (recorder: RecorderLike) => {
+  const cleanupUnstartedRecorder = (
+    recorder: RecorderLike,
+    callbacks: RecorderControllerCallbacks
+  ) => {
+    // Android creates the temporary file in createRecorder, before startRecording.
+    // Snapshot the native property before dispose invalidates the HybridObject.
+    let filePath: string | undefined;
+    try {
+      filePath = recorder.filePath;
+    } catch (error) {
+      console.warn('unstarted recorder path unavailable', error);
+    }
     // 该实例从未 start；iOS cancel 只看共享 AVCaptureMovieFileOutput，调用它可能误停新 owner。
     try {
       recorder.dispose();
     } catch (error) {
       console.warn('recorder dispose failed', error);
     }
+    if (filePath) notifyDiscardedFile(callbacks, filePath);
   };
 
   const start = async ({
@@ -551,6 +568,7 @@ export function createRecorderController({
       callbacks,
       cancelIntent: attemptIntent.promise,
       markCancelIntent: attemptIntent.mark,
+      abortController: new AbortController(),
     };
     pendingAttempt = attempt;
 
@@ -570,7 +588,10 @@ export function createRecorderController({
 
       let recorder: RecorderLike;
       try {
-        recorder = await createRecorder(settings);
+        recorder = await createRecorder(
+          settings,
+          attempt.abortController.signal
+        );
       } catch (error) {
         if (pendingAttempt === attempt) pendingAttempt = null;
         if (attempt.cancelled || controllerDisposed) return 'denied';
@@ -581,7 +602,7 @@ export function createRecorderController({
 
       if (attempt.cancelled || controllerDisposed) {
         if (pendingAttempt === attempt) pendingAttempt = null;
-        await cleanupUnstartedRecorder(recorder);
+        cleanupUnstartedRecorder(recorder, attempt.callbacks);
         return 'denied';
       }
 
@@ -702,9 +723,10 @@ export function createRecorderController({
   const cancelActive = async (notifyOwner: boolean) => {
     const attempt = pendingAttempt;
     if (attempt != null) {
-      // permission/create continuation 会看到该标记；若 Recorder 晚到，由它自行 cancel+dispose。
+      // permission/create continuation 会看到该标记；未开录的迟到 Recorder 仅 dispose 并回收文件。
       attempt.cancelled = true;
       attempt.markCancelIntent();
+      attempt.abortController.abort();
       if (pendingAttempt === attempt) pendingAttempt = null;
       if (notifyOwner) notifyCancelled(attempt.callbacks);
     }

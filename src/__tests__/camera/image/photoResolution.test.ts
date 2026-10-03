@@ -1,7 +1,7 @@
 import { needsPhotoFileProcessing } from '../../../camera/image/photoResolution';
 
 function jpeg(width: number, height: number) {
-  return { mime: 'image/jpeg' as const, width, height };
+  return { mimeType: 'image/jpeg' as const, width, height };
 }
 
 it('允许目标尺寸的一像素协商取整误差直接返回文件', () => {

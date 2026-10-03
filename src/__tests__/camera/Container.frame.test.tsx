@@ -5,7 +5,11 @@ import type { CameraHandle } from '../../camera/Camera';
 import { Container } from '../../camera/Container';
 import type { CameraFrameRect } from '../../camera/session/frameRect';
 import { CameraDialogProvider } from '../../camera/ui/CameraDialogHost';
-import type { CameraMode, OpenConfig, WatermarkType } from '../../utils';
+import type {
+  CameraModeOptions,
+  CameraInput,
+  CameraWatermark,
+} from '../../utils';
 import {
   createContainerSessionProps,
   layoutCameraViewport,
@@ -14,7 +18,7 @@ import { renderDark } from '../__helpers__/renderDark';
 
 type MockCameraProps = {
   device: CameraDevice;
-  currentMode: CameraMode;
+  currentMode: CameraModeOptions;
   frame: CameraFrameRect;
   animatedFrame?: object;
   enableFocus?: boolean;
@@ -82,7 +86,7 @@ jest.mock('../../camera/watermark', () => {
       frame,
       animatedFrame,
     }: {
-      watermark: WatermarkType;
+      watermark: CameraWatermark;
       frame: CameraFrameRect;
       animatedFrame?: object;
     }) => {
@@ -92,8 +96,8 @@ jest.mock('../../camera/watermark', () => {
   };
 });
 
-const watermark: WatermarkType = {
-  content: ['viewport'],
+const watermark: CameraWatermark = {
+  lines: ['viewport'],
   position: 'bottom-right',
 };
 
@@ -131,7 +135,7 @@ function configureLatest(): void {
   act(() => callback());
 }
 
-function renderContainer(config: OpenConfig) {
+function renderContainer(config: CameraInput) {
   const element: ReactElement = (
     <CameraDialogProvider>
       <Container
@@ -154,8 +158,8 @@ beforeEach(() => {
 
 it('zero viewport 不挂 native Camera，但保留可触发 layout 的稳定 root', () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'single' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'single' }],
+    retention: 'retain',
     watermark,
   });
 
@@ -201,8 +205,8 @@ it.each([
   'viewport %p 对 16:9/4:3 共享 frame，并为照片画幅重配 output',
   (viewport, expected) => {
     const harness = renderContainer({
-      cameraMode: [{ mode: 'single' }],
-      dataRetainedMode: 'retain',
+      modes: [{ mode: 'single' }],
+      retention: 'retain',
       watermark,
     });
     layoutCameraViewport(harness, viewport);
@@ -226,8 +230,8 @@ it.each([
 
 it('resize/orientation 更新完整 rect，且不 remount Camera', () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'single' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'single' }],
+    retention: 'retain',
     watermark,
   });
   layoutCameraViewport(harness, { width: 390, height: 844 });
@@ -251,8 +255,8 @@ it('resize/orientation 更新完整 rect，且不 remount Camera', () => {
 
 it('video 画幅切换先更新共享 frame，并保持 generation gate 到新 onConfigured', () => {
   const harness = renderContainer({
-    cameraMode: [{ mode: 'video' }],
-    dataRetainedMode: 'retain',
+    modes: [{ mode: 'video' }],
+    retention: 'retain',
     watermark,
   });
   layoutCameraViewport(harness, { width: 390, height: 844 });

@@ -10,7 +10,7 @@ import {
 } from '../../camera/Camera';
 import { AnimatedCameraFrame } from '../../camera/AnimatedCameraFrame';
 import type { CameraFrameRect } from '../../camera/session/frameRect';
-import type { CameraMode } from '../../utils';
+import type { CameraModeOptions } from '../../utils';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
 
@@ -54,7 +54,7 @@ jest.mock('react-native-vision-camera', () => {
 
 // jest 的 reanimated 桩会同步返回 withTiming 终值，故可直接读取动画 View 的最终 rect；
 // 断言 x/y/width/height 全由显式 frame 驱动，避免退回 window width + 单 height 动画。
-const singleMode: CameraMode = { mode: 'single' };
+const singleMode: CameraModeOptions = { mode: 'single' };
 const initialFrame: CameraFrameRect = {
   x: 12,
   y: 24,

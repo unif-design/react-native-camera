@@ -1,4 +1,4 @@
-import type { WatermarkType } from '../../utils';
+import type { CameraWatermark } from '../../utils';
 
 export type WmAlign = 'left' | 'center' | 'right';
 export type WmLayout = {
@@ -15,7 +15,7 @@ export type WmLayout = {
 };
 
 const POS: Record<
-  NonNullable<WatermarkType['position']>,
+  NonNullable<CameraWatermark['position']>,
   { align: WmAlign; anchorY: 'top' | 'bottom' }
 > = {
   'top-left': { align: 'left', anchorY: 'top' },
@@ -29,7 +29,7 @@ const POS: Record<
 export function computeWatermarkLayout(
   width: number,
   height: number,
-  watermark: WatermarkType
+  watermark: CameraWatermark
 ): WmLayout {
   const { align, anchorY } = POS[watermark.position ?? 'top-right'];
   const shortSide = Math.min(width, height);
@@ -48,7 +48,7 @@ export function computeWatermarkLayout(
         : width - padding - paragraphWidth;
 
   return {
-    content: [...watermark.content],
+    content: [...watermark.lines],
     align,
     anchorY,
     fontSize,

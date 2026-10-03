@@ -19,6 +19,7 @@
 - [照片处理](../src/camera/image/processPhoto.ts)
 - [原生照片处理](../src/camera/image/nativePhotoProcessor.ts)
 - [所属单元测试](../src/__tests__/)
+- [本次契约实现与验证边界](camera-contract-verification.md)
 
 命令与依赖版本以 [package.json](../package.json)、锁文件及实际安装为准，验证接线见 [.github/workflows](../.github/workflows/)。本文件不复制通用开发、测试或交付规则；按 AGENTS.md 的阶段技能取得所需规范。
 

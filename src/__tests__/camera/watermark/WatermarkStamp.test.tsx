@@ -21,7 +21,7 @@ it('使用显式 frame 渲染透明 Skia Canvas + Paragraph，不再渲染 RN Te
     <WatermarkStamp
       frame={frame}
       animatedFrame={transitioningFrame}
-      watermark={{ content: ['L1', 'L2'], position: 'top-right' }}
+      watermark={{ lines: ['L1', 'L2'], position: 'top-right' }}
     />
   );
 
@@ -48,7 +48,7 @@ it('effect cleanup dispose Paragraph 与 Builder', () => {
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['x'] }}
+      watermark={{ lines: ['x'] }}
     />
   );
   const builder = skia.Skia.ParagraphBuilder.Make.mock.results.at(-1).value;
@@ -66,7 +66,7 @@ it('等价 watermark 新对象保持同一语义快照，不重建或提前 disp
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['标题', '正文'], position: 'bottom-right' }}
+      watermark={{ lines: ['标题', '正文'], position: 'bottom-right' }}
     />
   );
   const builder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
@@ -76,7 +76,7 @@ it('等价 watermark 新对象保持同一语义快照，不重建或提前 disp
     <WatermarkStamp
       frame={{ ...frame }}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['标题', '正文'], position: 'bottom-right' }}
+      watermark={{ lines: ['标题', '正文'], position: 'bottom-right' }}
     />
   );
 
@@ -91,7 +91,7 @@ it('省略 position 与显式 top-right 共用快照，切到其他 position 才
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['水印'] }}
+      watermark={{ lines: ['水印'] }}
     />
   );
   const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
@@ -101,7 +101,7 @@ it('省略 position 与显式 top-right 共用快照，切到其他 position 才
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['水印'], position: 'top-right' }}
+      watermark={{ lines: ['水印'], position: 'top-right' }}
     />
   );
 
@@ -113,7 +113,7 @@ it('省略 position 与显式 top-right 共用快照，切到其他 position 才
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['水印'], position: 'top-left' }}
+      watermark={{ lines: ['水印'], position: 'top-left' }}
     />
   );
 
@@ -128,7 +128,7 @@ it('watermark 语义变化时替换 Paragraph，并只释放被替换的快照',
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['旧水印'] }}
+      watermark={{ lines: ['旧水印'] }}
     />
   );
   const oldBuilder = skia.Skia.ParagraphBuilder.Make.mock.results[0].value;
@@ -138,7 +138,7 @@ it('watermark 语义变化时替换 Paragraph，并只释放被替换的快照',
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['新水印'] }}
+      watermark={{ lines: ['新水印'] }}
     />
   );
 
@@ -174,7 +174,7 @@ it('effect cleanup 的 dispose 抛错不冒泡，并继续尝试 Paragraph 与 B
     <WatermarkStamp
       frame={frame}
       animatedFrame={animatedFrame}
-      watermark={{ content: ['x'] }}
+      watermark={{ lines: ['x'] }}
     />
   );
 

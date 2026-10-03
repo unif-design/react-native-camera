@@ -5,7 +5,7 @@ import {
   type SkParagraph,
   type SkParagraphBuilder,
 } from '@shopify/react-native-skia';
-import type { WatermarkType } from '../../utils';
+import type { CameraWatermark } from '../../utils';
 import { VIEWFINDER } from '../colors/viewfinder';
 import { computeWatermarkLayout, type WmLayout } from './layout';
 
@@ -30,11 +30,10 @@ function disposeSafely(resource: { dispose: () => void } | null): void {
 }
 
 export function hasVisibleWatermark(
-  watermark: WatermarkType | null | undefined
-): watermark is WatermarkType {
+  watermark: CameraWatermark | null | undefined
+): watermark is CameraWatermark {
   return (
-    watermark != null &&
-    watermark.content.some((line) => line.trim().length > 0)
+    watermark != null && watermark.lines.some((line) => line.trim().length > 0)
   );
 }
 
@@ -47,7 +46,7 @@ function resolveTextAlign(align: WmLayout['align']): TextAlign {
 export function createWatermarkParagraph(
   width: number,
   height: number,
-  watermark: WatermarkType
+  watermark: CameraWatermark
 ): WatermarkParagraph {
   const layout = computeWatermarkLayout(width, height, watermark);
   // 不传 TypefaceProvider / fontFamilies，让 Paragraph 统一使用平台系统字体管理器与字形 fallback。

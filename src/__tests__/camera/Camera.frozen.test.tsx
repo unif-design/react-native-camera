@@ -1,6 +1,7 @@
 import { createRef, StrictMode } from 'react';
 import { act, render } from '@testing-library/react-native';
 import { ThemeProvider } from '@unif/react-native-design';
+import NativePhotoProcessor from '../../NativePhotoProcessor';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import * as VisionCamera from 'react-native-vision-camera';
 import {
@@ -8,7 +9,7 @@ import {
   type CameraHandle,
   type VideoCallbacks,
 } from '../../camera/Camera';
-import type { CameraMode } from '../../utils';
+import type { CameraModeOptions } from '../../utils';
 import { makeAnimatedFrameStub } from '../__helpers__/cameraFrame';
 import { renderDark } from '../__helpers__/renderDark';
 import { makeDeviceStub } from '../__helpers__/visionCameraMock';
@@ -35,8 +36,8 @@ const useMicrophonePermissionMock = jest.mocked(
 
 // 定格帧:烧水印期间 Container 透传 frozenUri,Camera 在取景框内盖刚拍原图防黑屏。
 // 直接渲染 <Camera>(绕过 Container),isActive=false 对齐烧水印时停取景。
-const singleMode: CameraMode = { mode: 'single' };
-const videoMode: CameraMode = { mode: 'video' };
+const singleMode: CameraModeOptions = { mode: 'single' };
+const videoMode: CameraModeOptions = { mode: 'video' };
 const frame = { x: 0, y: 0, width: 390, height: 520 };
 const animatedFrame = makeAnimatedFrameStub(frame);
 
@@ -108,9 +109,9 @@ function makeNativeRecorder(): NativeRecorderHarness {
   };
 }
 
-function renderVideoCamera(currentMode: CameraMode = videoMode) {
+function renderVideoCamera(currentMode: CameraModeOptions = videoMode) {
   const ref = createRef<CameraHandle>();
-  const element = (mode: CameraMode) => (
+  const element = (mode: CameraModeOptions) => (
     <Camera
       ref={ref}
       device={makeDeviceStub() as never}
@@ -137,6 +138,12 @@ function makeVideoCallbacks(): VideoCallbacks & {
 }
 
 beforeEach(() => {
+  jest.mocked(NativePhotoProcessor.inspectVideoFile).mockReset();
+  jest
+    .mocked(NativePhotoProcessor.inspectVideoFile)
+    .mockResolvedValue(
+      JSON.stringify({ width: 1920, height: 1080, durationMs: 4500 })
+    );
   unlinkMock.mockClear();
   unlinkMock.mockResolvedValue(undefined);
   useVideoOutputMock.mockClear();
@@ -172,7 +179,7 @@ describe('录像 native adapter', () => {
     expect(callbacks.onFinished).not.toHaveBeenCalled();
   });
 
-  it('每次 start 按当前 recTime 创建新 Recorder，不预热或复用旧 settings', async () => {
+  it('每次 start 按当前 maxDurationSeconds 创建新 Recorder，不预热或复用旧 settings', async () => {
     const first = makeNativeRecorder();
     const second = makeNativeRecorder();
     const createRecorder = jest
@@ -183,14 +190,14 @@ describe('录像 native adapter', () => {
     useVideoOutputMock.mockReturnValue(videoOutput as never);
     const { ref, rerender, element } = renderVideoCamera({
       mode: 'video',
-      recTime: 3,
+      maxDurationSeconds: 3,
     });
 
     await act(async () => {
       await ref.current?.startVideo(makeVideoCallbacks());
       first.finish('/tmp/first.mp4');
     });
-    rerender(element({ mode: 'video', recTime: 8 }));
+    rerender(element({ mode: 'video', maxDurationSeconds: 8 }));
     await act(async () => {
       await ref.current?.startVideo(makeVideoCallbacks());
     });
@@ -200,7 +207,7 @@ describe('录像 native adapter', () => {
     expect(createRecorder).toHaveBeenNthCalledWith(2, { maxDuration: 8 });
   });
 
-  it('stopVideo 返回 void，文件只经 finish callback 交付并保留 stop 前 duration', async () => {
+  it('stopVideo 返回 void，文件只经 finish callback 交付并读取真实 metadata', async () => {
     const native = makeNativeRecorder();
     native.recorder.recordedDuration = 4.5;
     native.recorder.stopRecording.mockImplementationOnce(() => {
@@ -228,7 +235,9 @@ describe('录像 native adapter', () => {
       expect.objectContaining({
         path: '/tmp/manual.mp4',
         mode: 'video',
-        duration: 4.5,
+        durationMs: 4500,
+        width: 1920,
+        height: 1080,
       }),
       'stopped',
       4.5
@@ -256,7 +265,9 @@ describe('录像 native adapter', () => {
     );
     const [file, , duration] = callbacks.onFinished.mock.calls[0]!;
     expect(duration).toBeGreaterThanOrEqual(0);
-    expect(file.duration).toBe(duration);
+    expect(file.durationMs).toBe(duration * 1000);
+    expect(file.width).toBe(1920);
+    expect(file.height).toBe(1080);
   });
 
   it('unmount 强制 cancel active Recorder，并且 dispose 恰好一次', async () => {
@@ -293,7 +304,7 @@ describe('录像 native adapter', () => {
       await ref.current?.startVideo(callbacks);
     });
 
-    rerender(element({ mode: 'video', recTime: 9 }));
+    rerender(element({ mode: 'video', maxDurationSeconds: 9 }));
     await act(async () => {
       await Promise.resolve();
     });
@@ -351,7 +362,7 @@ describe('录像 native adapter', () => {
       await ref.current?.startVideo(callbacks);
     });
 
-    rerender(element({ mode: 'video', recTime: 9 }));
+    rerender(element({ mode: 'video', maxDurationSeconds: 9 }));
     await act(async () => {
       await Promise.resolve();
     });

@@ -1,3 +1,13 @@
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import nodePath from 'node:path';
+import { createFileRegistry } from '../../../camera/session/fileRegistry';
 import type {
   RecorderSettings,
   RecordingFinishedReason,
@@ -42,10 +52,12 @@ function makeRecorder({
   deferredStart = false,
   deferredStop = false,
   deferredCancel = false,
+  filePath = '/tmp/video.mp4',
 }: {
   deferredStart?: boolean;
   deferredStop?: boolean;
   deferredCancel?: boolean;
+  filePath?: string;
 } = {}): RecorderHarness {
   const startDeferred = deferredStart ? deferred<void>() : null;
   const stopDeferred = deferredStop ? deferred<void>() : null;
@@ -59,6 +71,10 @@ function makeRecorder({
   let disposed = false;
 
   const recorder: RecorderLike = {
+    get filePath() {
+      if (disposed) throw new Error('native recorder already disposed');
+      return filePath;
+    },
     startRecording: jest.fn((finished, error) => {
       onFinished = finished;
       onError = error;
@@ -507,6 +523,45 @@ describe('recorderController', () => {
     expect(callbacks.onError).not.toHaveBeenCalled();
   });
 
+  it.each(['cancel', 'dispose'] as const)(
+    '%s 后迟到且未开录的原生文件交还原 registry 并删除，不能调用 iOS cancel',
+    async (action) => {
+      const directory = mkdtempSync(
+        nodePath.join(tmpdir(), 'camera-recorder-')
+      );
+      const filePath = nodePath.join(directory, 'unstarted.mp4');
+      try {
+        writeFileSync(filePath, '');
+        const registry = createFileRegistry(async (ownedPath) =>
+          unlinkSync(ownedPath)
+        );
+        const creating = deferred<RecorderLike>();
+        const controller = createRecorderController({
+          createRecorder: () => creating.promise,
+        });
+        const callbacks = makeCallbacks();
+        callbacks.onDiscardedFile.mockImplementation((ownedPath: string) => {
+          registry.register(ownedPath);
+          registry.delete(ownedPath).catch(() => {});
+        });
+        const harness = makeRecorder({ filePath });
+        const starting = controller.start(startOptions(callbacks));
+        await controller[action]();
+        await expect(starting).resolves.toBe('denied');
+        creating.resolve(harness.recorder);
+        await flushMicrotasks();
+        expect(existsSync(filePath)).toBe(false);
+        expect(callbacks.onDiscardedFile).toHaveBeenCalledTimes(1);
+        expect(callbacks.onDiscardedFile).toHaveBeenCalledWith(filePath);
+        expect(harness.recorder.startRecording).not.toHaveBeenCalled();
+        expect(harness.recorder.cancelRecording).not.toHaveBeenCalled();
+        expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
+  );
+
   it('dispose 发生在 create pending 时，晚到 Recorder 的 dispose throw 不遮蔽 denied', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const creating = deferred<RecorderLike>();
@@ -575,8 +630,16 @@ describe('recorderController', () => {
       startOptions(makeCallbacks(), { settings: { maxDuration: 8 } })
     );
 
-    expect(createRecorder).toHaveBeenNthCalledWith(1, { maxDuration: 3 });
-    expect(createRecorder).toHaveBeenNthCalledWith(2, { maxDuration: 8 });
+    expect(createRecorder).toHaveBeenNthCalledWith(
+      1,
+      { maxDuration: 3 },
+      expect.any(AbortSignal)
+    );
+    expect(createRecorder).toHaveBeenNthCalledWith(
+      2,
+      { maxDuration: 8 },
+      expect.any(AbortSignal)
+    );
     expect(first.recorder).not.toBe(second.recorder);
   });
 

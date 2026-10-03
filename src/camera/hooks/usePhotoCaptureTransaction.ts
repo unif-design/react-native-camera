@@ -7,16 +7,16 @@ import {
   type RefObject,
 } from 'react';
 import type {
-  CameraMode,
-  CameraType,
-  CustomPhotoFile,
-  OpenConfig,
-  WatermarkType,
+  CameraPhotoMode,
+  CameraFacing,
+  CapturedFile,
+  CameraInput,
+  CameraWatermark,
 } from '../../utils';
 import type { CameraHandle } from '../Camera';
 import { processPhoto, PhotoProcessingError } from '../image/processPhoto';
 import { needsPhotoFileProcessing } from '../image/photoResolution';
-import type { FileRegistry } from '../session/fileRegistry';
+import { discardOwnedFiles, type FileRegistry } from '../session/fileRegistry';
 import { hasVisibleWatermark } from '../watermark/paragraph';
 import type { AspectRatio } from '../setup';
 import type { CameraOperationToken } from './useCameraSessionController';
@@ -29,7 +29,7 @@ export type UsePhotoCaptureTransactionParams = {
   cameraRef: RefObject<CameraHandle | null>;
   controller: CameraSessionController;
   fileRegistry: FileRegistry;
-  config: OpenConfig;
+  config: CameraInput;
   onError: (message: string) => void;
 };
 
@@ -39,20 +39,14 @@ export type PhotoCaptureTransaction = {
   flashNonce: number;
   burning: boolean;
   freezeUri: string | null;
-  openGallery: () => boolean;
-  closePreview: () => boolean;
-  deletePhoto: (file: CustomPhotoFile) => boolean;
-  retake: () => boolean;
-  clearForModeSwitch: () => boolean;
-  save: () => boolean;
 };
 
 type CaptureSnapshot = {
-  mode: CameraMode;
+  mode: CameraPhotoMode;
   aspectRatio: AspectRatio;
-  watermark?: WatermarkType;
-  cameraPosition: CameraType;
-  dataRetainedMode: OpenConfig['dataRetainedMode'];
+  watermark?: CameraWatermark;
+  cameraPosition: CameraFacing;
+  retention: CameraInput['retention'];
   previewIndex: number;
 };
 
@@ -72,10 +66,10 @@ type PendingFileCleanup = FileCleanupRequest & {
 };
 
 function snapshotCapture(
-  config: OpenConfig,
+  config: CameraInput,
   controller: CameraSessionController
 ): CaptureSnapshot | null {
-  const sourceMode = config.cameraMode[controller.state.modeIndex];
+  const sourceMode = config.modes[controller.state.modeIndex];
   if (sourceMode == null || sourceMode.mode === 'video') return null;
 
   return {
@@ -85,24 +79,16 @@ function snapshotCapture(
       ? {}
       : {
           watermark: {
-            content: [...config.watermark.content],
+            lines: [...config.watermark.lines],
             ...(config.watermark.position == null
               ? {}
               : { position: config.watermark.position }),
           },
         }),
     cameraPosition: controller.state.activePosition,
-    dataRetainedMode: config.dataRetainedMode,
+    retention: config.retention,
     previewIndex: controller.state.files.length,
   };
-}
-
-function cleanupOwned(registry: FileRegistry, paths: readonly string[]): void {
-  for (const path of new Set(paths)) {
-    registry.delete(path).catch(() => {
-      // 正常 registry 会吞掉 unlink/reporter 错误；自定义实现 reject 也不能形成未处理 rejection。
-    });
-  }
 }
 
 function wait(ms: number): Promise<void> {
@@ -138,7 +124,7 @@ export function usePhotoCaptureTransaction({
 
       ready.forEach((cleanup) => {
         if (cleanup.type === 'delete') {
-          cleanupOwned(fileRegistry, cleanup.paths);
+          discardOwnedFiles(fileRegistry, cleanup.paths);
           return;
         }
         fileRegistry.replace(cleanup.rawPath, cleanup.finalPath).catch(() => {
@@ -178,7 +164,7 @@ export function usePhotoCaptureTransaction({
       const ownedPaths = [...new Set(paths)];
       if (ownedPaths.length === 0) return;
       if (!presentRef.current) {
-        cleanupOwned(fileRegistry, ownedPaths);
+        discardOwnedFiles(fileRegistry, ownedPaths);
         return;
       }
 
@@ -213,7 +199,7 @@ export function usePhotoCaptureTransaction({
     if (token == null) return;
     const delegatedCleanupPaths = new Set<string>();
 
-    let raw: CustomPhotoFile | null | undefined;
+    let raw: CapturedFile | null | undefined;
     try {
       raw = await cameraRef.current?.capture();
     } catch {
@@ -230,18 +216,17 @@ export function usePhotoCaptureTransaction({
     // 分支才有权安全删除，避免 supersede/unmount 窗口泄漏临时文件。
     fileRegistry.register(raw.path);
     if (!tokenIsCurrent(token)) {
-      cleanupOwned(fileRegistry, [raw.path]);
+      discardOwnedFiles(fileRegistry, [raw.path]);
       return;
     }
 
-    const normalized: CustomPhotoFile = {
+    const normalized: CapturedFile = {
       ...raw,
-      cameraType: captured.cameraPosition,
-      cameraMode: captured.mode.mode,
+      facing: captured.cameraPosition,
       mode: captured.mode.mode,
     };
     if (!controller.photoCaptured(token)) {
-      cleanupOwned(fileRegistry, [raw.path]);
+      discardOwnedFiles(fileRegistry, [raw.path]);
       return;
     }
 
@@ -254,17 +239,17 @@ export function usePhotoCaptureTransaction({
       visibleWatermark
     );
     const preview =
-      captured.mode.mode === 'single' && captured.dataRetainedMode === 'clear'
+      captured.mode.mode === 'single' && captured.retention === 'clear'
         ? { variant: 'confirm' as const, index: captured.previewIndex }
         : undefined;
 
     if (!needsProcessing) {
       if (!tokenIsCurrent(token)) {
-        cleanupOwned(fileRegistry, [raw.path]);
+        discardOwnedFiles(fileRegistry, [raw.path]);
         return;
       }
       if (!controller.photoSucceeded(token, normalized, preview)) {
-        cleanupOwned(fileRegistry, [raw.path]);
+        discardOwnedFiles(fileRegistry, [raw.path]);
       }
       return;
     }
@@ -275,7 +260,7 @@ export function usePhotoCaptureTransaction({
       setBurning(true);
     }
 
-    let final: CustomPhotoFile | null = null;
+    let final: CapturedFile | null = null;
     try {
       final = await processPhoto(
         normalized,
@@ -367,36 +352,6 @@ export function usePhotoCaptureTransaction({
     tokenIsCurrent,
   ]);
 
-  const openGallery = useCallback(
-    () => controller.openPreview({ variant: 'gallery', index: 0 }),
-    [controller]
-  );
-
-  const closePreview = useCallback(
-    () => controller.closePreview(),
-    [controller]
-  );
-
-  const deletePhoto = useCallback(
-    (file: CustomPhotoFile): boolean => {
-      const removed = controller.deleteFile(file.path);
-      if (removed == null) return false;
-      cleanupOwned(fileRegistry, [removed.path]);
-      return true;
-    },
-    [controller, fileRegistry]
-  );
-
-  const clearFiles = useCallback((): boolean => {
-    const removed = controller.clearFiles();
-    if (removed == null) return false;
-    cleanupOwned(
-      fileRegistry,
-      removed.map((file) => file.path)
-    );
-    return true;
-  }, [controller, fileRegistry]);
-
   return {
     capturePhoto,
     photoBusy:
@@ -405,11 +360,5 @@ export function usePhotoCaptureTransaction({
     flashNonce,
     burning,
     freezeUri,
-    openGallery,
-    closePreview,
-    deletePhoto,
-    retake: clearFiles,
-    clearForModeSwitch: clearFiles,
-    save: controller.save,
   };
 }

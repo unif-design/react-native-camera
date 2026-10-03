@@ -13,7 +13,7 @@ import { renderDark } from '../__helpers__/renderDark';
 // Container 走到 device-ready 需:已授权 + 有设备。全局 jest.setup mock 把权限设 false、
 // device 设 undefined(短路到 Loading/NoCamera);这里覆盖 vision-camera 让 useCameraDevice
 // 按请求方向返回超广角设备,验证"前置(front)不渲染变焦条、后置(back)渲染"的 JSX 守护(点1)。
-// Container 的 position 由 config.cameraMode[0].type 决定,经 state 传入 useCameraDevice。
+// Container 的 position 由 config.modes[0].type 决定,经 state 传入 useCameraDevice。
 // makeDeviceStub({ position }) 派生:back=dual(switchFactors=[2]、有闪光、超广角),front=单广角(无闪光、switchFactors=[])。
 // 注:jest.mock 被 babel 提升到 import 之上;helper 在工厂内 require(不能闭包捕获顶层 import)。
 jest.mock('react-native-vision-camera', () => {
@@ -29,7 +29,7 @@ jest.mock('react-native-vision-camera', () => {
 });
 
 const baseConfig = {
-  dataRetainedMode: 'retain' as const,
+  retention: 'retain' as const,
 };
 
 const r = (position: 'back' | 'front') => {
@@ -38,8 +38,9 @@ const r = (position: 'back' | 'front') => {
       <Container
         {...createContainerSessionProps()}
         config={{
+          modes: [{ mode: 'single' }],
           ...baseConfig,
-          cameraMode: [{ mode: 'single', type: position }],
+          initialFacing: position,
         }}
         onSettle={() => {}}
       />
@@ -122,8 +123,9 @@ it('React 19 StrictMode effect replay 不把活跃 Container 当成真实卸载'
           <Container
             {...createContainerSessionProps()}
             config={{
+              modes: [{ mode: 'single' }],
               ...baseConfig,
-              cameraMode: [{ mode: 'single', type: 'back' }],
+              initialFacing: 'back',
             }}
             onSettle={onSettle}
           />
@@ -144,9 +146,10 @@ it('水印 wrapper 为全屏容器(absoluteFill),让 WatermarkStamp 自身按 po
       <Container
         {...createContainerSessionProps()}
         config={{
+          modes: [{ mode: 'single' }],
           ...baseConfig,
-          cameraMode: [{ mode: 'single', type: 'back' }],
-          watermark: { content: ['L1'], position: 'bottom-center' },
+          watermark: { lines: ['L1'], position: 'bottom-center' },
+          initialFacing: 'back',
         }}
         onSettle={() => {}}
       />

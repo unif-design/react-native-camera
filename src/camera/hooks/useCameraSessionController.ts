@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { cancelledResult } from '../../utils';
-import type { CameraResult, CustomPhotoFile, FlashMode } from '../../utils';
+import type {
+  CameraSessionOutcome,
+  CapturedFile,
+  CameraFlash,
+} from '../../utils';
 import type {
   RegisterSessionController,
   SessionControllerBridge,
@@ -41,7 +45,7 @@ export type UseCameraSessionControllerParams = {
   registerController: RegisterSessionController;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   cancelRecording: () => void | Promise<void>;
-  onSettle: (result: CameraResult) => void;
+  onSettle: (result: CameraSessionOutcome) => void;
 };
 
 export type CameraSessionController = {
@@ -53,13 +57,13 @@ export type CameraSessionController = {
     forceNativeReconfiguration?: boolean
   ) => number | null;
   configured: (generation: number) => boolean;
-  setFlash: (flash: FlashMode) => boolean;
+  setFlash: (flash: CameraFlash) => boolean;
   setSound: (sound: boolean) => boolean;
   beginPhoto: () => CameraOperationToken | null;
   photoCaptured: (token: CameraOperationToken) => boolean;
   photoSucceeded: (
     token: CameraOperationToken,
-    file: CustomPhotoFile,
+    file: CapturedFile,
     preview?: CameraPreviewState
   ) => boolean;
   beginVideo: () => CameraOperationToken | null;
@@ -69,7 +73,7 @@ export type CameraSessionController = {
   videoFinished: (
     token: CameraOperationToken,
     result: {
-      file?: CustomPhotoFile;
+      file?: CapturedFile;
       duration: number;
       reason: string;
     }
@@ -78,10 +82,10 @@ export type CameraSessionController = {
   fail: (token: CameraOperationToken) => boolean;
   openPreview: (preview: CameraPreviewState) => boolean;
   closePreview: () => boolean;
-  deleteFile: (path: string) => CustomPhotoFile | null;
-  clearFiles: () => CustomPhotoFile[] | null;
+  deleteFile: (path: string) => CapturedFile | null;
+  clearFiles: () => CapturedFile[] | null;
   save: () => boolean;
-  settle: (result: CameraResult) => boolean;
+  settle: (result: CameraSessionOutcome) => boolean;
   requestUserCancel: () => void;
   forceTeardown: () => void;
 };
@@ -240,7 +244,7 @@ export function useCameraSessionController({
   );
 
   const setFlash = useCallback(
-    (flash: FlashMode) =>
+    (flash: CameraFlash) =>
       mountedRef.current && apply({ type: 'SET_FLASH', flash }),
     [apply]
   );
@@ -268,7 +272,7 @@ export function useCameraSessionController({
   const photoSucceeded = useCallback(
     (
       token: CameraOperationToken,
-      file: CustomPhotoFile,
+      file: CapturedFile,
       preview?: CameraPreviewState
     ) =>
       applyOperation(token, {
@@ -318,7 +322,7 @@ export function useCameraSessionController({
     (
       token: CameraOperationToken,
       result: {
-        file?: CustomPhotoFile;
+        file?: CapturedFile;
         duration: number;
         reason: string;
       }
@@ -352,7 +356,7 @@ export function useCameraSessionController({
   );
 
   const deleteFile = useCallback(
-    (path: string): CustomPhotoFile | null => {
+    (path: string): CapturedFile | null => {
       if (!mountedRef.current || stateRef.current.phase !== 'previewing') {
         return null;
       }
@@ -365,7 +369,7 @@ export function useCameraSessionController({
     [apply]
   );
 
-  const clearFiles = useCallback((): CustomPhotoFile[] | null => {
+  const clearFiles = useCallback((): CapturedFile[] | null => {
     if (
       !mountedRef.current ||
       (stateRef.current.phase !== 'ready' &&
@@ -378,7 +382,7 @@ export function useCameraSessionController({
     return files;
   }, [apply]);
 
-  const notifySettle = useCallback((result: CameraResult): boolean => {
+  const notifySettle = useCallback((result: CameraSessionOutcome): boolean => {
     if (settleNotifiedRef.current) return false;
     settleNotifiedRef.current = true;
     onSettleRef.current(result);
@@ -386,7 +390,7 @@ export function useCameraSessionController({
   }, []);
 
   const settle = useCallback(
-    (result: CameraResult): boolean => {
+    (result: CameraSessionOutcome): boolean => {
       if (!mountedRef.current || !apply({ type: 'SETTLING' })) return false;
       notifySettle(result);
       return true;
@@ -398,9 +402,8 @@ export function useCameraSessionController({
     const current = stateRef.current;
     if (!mountedRef.current || !selectCapabilities(current).save) return false;
     return settle({
-      code: 200,
-      data: [...current.files],
-      message: 'ok',
+      status: 'success',
+      media: [...current.files],
     });
   }, [settle]);
 
