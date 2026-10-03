@@ -1,7 +1,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -11,9 +10,7 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import {
   Camera as VisionCamera,
-  useMicrophonePermission,
   usePhotoOutput,
-  useVideoOutput,
   CommonResolutions,
   type CameraRef,
   type CameraSessionConfig,
@@ -45,7 +42,7 @@ import type {
 export type { CameraHandle, VideoCallbacks } from './types';
 import { NEUTRAL_ZOOM } from './constants';
 import { FocusIndicator } from './FocusIndicator';
-import { createRecorderController } from './recording/recorderController';
+import { useVideoOutputController } from './video/useVideoOutputController';
 
 export const Camera = forwardRef<CameraHandle, CameraViewProps>(
   function CameraView(
@@ -120,18 +117,13 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
         : {}),
     });
 
-    // enableAudio:true —— 对齐官方 example,录像带声音(docs:启用 audio 需麦克风权限,
-    // 已在 startVideo 前 requestMic())。缺它录的是无声视频。
+    // 预览不预先申请麦克风；录像操作在授权后等待带音频的 output 配置完成。
     // 录像分辨率仍随 aspectRatio 走 UHD；照片则按最终用途直接请求对应 FHD。两种 output
     // 切画幅都会重新协商，换来捕获端就限制尺寸/画幅，避免先持有 12MP 再拍后缩小。
     // targetResolution 是目标值(比例优先 negotiate,设备无法精确满足时由 SDK 安全协商)。
     // targetBitRate:**缺省(未传)= 不写入,由编码器按分辨率自适应**(不写死,避免配错码率);
     // config 显式传了才按需加键(下方展开,不传 undefined 进 options)。
-    const videoOutput = useVideoOutput({
-      enableAudio: true,
-      // fileType 显式 'mp4':iOS 录像默认容器是 .mov,不指定会产出 QuickTime 文件,而 buildPhotoFile
-      // 把视频 mimeType 固定报 'video/mp4' → 失实(消费者按 mimeType 上传/转码会错)。Android 本就 mp4、忽略此项。
-      fileType: 'mp4',
+    const video = useVideoOutputController({
       targetResolution:
         (aspectRatio ?? '4:3') === '4:3'
           ? CommonResolutions.UHD_4_3
@@ -140,16 +132,17 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
         ? { targetBitRate: videoBitRate }
         : {}),
     });
-    const { hasPermission: hasMic, requestPermission: requestMic } =
-      useMicrophonePermission();
-
-    const recorderController = useMemo(
-      () =>
-        createRecorderController({
-          createRecorder: (settings) => videoOutput.createRecorder(settings),
-        }),
-      [videoOutput]
-    );
+    const {
+      output: videoOutput,
+      controller: recorderController,
+      hasPermission: hasMic,
+      requestPermission: requestMic,
+      onConfigured: videoConfigured,
+    } = video;
+    const handleVideoConfigured = useCallback(() => {
+      videoConfigured();
+      onConfigured?.();
+    }, [onConfigured, videoConfigured]);
     const internalZoom = useSharedValue(NEUTRAL_ZOOM);
     const zoom = zoomShared ?? internalZoom;
     const activeOutput =
@@ -391,23 +384,6 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
       ]
     );
 
-    // Controller 变更(例如 video output identity 改变)或卸载时强制取消；pending permission/create
-    // 也会被 attempt token 失效，晚到 Recorder 只清理、不再 start。
-    //
-    // setup 里必须 activate()：React 19 StrictMode 会 setup→cleanup→setup **复用同一个 useMemo
-    // 实例**，只有 cleanup 而没有重新激活，cleanup 里的 dispose() 会把 controllerDisposed 永久
-    // 置 true，此后 startVideo 永远返回 'denied'(真机 dev 构建下相机可用但完全录不了像)。
-    // 选 activate() 而不是「可替换 controller ref」：videoOutput identity 真变时 useMemo 会产出
-    // **新** controller，旧实例没人再引用、activate 不到，因此「旧 controller 永久失效」仍然成立。
-    useEffect(() => {
-      recorderController.activate();
-      return () => {
-        recorderController.dispose().catch((error) => {
-          console.warn('recorder cancel failed', error);
-        });
-      };
-    }, [recorderController]);
-
     const outputs: CameraOutput[] = [activeOutput];
 
     // Container 已在 zero viewport 阶段挡住挂载；内部再守一次，避免未来调用方把
@@ -452,10 +428,15 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
                 // 绝不据此关相机:早期无条件 settle(500) 会把重开时的瞬时 session 错误误当致命
                 // → 第二次打开即报错关闭(临时中断另走 onInterruptionStarted/Ended,不进这里)。
                 console.warn('camera session error', error);
+                video.onError(error);
                 onCameraError?.(error);
               }}
               onSubjectAreaChanged={() => cameraRef.current?.resetFocus()}
-              onConfigured={onConfigured}
+              onConfigured={
+                currentMode.mode === 'video'
+                  ? handleVideoConfigured
+                  : onConfigured
+              }
               onSessionConfigSelected={handleSessionConfigSelected}
               nativeID="vision-camera"
             />

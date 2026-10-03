@@ -28,7 +28,8 @@ static dispatch_queue_t UnifPhotoQueue(void) {
   static dispatch_queue_t queue;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    queue = dispatch_queue_create("com.unif.react-native-camera.photo", DISPATCH_QUEUE_SERIAL);
+    queue = dispatch_queue_create("com.unif.react-native-camera.photo",
+                                  DISPATCH_QUEUE_SERIAL);
   });
   return queue;
 }
@@ -48,8 +49,9 @@ static CIContext *UnifPhotoContext(void) {
   dispatch_once(&onceToken, ^{
     context = [CIContext contextWithOptions:@{
       kCIContextCacheIntermediates : @NO,
-      // 旧修复已证明这条拍照链不能依赖 GPU offscreen readback；Core Image 仍固定 CPU
-      // renderer，并把工作格式限制为最终 JPEG 所需的 8-bit RGBA，避免半浮点中间缓冲。
+      // 旧修复已证明这条拍照链不能依赖 GPU offscreen readback；Core Image
+      // 仍固定 CPU renderer，并把工作格式限制为最终 JPEG 所需的 8-bit
+      // RGBA，避免半浮点中间缓冲。
       kCIContextUseSoftwareRenderer : @YES,
       kCIContextWorkingFormat : @(kCIFormatRGBA8),
     }];
@@ -58,11 +60,16 @@ static CIContext *UnifPhotoContext(void) {
 }
 
 static NSString *UnifJSON(NSDictionary *value) {
-  NSData *data = [NSJSONSerialization dataWithJSONObject:value options:0 error:nil];
-  return data == nil ? nil : [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+  NSData *data = [NSJSONSerialization dataWithJSONObject:value
+                                                 options:0
+                                                   error:nil];
+  return data == nil ? nil
+                     : [[NSString alloc] initWithData:data
+                                             encoding:NSUTF8StringEncoding];
 }
 
-static BOOL UnifOrientationSwapsDimensions(CGImagePropertyOrientation orientation) {
+static BOOL
+UnifOrientationSwapsDimensions(CGImagePropertyOrientation orientation) {
   return orientation == kCGImagePropertyOrientationLeftMirrored ||
          orientation == kCGImagePropertyOrientationRight ||
          orientation == kCGImagePropertyOrientationRightMirrored ||
@@ -85,18 +92,19 @@ static NSString *UnifOrientationName(CGImagePropertyOrientation orientation) {
   }
 }
 
-static BOOL UnifReadMetadata(NSString *path,
-                             UnifPhotoMetadata *metadata,
+static BOOL UnifReadMetadata(NSString *path, UnifPhotoMetadata *metadata,
                              NSString **failureCode) {
   NSURL *url = [NSURL fileURLWithPath:path];
-  NSDictionary *sourceOptions = @{(__bridge NSString *)kCGImageSourceShouldCache : @NO};
-  CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)url,
-                                                        (__bridge CFDictionaryRef)sourceOptions);
+  NSDictionary *sourceOptions =
+      @{(__bridge NSString *)kCGImageSourceShouldCache : @NO};
+  CGImageSourceRef source = CGImageSourceCreateWithURL(
+      (__bridge CFURLRef)url, (__bridge CFDictionaryRef)sourceOptions);
   if (source == nil) {
     *failureCode = EPhotoRead;
     return NO;
   }
-  CFDictionaryRef propertiesRef = CGImageSourceCopyPropertiesAtIndex(source, 0, NULL);
+  CFDictionaryRef propertiesRef =
+      CGImageSourceCopyPropertiesAtIndex(source, 0, NULL);
   CFRelease(source);
   if (propertiesRef == nil) {
     *failureCode = EPhotoRead;
@@ -104,15 +112,18 @@ static BOOL UnifReadMetadata(NSString *path,
   }
   NSDictionary *properties = CFBridgingRelease(propertiesRef);
   NSNumber *width = properties[(__bridge NSString *)kCGImagePropertyPixelWidth];
-  NSNumber *height = properties[(__bridge NSString *)kCGImagePropertyPixelHeight];
-  NSNumber *orientationValue = properties[(__bridge NSString *)kCGImagePropertyOrientation];
+  NSNumber *height =
+      properties[(__bridge NSString *)kCGImagePropertyPixelHeight];
+  NSNumber *orientationValue =
+      properties[(__bridge NSString *)kCGImagePropertyOrientation];
   if (width.unsignedLongLongValue == 0 || height.unsignedLongLongValue == 0) {
     *failureCode = EPhotoRead;
     return NO;
   }
   CGImagePropertyOrientation orientation =
-      orientationValue == nil ? kCGImagePropertyOrientationUp
-                              : (CGImagePropertyOrientation)orientationValue.unsignedIntValue;
+      orientationValue == nil
+          ? kCGImagePropertyOrientationUp
+          : (CGImagePropertyOrientation)orientationValue.unsignedIntValue;
   metadata->rawWidth = (size_t)width.unsignedLongLongValue;
   metadata->rawHeight = (size_t)height.unsignedLongLongValue;
   metadata->orientation = orientation;
@@ -131,20 +142,18 @@ static void UnifLogStage(NSString *stage, size_t width, size_t height) {
               stage.UTF8String, width, height);
 }
 
-static CIImage *UnifCreateInputImage(NSString *path,
-                                     UnifPhotoMetadata metadata,
-                                     size_t targetWidth,
-                                     size_t targetHeight,
-                                     BOOL *sampled,
-                                     NSString **failureCode) {
+static CIImage *UnifCreateInputImage(NSString *path, UnifPhotoMetadata metadata,
+                                     size_t targetWidth, size_t targetHeight,
+                                     BOOL *sampled, NSString **failureCode) {
   NSURL *url = [NSURL fileURLWithPath:path];
   size_t targetMax = MAX(targetWidth, targetHeight);
   size_t sourceMax = MAX(metadata.displayWidth, metadata.displayHeight);
   if (sourceMax > targetMax) {
     *sampled = YES;
-    NSDictionary *sourceOptions = @{(__bridge NSString *)kCGImageSourceShouldCache : @NO};
-    CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)url,
-                                                          (__bridge CFDictionaryRef)sourceOptions);
+    NSDictionary *sourceOptions =
+        @{(__bridge NSString *)kCGImageSourceShouldCache : @NO};
+    CGImageSourceRef source = CGImageSourceCreateWithURL(
+        (__bridge CFURLRef)url, (__bridge CFDictionaryRef)sourceOptions);
     if (source == nil) {
       *failureCode = EPhotoRead;
       return nil;
@@ -168,8 +177,11 @@ static CIImage *UnifCreateInputImage(NSString *path,
   }
 
   *sampled = NO;
-  CIImage *image = [CIImage imageWithContentsOfURL:url
-                                          options:@{kCIImageApplyOrientationProperty : @YES}];
+  CIImage *image =
+      [CIImage imageWithContentsOfURL:url
+                              options:@{
+                                kCIImageApplyOrientationProperty : @YES
+                              }];
   if (image == nil) {
     *failureCode = EPhotoDecode;
   }
@@ -177,12 +189,18 @@ static CIImage *UnifCreateInputImage(NSString *path,
 }
 
 static CGRect UnifCropRect(CGRect extent, NSString *aspectRatio) {
-  CGFloat targetRatio = [aspectRatio isEqualToString:@"16:9"] ? 9.0 / 16.0 : 3.0 / 4.0;
+  CGFloat portraitRatio =
+      [aspectRatio isEqualToString:@"16:9"] ? 9.0 / 16.0 : 3.0 / 4.0;
+  // The input extent already has EXIF orientation applied. Preserve that
+  // orientation.
+  CGFloat targetRatio = CGRectGetWidth(extent) > CGRectGetHeight(extent)
+                            ? 1.0 / portraitRatio
+                            : portraitRatio;
   CGFloat sourceRatio = CGRectGetWidth(extent) / CGRectGetHeight(extent);
   if (sourceRatio > targetRatio) {
     CGFloat width = CGRectGetHeight(extent) * targetRatio;
-    return CGRectMake(CGRectGetMidX(extent) - width / 2.0, CGRectGetMinY(extent),
-                      width, CGRectGetHeight(extent));
+    return CGRectMake(CGRectGetMidX(extent) - width / 2.0,
+                      CGRectGetMinY(extent), width, CGRectGetHeight(extent));
   }
   CGFloat height = CGRectGetWidth(extent) / targetRatio;
   return CGRectMake(CGRectGetMinX(extent), CGRectGetMidY(extent) - height / 2.0,
@@ -190,13 +208,14 @@ static CGRect UnifCropRect(CGRect extent, NSString *aspectRatio) {
 }
 
 static CTTextAlignment UnifTextAlignment(NSString *position) {
-  if ([position hasSuffix:@"-left"]) return kCTTextAlignmentLeft;
-  if ([position hasSuffix:@"-center"]) return kCTTextAlignmentCenter;
+  if ([position hasSuffix:@"-left"])
+    return kCTTextAlignmentLeft;
+  if ([position hasSuffix:@"-center"])
+    return kCTTextAlignmentCenter;
   return kCTTextAlignmentRight;
 }
 
-static CIImage *UnifWatermarkImage(NSDictionary *watermark,
-                                   size_t outputWidth,
+static CIImage *UnifWatermarkImage(NSDictionary *watermark, size_t outputWidth,
                                    size_t outputHeight,
                                    NSString **failureCode) {
   NSArray *rawLines = [watermark[@"content"] isKindOfClass:NSArray.class]
@@ -206,16 +225,21 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
     *failureCode = EPhotoWatermark;
     return nil;
   }
-  NSMutableArray<NSString *> *lines = [NSMutableArray arrayWithCapacity:rawLines.count];
+  NSMutableArray<NSString *> *lines =
+      [NSMutableArray arrayWithCapacity:rawLines.count];
   BOOL visible = NO;
   for (id value in rawLines) {
-    NSString *line = [value isKindOfClass:NSString.class] ? value : [value description];
+    NSString *line =
+        [value isKindOfClass:NSString.class] ? value : [value description];
     [lines addObject:line ?: @""];
-    if ([line stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length > 0) {
+    if ([line stringByTrimmingCharactersInSet:
+                  NSCharacterSet.whitespaceAndNewlineCharacterSet]
+            .length > 0) {
       visible = YES;
     }
   }
-  if (!visible) return nil;
+  if (!visible)
+    return nil;
 
   NSString *position = [watermark[@"position"] isKindOfClass:NSString.class]
                            ? watermark[@"position"]
@@ -225,11 +249,13 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
   CGFloat fontSize = MAX(1, round(shortSide * 0.033));
   CGFloat lineHeight = MAX(fontSize, round(fontSize * 1.45));
   CGFloat padding = MAX(0, round(shortSide * 0.04));
-  CGFloat paragraphWidth = MAX(1, MIN(round(outputWidth * 0.7), outputWidth - 2 * padding));
+  CGFloat paragraphWidth =
+      MAX(1, MIN(round(outputWidth * 0.7), outputWidth - 2 * padding));
 
-  CTFontRef normalFont = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, NULL);
-  CTFontRef emphasizedFont =
-      CTFontCreateUIFontForLanguage(kCTFontUIFontEmphasizedSystem, fontSize, NULL);
+  CTFontRef normalFont =
+      CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, NULL);
+  CTFontRef emphasizedFont = CTFontCreateUIFontForLanguage(
+      kCTFontUIFontEmphasizedSystem, fontSize, NULL);
   if (normalFont == nil) {
     *failureCode = EPhotoWatermark;
     return nil;
@@ -238,8 +264,10 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
     emphasizedFont = CTFontCreateCopyWithSymbolicTraits(
         normalFont, fontSize, NULL, kCTFontBoldTrait, kCTFontBoldTrait);
   }
-  if (emphasizedFont == nil) emphasizedFont = (CTFontRef)CFRetain(normalFont);
-  CGColorSpaceRef textColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+  if (emphasizedFont == nil)
+    emphasizedFont = (CTFontRef)CFRetain(normalFont);
+  CGColorSpaceRef textColorSpace =
+      CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
   CGFloat whiteComponents[] = {1, 1, 1, 1};
   CGColorRef white = CGColorCreate(textColorSpace, whiteComponents);
   CGColorSpaceRelease(textColorSpace);
@@ -248,8 +276,10 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
   CGFloat maxLineHeight = lineHeight;
   CTParagraphStyleSetting settings[] = {
       {kCTParagraphStyleSpecifierAlignment, sizeof(alignment), &alignment},
-      {kCTParagraphStyleSpecifierMinimumLineHeight, sizeof(minLineHeight), &minLineHeight},
-      {kCTParagraphStyleSpecifierMaximumLineHeight, sizeof(maxLineHeight), &maxLineHeight},
+      {kCTParagraphStyleSpecifierMinimumLineHeight, sizeof(minLineHeight),
+       &minLineHeight},
+      {kCTParagraphStyleSpecifierMaximumLineHeight, sizeof(maxLineHeight),
+       &maxLineHeight},
   };
   CTParagraphStyleRef paragraphStyle =
       CTParagraphStyleCreate(settings, sizeof(settings) / sizeof(settings[0]));
@@ -266,20 +296,23 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
                      value:(__bridge id)paragraphStyle
                      range:fullRange];
   NSRange newline = [text rangeOfString:@"\n"];
-  NSUInteger firstLineLength = newline.location == NSNotFound ? text.length : newline.location;
+  NSUInteger firstLineLength =
+      newline.location == NSNotFound ? text.length : newline.location;
   if (firstLineLength > 0) {
     [attributed addAttribute:(__bridge NSString *)kCTFontAttributeName
                        value:(__bridge id)emphasizedFont
                        range:NSMakeRange(0, firstLineLength)];
   }
 
-  CTFramesetterRef framesetter =
-      CTFramesetterCreateWithAttributedString((__bridge CFAttributedStringRef)attributed);
-  CGSize constraints = CGSizeMake(paragraphWidth, MAX(1, outputHeight - 2 * padding));
+  CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString(
+      (__bridge CFAttributedStringRef)attributed);
+  CGSize constraints =
+      CGSizeMake(paragraphWidth, MAX(1, outputHeight - 2 * padding));
   CGSize measured = CTFramesetterSuggestFrameSizeWithConstraints(
       framesetter, CFRangeMake(0, 0), NULL, constraints, NULL);
   size_t bitmapWidth = (size_t)ceil(paragraphWidth);
-  size_t bitmapHeight = (size_t)MAX(1, ceil(MIN(measured.height, constraints.height)));
+  size_t bitmapHeight =
+      (size_t)MAX(1, ceil(MIN(measured.height, constraints.height)));
   CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
   CGContextRef bitmap = CGBitmapContextCreate(
       NULL, bitmapWidth, bitmapHeight, 8, bitmapWidth * 4, colorSpace,
@@ -295,7 +328,8 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
     return nil;
   }
   CGFloat shadowBlur = MAX(2, round(fontSize * 0.1));
-  CGColorSpaceRef shadowColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+  CGColorSpaceRef shadowColorSpace =
+      CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
   CGFloat shadowComponents[] = {0, 0, 0, 0.7};
   CGColorRef shadow = CGColorCreate(shadowColorSpace, shadowComponents);
   CGColorSpaceRelease(shadowColorSpace);
@@ -303,7 +337,8 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
   CGColorRelease(shadow);
   CGMutablePathRef path = CGPathCreateMutable();
   CGPathAddRect(path, NULL, CGRectMake(0, 0, bitmapWidth, bitmapHeight));
-  CTFrameRef frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, NULL);
+  CTFrameRef frame =
+      CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, NULL);
   CTFrameDraw(frame, bitmap);
   CGImageRef overlayRef = CGBitmapContextCreateImage(bitmap);
   CFRelease(frame);
@@ -332,58 +367,69 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark,
   CGFloat y = [position hasPrefix:@"bottom-"]
                   ? padding
                   : outputHeight - padding - bitmapHeight;
-  return [overlay imageByApplyingTransform:CGAffineTransformMakeTranslation(x, y)];
+  return
+      [overlay imageByApplyingTransform:CGAffineTransformMakeTranslation(x, y)];
 }
 
-static NSDictionary *UnifProcessPhoto(NSString *inputPath,
-                                      NSString *outputPath,
-                                      NSString *aspectRatio,
-                                      size_t requestedTargetWidth,
-                                      size_t requestedTargetHeight,
-                                      NSInteger quality,
-                                      NSString *watermarkJSON,
-                                      NSString **failureCode,
-                                      NSString **failureStage) {
+static NSDictionary *
+UnifProcessPhoto(NSString *inputPath, NSString *outputPath,
+                 NSString *aspectRatio, size_t requestedTargetWidth,
+                 size_t requestedTargetHeight, NSInteger quality,
+                 NSString *watermarkJSON, NSString **failureCode,
+                 NSString **failureStage) {
   CFTimeInterval startedAt = CFAbsoluteTimeGetCurrent();
   UnifPhotoMetadata metadata = {};
   *failureStage = @"read";
   UnifLogStage(*failureStage, 0, 0);
-  if (!UnifReadMetadata(inputPath, &metadata, failureCode)) return nil;
+  if (!UnifReadMetadata(inputPath, &metadata, failureCode))
+    return nil;
 
   size_t shortTarget = MIN(requestedTargetWidth, requestedTargetHeight);
   size_t longTarget = MAX(requestedTargetWidth, requestedTargetHeight);
-  size_t targetWidth = metadata.displayWidth > metadata.displayHeight ? longTarget : shortTarget;
-  size_t targetHeight = metadata.displayWidth > metadata.displayHeight ? shortTarget : longTarget;
+  size_t targetWidth =
+      metadata.displayWidth > metadata.displayHeight ? longTarget : shortTarget;
+  size_t targetHeight =
+      metadata.displayWidth > metadata.displayHeight ? shortTarget : longTarget;
 
   *failureStage = @"decode";
   UnifLogStage(*failureStage, metadata.displayWidth, metadata.displayHeight);
   BOOL sampled = NO;
-  CIImage *input = UnifCreateInputImage(inputPath, metadata, targetWidth, targetHeight,
-                                        &sampled, failureCode);
-  if (input == nil) return nil;
+  CIImage *input = UnifCreateInputImage(inputPath, metadata, targetWidth,
+                                        targetHeight, &sampled, failureCode);
+  if (input == nil)
+    return nil;
 
   *failureStage = @"crop";
   CGRect crop = UnifCropRect(input.extent, aspectRatio);
-  if (CGRectIsEmpty(crop) || !isfinite(crop.size.width) || !isfinite(crop.size.height)) {
+  if (CGRectIsEmpty(crop) || !isfinite(crop.size.width) ||
+      !isfinite(crop.size.height)) {
     *failureCode = EPhotoCrop;
     return nil;
   }
-  CGFloat scale = MIN(1.0, MIN(targetWidth / crop.size.width, targetHeight / crop.size.height));
+  CGFloat scale = MIN(
+      1.0, MIN(targetWidth / crop.size.width, targetHeight / crop.size.height));
   size_t outputWidth = (size_t)MAX(1, llround(crop.size.width * scale));
   size_t outputHeight = (size_t)MAX(1, llround(crop.size.height * scale));
   UnifLogStage(*failureStage, outputWidth, outputHeight);
   CIImage *result = [input imageByCroppingToRect:crop];
-  result = [result imageByApplyingTransform:CGAffineTransformMakeTranslation(-crop.origin.x,
-                                                                               -crop.origin.y)];
+  result =
+      [result imageByApplyingTransform:CGAffineTransformMakeTranslation(
+                                           -crop.origin.x, -crop.origin.y)];
   if (scale != 1.0) {
-    result = [result imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
+    result = [result
+        imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
   }
-  result = [result imageByCroppingToRect:CGRectMake(0, 0, outputWidth, outputHeight)];
+  result = [result
+      imageByCroppingToRect:CGRectMake(0, 0, outputWidth, outputHeight)];
 
   NSDictionary *watermark = nil;
   if (watermarkJSON.length > 0 && ![watermarkJSON isEqualToString:@"null"]) {
     NSData *jsonData = [watermarkJSON dataUsingEncoding:NSUTF8StringEncoding];
-    id value = jsonData == nil ? nil : [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+    id value = jsonData == nil
+                   ? nil
+                   : [NSJSONSerialization JSONObjectWithData:jsonData
+                                                     options:0
+                                                       error:nil];
     if (![value isKindOfClass:NSDictionary.class]) {
       *failureCode = EPhotoWatermark;
       *failureStage = @"watermark";
@@ -394,9 +440,12 @@ static NSDictionary *UnifProcessPhoto(NSString *inputPath,
   if (watermark != nil) {
     *failureStage = @"watermark";
     UnifLogStage(*failureStage, outputWidth, outputHeight);
-    CIImage *overlay = UnifWatermarkImage(watermark, outputWidth, outputHeight, failureCode);
-    if (overlay == nil && *failureCode != nil) return nil;
-    if (overlay != nil) result = [overlay imageByCompositingOverImage:result];
+    CIImage *overlay =
+        UnifWatermarkImage(watermark, outputWidth, outputHeight, failureCode);
+    if (overlay == nil && *failureCode != nil)
+      return nil;
+    if (overlay != nil)
+      result = [overlay imageByCompositingOverImage:result];
   }
 
   *failureStage = @"write";
@@ -404,7 +453,8 @@ static NSDictionary *UnifProcessPhoto(NSString *inputPath,
   NSURL *outputURL = [NSURL fileURLWithPath:outputPath];
   NSError *removeError = nil;
   if ([[NSFileManager defaultManager] fileExistsAtPath:outputPath] &&
-      ![[NSFileManager defaultManager] removeItemAtURL:outputURL error:&removeError]) {
+      ![[NSFileManager defaultManager] removeItemAtURL:outputURL
+                                                 error:&removeError]) {
     *failureCode = EPhotoWrite;
     return nil;
   }
@@ -415,7 +465,8 @@ static NSDictionary *UnifProcessPhoto(NSString *inputPath,
                                toURL:outputURL
                           colorSpace:colorSpace
                              options:@{
-                               (__bridge NSString *)kCGImageDestinationLossyCompressionQuality :
+                               (__bridge NSString *)
+                               kCGImageDestinationLossyCompressionQuality :
                                    @(MAX(0, MIN(100, quality)) / 100.0)
                              }
                                error:&writeError];
@@ -427,10 +478,11 @@ static NSDictionary *UnifProcessPhoto(NSString *inputPath,
 
   double durationMs = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000.0;
   os_log_info(UnifPhotoLog(),
-              "stage=complete input=%{public}zux%{public}zu output=%{public}zux%{public}zu "
+              "stage=complete input=%{public}zux%{public}zu "
+              "output=%{public}zux%{public}zu "
               "sampled=%{public}s durationMs=%{public}.1f",
-              metadata.displayWidth, metadata.displayHeight, outputWidth, outputHeight,
-              sampled ? "true" : "false", durationMs);
+              metadata.displayWidth, metadata.displayHeight, outputWidth,
+              outputHeight, sampled ? "true" : "false", durationMs);
   return @{
     @"width" : @(outputWidth),
     @"height" : @(outputHeight),
@@ -457,7 +509,8 @@ RCT_EXPORT_MODULE(UnifPhotoProcessor)
       NSString *failureCode = nil;
       UnifPhotoMetadata metadata = {};
       if (!UnifReadMetadata(inputPath, &metadata, &failureCode)) {
-        reject(failureCode ?: EPhotoRead, @"Photo metadata inspection failed", nil);
+        reject(failureCode ?: EPhotoRead, @"Photo metadata inspection failed",
+               nil);
         return;
       }
       NSString *json = UnifJSON(@{
@@ -477,51 +530,58 @@ RCT_EXPORT_MODULE(UnifPhotoProcessor)
 - (void)inspectVideoFile:(NSString *)inputPath
                  resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject {
-  AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:inputPath]
-                                       options:@{AVURLAssetPreferPreciseDurationAndTimingKey : @YES}];
+  AVURLAsset *asset = [AVURLAsset
+      URLAssetWithURL:[NSURL fileURLWithPath:inputPath]
+              options:@{AVURLAssetPreferPreciseDurationAndTimingKey : @YES}];
   [asset loadTracksWithMediaType:AVMediaTypeVideo
-              completionHandler:^(NSArray<AVAssetTrack *> *tracks, NSError *error) {
-    if (error != nil || tracks.count == 0) {
-      reject(@"E_VIDEO_READ", @"Video metadata inspection failed", error);
-      return;
-    }
-    dispatch_async(UnifPhotoQueue(), ^{
-      AVAssetTrack *track = tracks.firstObject;
-      CGRect bounds = CGRectApplyAffineTransform(
-          (CGRect){CGPointZero, track.naturalSize}, track.preferredTransform);
-      double width = fabs(CGRectGetWidth(bounds));
-      double height = fabs(CGRectGetHeight(bounds));
-      if (!isfinite(width) || !isfinite(height) || width < 1 || height < 1) {
-        reject(@"E_VIDEO_READ", @"Invalid video dimensions", nil);
-        return;
-      }
-      NSMutableDictionary *metadata = [@{
-        @"width" : @(llround(width)),
-        @"height" : @(llround(height)),
-      } mutableCopy];
-      double durationMs = CMTimeGetSeconds(asset.duration) * 1000.0;
-      if (isfinite(durationMs) && durationMs >= 0) {
-        metadata[@"durationMs"] = @(durationMs);
-      }
-      NSString *json = UnifJSON(metadata);
-      if (json == nil) {
-        reject(@"E_VIDEO_READ", @"Video metadata inspection failed", nil);
-        return;
-      }
-      resolve(json);
-    });
-  }];
+               completionHandler:^(NSArray<AVAssetTrack *> *tracks,
+                                   NSError *error) {
+                 if (error != nil || tracks.count == 0) {
+                   reject(@"E_VIDEO_READ", @"Video metadata inspection failed",
+                          error);
+                   return;
+                 }
+                 dispatch_async(UnifPhotoQueue(), ^{
+                   AVAssetTrack *track = tracks.firstObject;
+                   CGRect bounds = CGRectApplyAffineTransform(
+                       (CGRect){CGPointZero, track.naturalSize},
+                       track.preferredTransform);
+                   double width = fabs(CGRectGetWidth(bounds));
+                   double height = fabs(CGRectGetHeight(bounds));
+                   if (!isfinite(width) || !isfinite(height) || width < 1 ||
+                       height < 1) {
+                     reject(@"E_VIDEO_READ", @"Invalid video dimensions", nil);
+                     return;
+                   }
+                   NSMutableDictionary *metadata = [@{
+                     @"width" : @(llround(width)),
+                     @"height" : @(llround(height)),
+                   } mutableCopy];
+                   double durationMs =
+                       CMTimeGetSeconds(asset.duration) * 1000.0;
+                   if (isfinite(durationMs) && durationMs >= 0) {
+                     metadata[@"durationMs"] = @(durationMs);
+                   }
+                   NSString *json = UnifJSON(metadata);
+                   if (json == nil) {
+                     reject(@"E_VIDEO_READ",
+                            @"Video metadata inspection failed", nil);
+                     return;
+                   }
+                   resolve(json);
+                 });
+               }];
 }
 
 - (void)processPhoto:(NSString *)inputPath
-           outputPath:(NSString *)outputPath
-          aspectRatio:(NSString *)aspectRatio
-          targetWidth:(double)targetWidth
-         targetHeight:(double)targetHeight
-              quality:(double)quality
-        watermarkJson:(NSString *)watermarkJson
-              resolve:(RCTPromiseResolveBlock)resolve
-               reject:(RCTPromiseRejectBlock)reject {
+          outputPath:(NSString *)outputPath
+         aspectRatio:(NSString *)aspectRatio
+         targetWidth:(double)targetWidth
+        targetHeight:(double)targetHeight
+             quality:(double)quality
+       watermarkJson:(NSString *)watermarkJson
+             resolve:(RCTPromiseResolveBlock)resolve
+              reject:(RCTPromiseRejectBlock)reject {
   dispatch_async(UnifPhotoQueue(), ^{
     @autoreleasepool {
       os_signpost_id_t signpost = os_signpost_id_generate(UnifPhotoLog());
@@ -541,10 +601,12 @@ RCT_EXPORT_MODULE(UnifPhotoProcessor)
       os_signpost_interval_end(UnifPhotoLog(), signpost, "PhotoProcessing",
                                "stage=%{public}s", failureStage.UTF8String);
       if (result == nil) {
-        os_log_error(UnifPhotoLog(), "stage=%{public}s failed", failureStage.UTF8String);
+        os_log_error(UnifPhotoLog(), "stage=%{public}s failed",
+                     failureStage.UTF8String);
         [[NSFileManager defaultManager] removeItemAtPath:outputPath error:nil];
         reject(failureCode ?: EPhotoDecode,
-               [NSString stringWithFormat:@"Photo processing failed during %@", failureStage],
+               [NSString stringWithFormat:@"Photo processing failed during %@",
+                                          failureStage],
                nil);
         return;
       }

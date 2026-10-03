@@ -44,6 +44,7 @@ import { useAppActive } from './hooks/useAppActive';
 import { useCameraSessionController } from './hooks/useCameraSessionController';
 import { usePermissionFlow } from './hooks/usePermissionFlow';
 import { usePhotoCaptureTransaction } from './hooks/usePhotoCaptureTransaction';
+import { useCameraMediaActions } from './hooks/useCameraMediaActions';
 import { useVideoTransaction } from './hooks/useVideoTransaction';
 import { useZoomController } from './hooks/useZoomController';
 import { clamp } from './hooks/zoomMath';
@@ -178,6 +179,7 @@ export function Container({
     cancelRecording: video.cancel,
     onSettle,
   });
+  const media = useCameraMediaActions(controller, fileRegistry);
   const photo = usePhotoCaptureTransaction({
     sessionId,
     cameraRef,
@@ -277,7 +279,7 @@ export function Container({
         title: '切换拍摄模式',
         message: '切换后将清空已拍内容,是否继续?',
       });
-      if (!accepted || !photo.clearForModeSwitch()) return;
+      if (!accepted || !media.clear()) return;
     }
     applyMode(nextIndex);
   };
@@ -490,7 +492,7 @@ export function Container({
                 canSave={capabilities.save}
                 backDisabled={!capabilities.userCancel}
                 onBack={controller.requestUserCancel}
-                onSave={photo.save}
+                onSave={media.save}
               />
             </View>
           )}
@@ -572,7 +574,7 @@ export function Container({
               count={photos.length}
               onShutter={onShutter}
               onFlip={onFlip}
-              onOpenPreview={photo.openGallery}
+              onOpenPreview={media.openGallery}
             />
           </View>
         </View>
@@ -581,10 +583,10 @@ export function Container({
         <PreviewOverlay
           files={photos}
           variant={preview.variant}
-          onRetake={photo.retake}
-          onSave={photo.save}
-          onBack={photo.closePreview}
-          onDelete={photo.deletePhoto}
+          onRetake={media.clear}
+          onSave={media.save}
+          onBack={media.closePreview}
+          onDelete={media.deleteMedia}
         />
       )}
     </View>

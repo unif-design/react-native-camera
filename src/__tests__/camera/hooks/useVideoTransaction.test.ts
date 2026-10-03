@@ -53,6 +53,7 @@ type SetupOptions = {
   registry?: FileRegistry;
   onError?: jest.Mock<void, [string]>;
   onLayoutUnmount?: () => void;
+  onRender?: () => void;
 };
 
 function setup(options: SetupOptions = {}) {
@@ -89,6 +90,7 @@ function setup(options: SetupOptions = {}) {
   const onSettle = jest.fn<void, [CameraSessionOutcome]>();
 
   const hook = renderHook(() => {
+    options.onRender?.();
     const controller = useCameraSessionController({
       sessionId: 41,
       initialState: {
@@ -784,4 +786,47 @@ it('same-call-stack duplicate start and repeated stop/cancel are idempotent', as
     ]);
   });
   expect(harness.camera.cancelVideo).toHaveBeenCalledTimes(1);
+});
+
+it('同一显示秒的 250ms 采样不重新渲染，停止与最终交付仍保留精确时长', async () => {
+  jest.useFakeTimers();
+  let duration = 0;
+  const onRender = jest.fn();
+  const harness = setup({
+    onRender,
+    camera: { getRecordedDuration: () => duration },
+  });
+  await act(async () => {
+    await harness.start();
+  });
+  const baseline = onRender.mock.calls.length;
+  for (duration of [0.25, 0.5, 0.75]) {
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+  }
+  expect(onRender).toHaveBeenCalledTimes(baseline);
+  duration = 1.125;
+  act(() => {
+    jest.advanceTimersByTime(250);
+  });
+  expect(onRender).toHaveBeenCalledTimes(baseline + 1);
+  expect(harness.result.current.controller.state.video.duration).toBe(1.125);
+  duration = 1.875;
+  act(() => {
+    jest.advanceTimersByTime(250);
+  });
+  expect(onRender).toHaveBeenCalledTimes(baseline + 1);
+  act(() => {
+    harness.result.current.transaction.stop();
+  });
+  expect(harness.result.current.controller.state.video.duration).toBe(1.875);
+  act(() => {
+    harness.callbacks[0]!.onFinished(
+      video('/precise.mp4', 1.95),
+      'stopped',
+      1.95
+    );
+  });
+  expect(harness.result.current.controller.state.video.duration).toBe(1.95);
 });

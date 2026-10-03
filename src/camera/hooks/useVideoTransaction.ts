@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, type RefObject } from 'react';
 import type { CameraHandle, VideoCallbacks } from '../Camera';
-import type { FileRegistry } from '../session/fileRegistry';
+import { discardOwnedFiles, type FileRegistry } from '../session/fileRegistry';
 import type {
   CameraOperationToken,
   CameraSessionController,
@@ -47,6 +47,7 @@ type VideoOperation = {
   reportError: (message: string) => void;
   status: VideoOperationStatus;
   lastDuration: number;
+  displayedSecond: number;
   timer: ReturnType<typeof setInterval> | null;
   stopIssued: boolean;
   nativeCancelIssued: boolean;
@@ -67,16 +68,6 @@ function clearDurationTimer(operation: VideoOperation): void {
   if (operation.timer == null) return;
   clearInterval(operation.timer);
   operation.timer = null;
-}
-
-function deleteOwned(registry: FileRegistry, path: string): void {
-  try {
-    registry.delete(path).catch(() => {
-      // registry 正常会自行吞掉 unlink/reporter 异常；注入实现 reject 也不能泄漏 rejection。
-    });
-  } catch {
-    // 清理是 best-effort，不能遮蔽 native callback 的终态。
-  }
 }
 
 export function useVideoTransaction({
@@ -165,6 +156,9 @@ export function useVideoTransaction({
       }
       if (!Number.isFinite(duration) || duration < 0) return;
       operation.lastDuration = duration;
+      const displayedSecond = Math.floor(duration);
+      if (displayedSecond === operation.displayedSecond) return;
+      operation.displayedSecond = displayedSecond;
       if (!operation.events.videoProgress(operation.token, duration)) {
         requestNativeCancel(operation).catch(() => {});
       }
@@ -188,6 +182,7 @@ export function useVideoTransaction({
         reportError: onError,
         status: 'starting',
         lastDuration: 0,
+        displayedSecond: 0,
         timer: null,
         stopIssued: false,
         nativeCancelIssued: false,
@@ -204,7 +199,7 @@ export function useVideoTransaction({
 
           if (operation.deliveredPath != null) {
             if (operation.deliveredPath !== file.path) {
-              deleteOwned(operation.registry, file.path);
+              discardOwnedFiles(operation.registry, [file.path]);
             }
             return;
           }
@@ -216,7 +211,7 @@ export function useVideoTransaction({
             !operation.events.isCurrent(operation.token)
           ) {
             claimTerminal(operation, 'finished');
-            deleteOwned(operation.registry, file.path);
+            discardOwnedFiles(operation.registry, [file.path]);
             return;
           }
 
@@ -232,11 +227,11 @@ export function useVideoTransaction({
           }
 
           claimTerminal(operation, 'finished');
-          deleteOwned(operation.registry, file.path);
+          discardOwnedFiles(operation.registry, [file.path]);
         },
         onDiscardedFile: (path) => {
           operation.registry.register(path);
-          deleteOwned(operation.registry, path);
+          discardOwnedFiles(operation.registry, [path]);
         },
         onError: () => {
           finalizeFailure(operation, '录像失败,请重试');

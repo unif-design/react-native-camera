@@ -40,12 +40,6 @@ function makePhotoTransaction(
     flashNonce: 0,
     burning: false,
     freezeUri: null,
-    openGallery: jest.fn(),
-    closePreview: jest.fn(),
-    deletePhoto: jest.fn(),
-    retake: jest.fn(),
-    clearForModeSwitch: jest.fn(),
-    save: jest.fn(),
     ...overrides,
   };
 }

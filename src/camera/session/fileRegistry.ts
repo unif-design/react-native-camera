@@ -82,3 +82,17 @@ export function createFileRegistry(
     drain,
   };
 }
+
+/** Cleanup never changes an operation's result, including with injected registries. */
+export function discardOwnedFiles(
+  registry: FileRegistry,
+  paths: readonly string[]
+): void {
+  for (const path of new Set(paths)) {
+    try {
+      registry.delete(path).catch(() => {});
+    } catch {
+      // The default registry reports failures itself; custom implementations may throw.
+    }
+  }
+}

@@ -330,7 +330,9 @@ class UnifPhotoProcessorModule(
     height: Int,
     aspectRatio: String,
   ): CropRect {
-    val targetRatio = if (aspectRatio == "16:9") 9.0 / 16.0 else 3.0 / 4.0
+    val portraitRatio = if (aspectRatio == "16:9") 9.0 / 16.0 else 3.0 / 4.0
+    // Dimensions are already oriented using EXIF before entering the crop.
+    val targetRatio = if (width > height) 1.0 / portraitRatio else portraitRatio
     val sourceRatio = width.toDouble() / height.toDouble()
     return if (sourceRatio > targetRatio) {
       val cropWidth = height * targetRatio
