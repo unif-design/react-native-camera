@@ -1,5 +1,15 @@
 # Changelog
 
+# [5.0.0](https://github.com/unif-design/react-native-camera/compare/v4.1.5...v5.0.0) (2026-10-03)
+
+
+* feat(camera)!: implement per-call capture and media contracts ([e05868c](https://github.com/unif-design/react-native-camera/commit/e05868cbc23ef2151c93dfd2f60a37a2c262648b))
+
+
+### BREAKING CHANGES
+
+* CameraController/CameraInput/CameraOutcome/CameraMedia 替换旧公开类型；输入改为 modes 和模式专属参数，结果改为 status/media/error，媒体使用 uri/facing/mimeType/durationMs。移除公共 close、数字结果码、path/cameraMode/isRemake 及内部辅助导出；每次 open 通过自己的 AbortSignal 取消，调用方须同步迁移输入、结果与文件生命周期处理。
+
 ## [4.1.5](https://github.com/unif-design/react-native-camera/compare/v4.1.4...v4.1.5) (2026-09-23)
 
 
