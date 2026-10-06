@@ -63,7 +63,7 @@ yarn add @unif/react-native-camera \
 | `react-native-safe-area-context`      | `>=5.0.0`          | 安全区适配                                                     |
 | `react-native-svg`                    | `>=15`             | 矢量绘制(design `Icon` 等)                                     |
 | `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面 |
-| `@unif/react-native-design`           | `^0.35.0`          | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()`      |
+| `@unif/react-native-design`           | `>=0.35.0`          | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()`      |
 
 从 Camera 5.0 升级到 5.1 时，React 使用 19.2.3 至 19.x，Design 升级至 0.35.x，安装
 `@callstack/liquid-glass`，并在 iOS 重新执行 `pod install`。其他依赖不再使用

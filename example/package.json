@@ -14,7 +14,7 @@
     "@dr.pogodin/react-native-fs": "^2.38.2",
     "@shopify/react-native-skia": "^2.6.4",
     "@unif/react-native-camera": "workspace:*",
-    "@unif/react-native-design": "0.35.0",
+    "@unif/react-native-design": "0.36.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "^3.1.0",

@@ -449,16 +449,18 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
   expect(
     rootPkg.peerDependencies['@sbaiahmed1/react-native-blur']
   ).toBeUndefined();
-  expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe('^0.35.0');
+  expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe(
+    '>=0.35.0'
+  );
   expect(rootPkg.peerDependencies['react-native-reanimated']).toBe(
     '>=4.5.2 <4.7.0'
   );
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
     '>=0.11.0 <0.13.0'
   );
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.35.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.35.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.35.0');
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('0.36.0');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('0.36.0');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('0.36.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();
