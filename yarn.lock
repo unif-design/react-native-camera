@@ -6318,7 +6318,7 @@ __metadata:
     "@shopify/react-native-skia": "npm:^2.6.4"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.35.0"
+    "@unif/react-native-design": "npm:0.36.0"
     react: "npm:19.2.3"
     react-native: "npm:0.86.3"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6353,7 +6353,7 @@ __metadata:
     "@react-native/metro-config": "npm:0.86.3"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:0.35.0"
+    "@unif/react-native-design": "npm:0.36.0"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:19.2.3"
@@ -6392,7 +6392,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:0.35.0"
+    "@unif/react-native-design": "npm:0.36.0"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^8.57.1"
@@ -6426,7 +6426,7 @@ __metadata:
     "@callstack/liquid-glass": ">=0.8.2 <0.9.0"
     "@dr.pogodin/react-native-fs": ">=2"
     "@shopify/react-native-skia": ">=2"
-    "@unif/react-native-design": ^0.35.0
+    "@unif/react-native-design": ">=0.35.0"
     react: ">=19.2.3 <20.0.0"
     react-native: ">=0.86.0"
     react-native-gesture-handler: ">=3.0.0 <4.0.0"
@@ -6444,9 +6444,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:0.35.0":
-  version: 0.35.0
-  resolution: "@unif/react-native-design@npm:0.35.0"
+"@unif/react-native-design@npm:0.36.0":
+  version: 0.36.0
+  resolution: "@unif/react-native-design@npm:0.36.0"
   peerDependencies:
     "@callstack/liquid-glass": ">=0.8.2 <0.9.0"
     react: ">=19.2.3 <20.0.0"
@@ -6457,7 +6457,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.11.0 <0.13.0"
-  checksum: 10c0/bd37df9617252dd3cd6959d2bde4e45f77633674411750aad8489e29f9808941996768d20bb1979aa798d2326921b2eeeadfbbad9ebeb1ea97f7318065635c1c
+  checksum: 10c0/dc058aa187d8b4c790ab3e35357485b64aa8064d761107c08630f451e727a2acdf86ac36ab5f397864114b1ee4140487efbbae2c81ff9d632d75a7394774a27a
   languageName: node
   linkType: hard
 
