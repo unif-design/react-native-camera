@@ -440,7 +440,7 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
     expect(pkg['react-native-reanimated']).toBe('^4.6.0');
     expect(pkg['react-native-worklets']).toBe('^0.12.1');
   }
-  // Camera 6 的安装契约采用 Design 0.35 玻璃实现，RN 支持下限保持 0.86。
+  // Camera 5.1 的安装契约采用 Design 0.35 玻璃实现，RN 支持下限保持 0.86。
   expect(rootPkg.peerDependencies.react).toBe('>=19.2.3 <20.0.0');
   expect(rootPkg.peerDependencies['react-native']).toBe('>=0.86.0');
   expect(rootPkg.peerDependencies['@callstack/liquid-glass']).toBe(
