@@ -36,9 +36,13 @@
         "!$TURBO_ROOT$/example/src/**/*.test.*",
         "$TURBO_ROOT$/example/android/**",
         "!$TURBO_ROOT$/example/android/.gradle/**",
+        "!$TURBO_ROOT$/example/android/.cxx/**",
+        "!$TURBO_ROOT$/example/android/app/.cxx/**",
         "!$TURBO_ROOT$/example/android/build/**",
         "!$TURBO_ROOT$/example/android/app/build/**",
         "!android/.gradle/**",
+        "!android/.cxx/**",
+        "!android/app/.cxx/**",
         "!android/build/**",
         "!android/app/build/**"
       ],

@@ -17,6 +17,7 @@ const excludedInputPatterns = [
   /(?:^|\/)Pods(?:\/|$)/,
   /(?:^|\/)build(?:\/|$)/,
   /(?:^|\/)\.gradle(?:\/|$)/,
+  /(?:^|\/)\.cxx(?:\/|$)/,
 ];
 
 const requiredNativeExclusions = [

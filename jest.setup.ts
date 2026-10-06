@@ -2,7 +2,8 @@
 // 由 `@unif/react-native-design/jest-preset`(package.json#jest.preset)挂进
 // setupFilesAfterEnv 的 `@unif/react-native-design/jest-setup` 统一提供:RNGH 官方
 // jestSetup + Pressable/GestureDetector 壳、worklets 官方 mock、safe-area 官方 mock,
-// reanimated 走**真实模块** + `setUpTests()`。这四段此前是本仓手写的,与 design 的接线
+// reanimated 使用官方 mock 并稳定 shared value，matcher 由 `setUpTests()` 提供。
+// Liquid Glass 原生边界也由 Design 的入口统一替换。这些接线此前各仓手写,与 design 的接线
 // 各写各的很容易分叉(本仓那份 reanimated 桩就缺 useReducedMotion / useComposedEventHandler)。
 // 本文件只留 camera 自己的 native peer 桩(vision-camera / nitro / skia / fs / video / svg)
 // 与本仓直接消费的 RNRC。
