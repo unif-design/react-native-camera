@@ -1,5 +1,12 @@
 # Changelog
 
+# [5.2.0](https://github.com/unif-design/react-native-camera/compare/v5.1.0...v5.2.0) (2026-10-06)
+
+
+### Features
+
+* **deps:** support minimum Design versions ([#131](https://github.com/unif-design/react-native-camera/issues/131)) ([e5ee58e](https://github.com/unif-design/react-native-camera/commit/e5ee58e3e266fd059bd8dadbfa55c8d8985968f8))
+
 # [5.1.0](https://github.com/unif-design/react-native-camera/compare/v5.0.0...v5.1.0) (2026-10-06)
 
 
