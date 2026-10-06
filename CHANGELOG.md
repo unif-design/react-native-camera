@@ -1,5 +1,18 @@
 # Changelog
 
+# [5.1.0](https://github.com/unif-design/react-native-camera/compare/v5.0.0...v5.1.0) (2026-10-06)
+
+
+* feat(camera)!: adopt Design 0.35 glass dependencies (#130) ([5d8a68b](https://github.com/unif-design/react-native-camera/commit/5d8a68bfa63d9c3894abcb5401ece6a468e9ab4d)), closes [#130](https://github.com/unif-design/react-native-camera/issues/130)
+
+
+### BREAKING CHANGES
+
+* consumers must use Design ^0.35.0, React >=19.2.3 <20.0.0 and
+@callstack/liquid-glass >=0.8.2 <0.9.0, with Reanimated >=4.5.2 <4.7.0.
+The legacy blur peer is removed.
+Camera capture APIs are unchanged.
+
 # [5.0.0](https://github.com/unif-design/react-native-camera/compare/v4.1.5...v5.0.0) (2026-10-03)
 
 
