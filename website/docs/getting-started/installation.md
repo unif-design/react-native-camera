@@ -13,7 +13,7 @@ description: '安装依赖，配置原生权限、构建环境与宿主接线。
 | 要求         | 版本                                      |
 | ------------ | ----------------------------------------- |
 | React Native | **0.86+**(仅新架构 Fabric + TurboModules) |
-| React        | 19+                                       |
+| React        | `>=19.2.3 <20.0.0`                         |
 | iOS          | 15.1+                                     |
 | Android      | API 24+(Android 7.0)                      |
 
@@ -40,7 +40,7 @@ yarn add @unif/react-native-camera \
   @shopify/react-native-skia @dr.pogodin/react-native-fs react-native-video \
   react-native-reanimated react-native-worklets react-native-reanimated-carousel \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
-  @sbaiahmed1/react-native-blur @unif/react-native-design
+  @callstack/liquid-glass @unif/react-native-design
 ```
 
 :::
@@ -56,14 +56,18 @@ yarn add @unif/react-native-camera \
 | `@shopify/react-native-skia`          | `>=2`              | 取景器水印实时预览                                             |
 | `@dr.pogodin/react-native-fs`         | `>=2`              | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
 | `react-native-video`                  | `>=7.0.0-beta.0`   | 录像预览播放                                                   |
-| `react-native-reanimated`             | `>=4.5.0 <4.7.0`   | 取景器 / 预览动画;当前验证 4.6.x                               |
+| `react-native-reanimated`             | `>=4.5.2 <4.7.0`   | 取景器 / 预览动画;当前验证 4.6.x                               |
 | `react-native-worklets`               | `>=0.11.0 <0.13.0` | reanimated 4 / vision-camera 的 worklet 运行时;当前验证 0.12.x |
 | `react-native-reanimated-carousel`    | `>=5.0.0 <6.0.0`   | 预览页轮播                                                     |
 | `react-native-gesture-handler`        | `>=3.0.0 <4.0.0`   | pinch 变焦 / 对焦手势                                          |
 | `react-native-safe-area-context`      | `>=5.0.0`          | 安全区适配                                                     |
 | `react-native-svg`                    | `>=15`             | 矢量绘制(design `Icon` 等)                                     |
-| `@sbaiahmed1/react-native-blur`       | `>=4`              | 界面毛玻璃                                                     |
-| `@unif/react-native-design`           | `>=0.26.0`         | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()`      |
+| `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面 |
+| `@unif/react-native-design`           | `^0.35.0`          | 图标(`Icon`)、按钮、字号/字重与颜色 token、缩放工具 `r()`      |
+
+从 Camera 5 升级到 6 时，React 使用 19.2.3 至 19.x，Design 升级至 0.35.x，安装
+`@callstack/liquid-glass`，并在 iOS 重新执行 `pod install`。其他依赖不再使用
+`@sbaiahmed1/react-native-blur` 时，可将旧包移除。Camera 的拍摄 API 保持不变。
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,
@@ -191,7 +195,7 @@ cd ios && bundle exec pod install
 ```
 
 :::warning 安装本库或升级原生包后必跑 pod install
-本库自身含 Codegen TurboModule；`react-native-vision-camera`、`@shopify/react-native-skia`、`@dr.pogodin/react-native-fs`、`react-native-video`(7.x)也含原生代码。安装或升级后都需重新 `pod install`,否则运行时或编译期会报模块/符号缺失。
+本库自身含 Codegen TurboModule；`react-native-vision-camera`、`@shopify/react-native-skia`、`@dr.pogodin/react-native-fs`、`react-native-video`(7.x)和 `@callstack/liquid-glass` 也含原生代码。安装或升级后都需重新 `pod install`,否则运行时或编译期会报模块/符号缺失。
 :::
 
 完成后用 Xcode 或 `npx react-native run-ios` 重新编译运行。
@@ -204,16 +208,16 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 
 ## 5. 弹窗 / Toast 无需额外挂载 Host
 
-相机的**二次确认弹窗 / Toast 是内部自洽的** —— 由相机 Modal 子树内的本地弹窗系统(`CameraDialogHost`)渲染,**不依赖** `@unif/react-native-design` 的全局 `ConfirmHost` / `ToastHost`。因此接入本库时:
+相机在 Modal 子树内挂载 Design 的 `ConfirmHost`，并管理本轮 Toast 提示。因此接入本库时:
 
 - **无需为相机在 App 根挂 `<ConfirmHost />` / `<ToastHost />`** —— 切模式 / 放弃拍摄的确认弹窗、保存提示 Toast 都直接显示在相机之上,开箱即用。
 - 取景窗口保持物理暗色；控件使用局部暗色配色，并继承有效的 Design 字号设置，消费者可通过自己的 `ThemeProvider` 配置。
 
-:::note 为什么相机要用本地弹窗
-相机是全屏 RN `<Modal>`。design 的 `ConfirmHost` / `ToastHost` 挂在消费者 App 根节点,而 App 根的弹窗 / Toast **无法叠加到已经 present 的相机 Modal 之上**(会被相机盖住)。所以相机内部改用挂在相机 Modal 子树里的高 `zIndex` 浮层渲染确认弹窗 / Toast,确保正常显示。
+:::note 为什么宿主要挂在相机窗口内
+相机是全屏 RN `<Modal>`。相机内部的 Design `ConfirmHost` 负责本轮确认，并在本轮结束时释放未完成的请求；Toast 提示也在这个窗口内呈现。
 
 > 这是本库自身的设计;若你在**相机之外**使用 design 的命令式 `confirm` / `toast`,仍需按 design 文档在 App 根挂 `ConfirmHost` / `ToastHost`。
-> :::
+:::
 
 ---
 

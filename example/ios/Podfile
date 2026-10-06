@@ -35,5 +35,19 @@ target 'ReactNativeCameraExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # CocoaPods 的资源 bundle 会保留依赖自己的最低版本（如 RNSVG 的 12.4）。
+    # 对齐 RN 的最低版本，避免 Xcode 27 拒绝这些 target；保留已更高的要求。
+    minimum_ios_version = min_ios_version_supported
+    installer.pods_project.native_targets.each do |target|
+      next unless target.product_type == 'com.apple.product-type.bundle'
+
+      target.build_configurations.each do |config|
+        current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if current && Gem::Version.new(current) < Gem::Version.new(minimum_ios_version)
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = minimum_ios_version
+        end
+      end
+    end
   end
 end
