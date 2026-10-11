@@ -18,7 +18,6 @@ export const makePreviewBottomStyles = () =>
       columnGap: r(40),
     },
     item: { alignItems: 'center', rowGap: r(7) },
-    itemDisabled: { opacity: 0.45 },
     circle: {
       // trash(垃圾桶,3 条 stroke)在小尺寸会挤一起糊成一团 → 图标 r(26) 取清晰,
       // 圆盘相应放大到 r(56) 让图标透气(见上 Icon size)。
@@ -28,7 +27,9 @@ export const makePreviewBottomStyles = () =>
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: StyleSheet.hairlineWidth,
+      overflow: 'hidden',
     },
+    circleGlass: { borderRadius: r(999) },
     label: {
       fontSize: t.xxs,
       fontWeight: fw.medium,

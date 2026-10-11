@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import {
+  GlassLayer,
   r,
   type as t,
   useThemedStyles,
@@ -38,6 +39,11 @@ export function RecordingTimer({ seconds }: { seconds: number }) {
   }, [blink]);
   return (
     <View style={styles.pill} testID="recording-timer">
+      <GlassLayer
+        colorScheme="dark"
+        tintColor={VIEWFINDER.recordingTint}
+        style={styles.glass}
+      />
       <Animated.View style={[styles.dot, { opacity: blink }]} />
       <Text style={styles.text}>{formatDuration(seconds)}</Text>
     </View>
@@ -53,9 +59,9 @@ const makeStyles = (c: ColorTokens) =>
       paddingVertical: r(6),
       paddingHorizontal: r(14),
       borderRadius: r(999),
-      // 录制态药丸底:录制红 18% alpha 物理 tint(与 dot 同色系,无对应 design token)。
-      backgroundColor: VIEWFINDER.recordingTint,
+      overflow: 'hidden',
     },
+    glass: { borderRadius: r(999) },
     dot: {
       width: r(8),
       height: r(8),

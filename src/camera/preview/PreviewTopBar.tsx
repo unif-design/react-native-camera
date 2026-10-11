@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  GlassLayer,
   r,
   fw,
   type as t,
@@ -39,6 +40,7 @@ export function PreviewTopBar({
     <View style={rootStyle}>
       {types.length > 0 && (
         <View style={styles.tabs}>
+          <GlassLayer colorScheme="dark" style={styles.glass} />
           {types.map((ty) => {
             const sel = ty === activeType;
             const disabled = sel || tabsDisabled;
@@ -81,8 +83,9 @@ const makeStyles = (c: ColorTokens) =>
       gap: r(4),
       padding: r(4),
       borderRadius: r(999),
-      backgroundColor: c.glassPillBorder,
+      overflow: 'hidden',
     },
+    glass: { borderRadius: r(999) },
     tab: {
       paddingVertical: r(7),
       paddingHorizontal: r(16),

@@ -16,6 +16,7 @@ import {
 import { useCameraDevice, type DeviceFilter } from 'react-native-vision-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  GlassLayer,
   r,
   type as t,
   fw,
@@ -536,8 +537,8 @@ export function Container({
               pointerEvents="none"
               testID="burning"
             >
-              {/* 半透明黑玻璃卡片托住 spinner+文字:浮在任意照片上都清晰、更精致(系统相机式 loading)。 */}
               <View style={styles.burningCard}>
+                <GlassLayer colorScheme="dark" style={styles.burningGlass} />
                 <Loading size={r(40)} color="#fff" thickness={r(3)} />
                 <Text style={styles.burningText}>水印生成中…</Text>
               </View>
@@ -659,15 +660,16 @@ const makeStyles = (c: ColorTokens) =>
       justifyContent: 'center',
       zIndex: Z.overlay,
     },
-    // 半透明黑玻璃卡片:托住 spinner+文字,任意照片上清晰、有质感(底色物理常量见 viewfinder)。
+    // 生成提示只更新装饰表面；定格与媒体处理仍由原拍摄操作负责。
     burningCard: {
       alignItems: 'center',
       gap: r(14),
       paddingVertical: r(24),
       paddingHorizontal: r(36),
       borderRadius: r(18),
-      backgroundColor: VIEWFINDER.loadingCard,
+      overflow: 'hidden',
     },
+    burningGlass: { borderRadius: r(18) },
     // 文字加大(t.sm→t.body)+ 中等字重,比原来更醒目。
     burningText: {
       color: c.foreground,

@@ -11,16 +11,15 @@ export const makeDialogStyles = () =>
       alignItems: 'center',
       zIndex: 101,
     },
-    // toast 浮在相机/预览深色之上:配色走 dark token —— color=c.foreground(#fff)、
-    // 底=c.scrim(rgba(0,0,0,0.7))。相机 Modal forceScheme="dark" 恒为深色胶囊,
-    // 不会在浅色态变浅看不清(color/bg 内联设置,见 JSX)。
+    // 材质固定深色，平台及减少透明度回退由 Design 提供。
     toast: {
       paddingHorizontal: r(16),
       paddingVertical: r(10),
       borderRadius: r(10),
       overflow: 'hidden',
-      fontSize: t.sm,
     },
+    toastGlass: { borderRadius: r(10) },
+    toastText: { fontSize: t.sm },
     // 顶部错误条接 safe-area；Design 确认使用上层 native Modal。
     errorWrap: {
       position: 'absolute',
@@ -29,13 +28,14 @@ export const makeDialogStyles = () =>
       zIndex: 99,
     },
     errorBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: r(8),
       paddingHorizontal: r(14),
       paddingVertical: r(10),
       borderRadius: r(12),
+      borderWidth: StyleSheet.hairlineWidth,
+      overflow: 'hidden',
     },
+    errorGlass: { borderRadius: r(12) },
+    errorContent: { flexDirection: 'row', alignItems: 'center', gap: r(8) },
     // flex:1 + numberOfLines=1 → 长 message 单行省略,不撑破横条。
     errorText: { flex: 1, fontSize: t.sm, fontWeight: fw.medium },
   });

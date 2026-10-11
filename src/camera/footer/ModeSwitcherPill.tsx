@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import {
+  GlassLayer,
   r,
   fw,
   type as t,
@@ -64,6 +65,7 @@ export function ModeSwitcherPill({
       testID="mode-switcher-wrap"
       onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)}
     >
+      <GlassLayer colorScheme="dark" style={styles.glass} />
       {itemW > 0 && (
         <Animated.View
           style={[
@@ -95,7 +97,14 @@ export function ModeSwitcherPill({
 
 const makeStyles = (c: ColorTokens) =>
   StyleSheet.create({
-    wrap: { flexDirection: 'row', alignSelf: 'center', position: 'relative' },
+    wrap: {
+      flexDirection: 'row',
+      alignSelf: 'center',
+      position: 'relative',
+      borderRadius: r(999),
+      overflow: 'hidden',
+    },
+    glass: { borderRadius: r(999) },
     slider: {
       position: 'absolute',
       top: r(4),
