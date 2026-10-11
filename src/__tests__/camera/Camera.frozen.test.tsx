@@ -34,8 +34,8 @@ const useMicrophonePermissionMock = jest.mocked(
   VisionCamera.useMicrophonePermission
 );
 
-// 定格帧:烧水印期间 Container 透传 frozenUri,Camera 在取景框内盖刚拍原图防黑屏。
-// 直接渲染 <Camera>(绕过 Container),isActive=false 对齐烧水印时停取景。
+// 定格帧:照片处理期间 Container 透传 frozenUri,Camera 在仍活跃的取景框上盖刚拍原图。
+// 直接渲染 <Camera>(绕过 Container)，验证静态帧不依赖暂停相机会话。
 const singleMode: CameraModeOptions = { mode: 'single' };
 const videoMode: CameraModeOptions = { mode: 'video' };
 const frame = { x: 0, y: 0, width: 390, height: 520 };
@@ -48,7 +48,7 @@ function renderCamera(frozenUri?: string) {
       currentMode={singleMode}
       frame={frame}
       animatedFrame={animatedFrame}
-      isActive={false}
+      isActive
       frozenUri={frozenUri}
     />
   );

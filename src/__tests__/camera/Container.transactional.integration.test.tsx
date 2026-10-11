@@ -1,5 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
-import { AppState } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import type { CameraDevice } from 'react-native-vision-camera';
 import type { CameraHandle, VideoCallbacks } from '../../camera/Camera';
 import { Container } from '../../camera/Container';
@@ -29,6 +29,7 @@ type MockCameraProps = {
   currentMode: CameraModeOptions;
   aspectRatio?: '4:3' | '16:9';
   isActive?: boolean;
+  frozenUri?: string | null;
   flash?: 'auto' | 'on' | 'off';
   sound?: boolean;
   enableZoom?: boolean;
@@ -689,3 +690,106 @@ it('routes the registered recording cancel bridge through confirmation and nativ
   expect(mockCancelVideo).toHaveBeenCalledTimes(1);
   expect(harness.onSettle).toHaveBeenCalledWith({ status: 'cancelled' });
 });
+
+describe.each(['front', 'back'] as const)(
+  '%s continuous capture',
+  (position) => {
+    it.each(['success', 'failure'] as const)(
+      'keeps the live session active during processing and accepts another photo after %s',
+      async (outcome) => {
+        const raw = makePhotoFile({
+          id: 'crop-raw',
+          path: '/crop-raw.jpg',
+          uri: 'file:///crop-raw.jpg',
+          width: 1440,
+          height: 1920,
+          facing: position,
+          mode: 'continuous',
+        });
+        const final = makePhotoFile({
+          ...raw,
+          id: 'crop-final',
+          path: '/crop-final.jpg',
+          uri: 'file:///crop-final.jpg',
+          width: 1080,
+        });
+        const processing = deferred<CapturedFile>();
+        mockCapture.mockResolvedValueOnce(raw);
+        processPhotoMock.mockReturnValueOnce(processing.promise);
+        let appStateChanged: ((state: AppStateStatus) => void) | undefined;
+        jest
+          .spyOn(AppState, 'addEventListener')
+          .mockImplementation((event, cb) => {
+            if (event === 'change')
+              appStateChanged = cb as typeof appStateChanged;
+            return { remove: jest.fn() };
+          });
+        const harness = renderContainer({
+          modes: [{ mode: 'continuous', quality: 0.7 }],
+          retention: 'clear',
+          initialFacing: position,
+        });
+        configureLatest();
+        const instanceId = latestCamera().instanceId;
+
+        fireEvent.press(harness.getByTestId('shutter-btn'));
+        await flushMicrotasks();
+
+        expect(processPhotoMock).toHaveBeenCalledTimes(1);
+        expect(latestCamera().props.frozenUri).toBe(raw.uri);
+        expect(latestCamera().props.isActive).toBe(true);
+        expect(harness.queryByTestId('preview-overlay')).toBeNull();
+        expect(
+          harness.getByTestId('shutter-btn').props.accessibilityState.disabled
+        ).toBe(true);
+        fireEvent.press(harness.getByTestId('shutter-btn'));
+        expect(mockCapture).toHaveBeenCalledTimes(1);
+
+        // 文件处理不能绕过 App 后台停用；回前台后忙态仍由原事务维护。
+        expect(appStateChanged).toBeDefined();
+        act(() => appStateChanged?.('background'));
+        expect(latestCamera().props.isActive).toBe(false);
+        act(() => appStateChanged?.('active'));
+        expect(latestCamera().props.isActive).toBe(true);
+        expect(latestCamera().props.frozenUri).toBe(raw.uri);
+
+        await act(async () => {
+          if (outcome === 'success') processing.resolve(final);
+          else processing.reject(new Error('encode failed'));
+        });
+        await flushMicrotasks();
+
+        expect(latestCamera().instanceId).toBe(instanceId);
+        expect(latestCamera().props.isActive).toBe(true);
+        expect(latestCamera().props.frozenUri).toBeNull();
+        expect(harness.queryByTestId('preview-overlay')).toBeNull();
+        expect(
+          harness.getByTestId('shutter-btn').props.accessibilityState.disabled
+        ).toBe(false);
+        if (outcome === 'failure') {
+          expect(
+            harness.getByText('相机异常:照片处理失败,请重试')
+          ).toBeTruthy();
+        }
+
+        const next = makePhotoFile({
+          id: 'next-photo',
+          path: '/next-photo.jpg',
+          uri: 'file:///next-photo.jpg',
+          mode: 'continuous',
+        });
+        await captureWithoutProcessing(harness, next);
+        expect(mockCapture).toHaveBeenCalledTimes(2);
+        expect(latestCamera().props.isActive).toBe(true);
+        fireEvent.press(harness.getByTestId('side-save-btn'));
+        expect(harness.onSettle).toHaveBeenCalledWith({
+          status: 'success',
+          media: [
+            ...(outcome === 'success' ? [final] : []),
+            expect.objectContaining({ path: next.path, facing: position }),
+          ],
+        });
+      }
+    );
+  }
+);
