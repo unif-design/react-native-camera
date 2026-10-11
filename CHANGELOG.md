@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.1](https://github.com/unif-design/react-native-camera/compare/v5.2.0...v5.2.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **camera:** preserve capture preview and unify glass controls ([#133](https://github.com/unif-design/react-native-camera/issues/133)) ([e148e6f](https://github.com/unif-design/react-native-camera/commit/e148e6fa74f28d1263171f8b2046075512c00f26))
+
 # [5.2.0](https://github.com/unif-design/react-native-camera/compare/v5.1.0...v5.2.0) (2026-10-06)
 
 
