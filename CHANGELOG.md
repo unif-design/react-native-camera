@@ -1,5 +1,19 @@
 # Changelog
 
+# [6.0.0](https://github.com/unif-design/react-native-camera/compare/v5.3.0...v6.0.0) (2026-10-11)
+
+
+### Features
+
+* **icons:** consume named icon components ([d946ce2](https://github.com/unif-design/react-native-camera/commit/d946ce237750ddfa596bd1172a45735f0c79a422))
+
+
+### BREAKING CHANGES
+
+* **icons:** 宿主必须安装 `@unif/react-native-design >=1.0.0` 和 `@unif/react-native-icons >=0.1.0`。
+
+验证：正式依赖安装后的类型检查、Lint、81 suites / 759 tests、Bob 构建、文档生成器测试、Website 类型和构建均通过。本次未运行手机验收；原生构建由 PR CI 独立验证。
+
 # [5.3.0](https://github.com/unif-design/react-native-camera/compare/v5.2.1...v5.3.0) (2026-10-11)
 
 
