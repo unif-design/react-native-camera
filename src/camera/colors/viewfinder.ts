@@ -1,10 +1,9 @@
 // 相机取景物理常量:design dark token 无法表达的少数值。
-// 取景永远纯黑(letterbox);控件玻璃药丸浮在明亮画面上需半透明黑底
-// (design glass token 是半透明白,给深色界面用,此处不适用);录制红用 iOS 标准色。
+// 取景永远纯黑(letterbox);控件共用 GlassLayer 的半透明黑 tint，兼顾明亮画面上的
+// 对比度及不支持原生玻璃时的降级背景；录制红用 iOS 标准色。
 export const VIEWFINDER = {
   black: '#000',
   glassPill: 'rgba(0,0,0,0.42)',
-  glassPillStrong: 'rgba(0,0,0,0.45)',
   // 「生成中」loading 卡片底:比控件玻璃药丸(glassPill)更实 —— 要托住 spinner+大字、浮在
   // 任意照片上都清晰(design glass token 是半透明白,深色相机界面不适用,同 glassPill 理由)。
   loadingCard: 'rgba(0,0,0,0.6)',

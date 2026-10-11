@@ -1,3 +1,4 @@
+import { VIEWFINDER } from '../../../camera/colors/viewfinder';
 import { fireEvent } from '@testing-library/react-native';
 import { renderDark } from '../../__helpers__/renderDark';
 import { SideActions } from '../../../camera/setup/SideActions';
@@ -61,4 +62,16 @@ it('返回和保存暴露中文 label、button role 与各自 capability', () =>
   );
   expect(getByRole('button', { name: '返回', disabled: true })).toBeTruthy();
   expect(getByRole('button', { name: '保存', disabled: true })).toBeTruthy();
+});
+
+it('返回保存组使用不拦截触摸的暗色玻璃背景', () => {
+  const { getByTestId } = renderDark(
+    <SideActions canSave={false} onBack={() => {}} onSave={() => {}} />
+  );
+  const glass = getByTestId('side-actions-glass', {
+    includeHiddenElements: true,
+  });
+  expect(glass.props.tintColor).toBe(VIEWFINDER.glassPill);
+  expect(glass.props.pointerEvents).toBe('none');
+  expect(glass).toHaveStyle({ backgroundColor: VIEWFINDER.glassPill });
 });

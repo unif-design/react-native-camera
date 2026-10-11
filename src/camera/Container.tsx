@@ -424,10 +424,10 @@ export function Container({
                   currentMode={currentMode}
                   frame={frame}
                   animatedFrame={animatedFrame}
-                  // 取景仅在 App 前台且非烧录/预览态时活。Preview 作为覆盖层保留已配置
-                  // Camera，返回/重拍/删末张后无需等待一次新的 native attach/configure。
-                  isActive={appActive && !photo.burning && preview == null}
-                  // 烧水印期间盖刚拍原图防黑屏(isActive=false 取景已停,被它盖住);见顺滑回看 spec。
+                  // 文件处理只覆盖定格图，不停启相机会话：处理结束撤图时，实时取景仍在。
+                  // App 后台和成片预览才暂停；Preview 保留已配置 Camera，返回无需重新 attach。
+                  isActive={appActive && preview == null}
+                  // 裁切/水印期间展示刚拍的原图；操作仍由 controller 忙态统一拦截。
                   frozenUri={photo.freezeUri}
                   flash={flash}
                   aspectRatio={aspectRatio}

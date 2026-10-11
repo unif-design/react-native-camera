@@ -1,5 +1,5 @@
 import { StyleSheet, TouchableOpacity } from 'react-native';
-import { Icon, r, useColors } from '@unif/react-native-design';
+import { GlassLayer, Icon, r, useColors } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
 
 export function FlipButton({
@@ -20,6 +20,12 @@ export function FlipButton({
       accessibilityLabel="切换前后摄像头"
       accessibilityState={{ disabled }}
     >
+      <GlassLayer
+        testID="flip-glass"
+        effect="clear"
+        tintColor={VIEWFINDER.glassPill}
+        style={styles.glass}
+      />
       {/* camera-flip(相机机身 + 机内循环箭头)= 系统相机「前后摄切换」通用形态,
           比抽象的 lens-flip(圆镜头 + 环绕弧箭头)更直白;机内箭头细小,size 给 r(22) 保清晰。 */}
       <Icon name="camera-flip" size={r(22)} color={c.foreground} />
@@ -27,14 +33,13 @@ export function FlipButton({
   );
 }
 
-// 背景用取景物理常量 VIEWFINDER.glassPill(半透明黑):控件浮在明亮实拍画面上,
-// design 的 glass token 是半透明白(给深色界面用),在亮画面上几乎不可见。
 const styles = StyleSheet.create({
+  glass: { borderRadius: r(22) },
   btn: {
     width: r(44),
     height: r(44),
     borderRadius: r(22),
-    backgroundColor: VIEWFINDER.glassPill,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

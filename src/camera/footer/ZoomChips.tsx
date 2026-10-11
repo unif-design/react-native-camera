@@ -16,6 +16,7 @@ import {
   type as t,
   useThemedStyles,
   useColors,
+  GlassLayer,
   type ColorTokens,
 } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
@@ -59,6 +60,12 @@ export function ZoomChips({
   return (
     <View style={styles.container}>
       <View style={styles.row}>
+        <GlassLayer
+          testID="zoom-glass"
+          effect="clear"
+          tintColor={VIEWFINDER.glassPill}
+          style={styles.glass}
+        />
         {stops.map((stop) => (
           <ZoomChip
             key={stop}
@@ -157,8 +164,9 @@ const makeStyles = (c: ColorTokens) =>
       gap: r(8),
       padding: r(4),
       borderRadius: r(999),
-      backgroundColor: VIEWFINDER.glassPillStrong,
+      overflow: 'hidden',
     },
+    glass: { borderRadius: r(999) },
     chip: {
       width: r(36),
       height: r(36),

@@ -11,11 +11,12 @@ it('fires onFlip', () => {
   expect(onFlip).toHaveBeenCalled();
 });
 
-it('背景用 VIEWFINDER.glassPill(半透明黑,浮在明亮取景画面上可见;非 design 主题白 glass)', () => {
+it('切换按钮使用不拦截触摸的暗色玻璃背景', () => {
   const { getByTestId } = renderDark(<FlipButton onFlip={() => {}} />);
-  expect(getByTestId('flip-btn')).toHaveStyle({
-    backgroundColor: VIEWFINDER.glassPill,
-  });
+  const glass = getByTestId('flip-glass', { includeHiddenElements: true });
+  expect(glass.props.tintColor).toBe(VIEWFINDER.glassPill);
+  expect(glass.props.pointerEvents).toBe('none');
+  expect(glass).toHaveStyle({ backgroundColor: VIEWFINDER.glassPill });
 });
 
 it('icon-only 按钮有可访问标签', () => {

@@ -1,3 +1,4 @@
+import { VIEWFINDER } from '../../../camera/colors/viewfinder';
 import { fireEvent } from '@testing-library/react-native';
 import { renderDark } from '../../__helpers__/renderDark';
 import { SideRail } from '../../../camera/setup/SideRail';
@@ -134,4 +135,12 @@ it('SideRail capability 同时驱动 native 与 accessibility disabled', () => {
       disabled: true,
     })
   ).toBeTruthy();
+});
+
+it('左侧功能组使用不拦截触摸的暗色玻璃背景', () => {
+  const { getByTestId } = renderDark(<SideRail {...base} />);
+  const glass = getByTestId('side-rail-glass', { includeHiddenElements: true });
+  expect(glass.props.tintColor).toBe(VIEWFINDER.glassPill);
+  expect(glass.props.pointerEvents).toBe('none');
+  expect(glass).toHaveStyle({ backgroundColor: VIEWFINDER.glassPill });
 });
