@@ -1,4 +1,5 @@
-import type { IconName } from '@unif/react-native-design';
+import type { ComponentType } from 'react';
+import type { IconProps } from '@unif/react-native-icons';
 
 export interface PreviewBottomBarProps {
   variant: 'confirm' | 'gallery';
@@ -12,7 +13,7 @@ export interface PreviewBottomBarProps {
 }
 
 export interface PreviewActionButtonProps {
-  icon: IconName;
+  icon: ComponentType<IconProps>;
   label: string;
   tone: 'primary' | 'danger' | 'neutral';
   onPress: () => void;

@@ -13,7 +13,7 @@ description: '安装依赖，配置原生权限、构建环境与宿主接线。
 | 要求         | 版本                                      |
 | ------------ | ----------------------------------------- |
 | React Native | **0.86+**(仅新架构 Fabric + TurboModules) |
-| React        | `>=19.2.3 <20.0.0`                         |
+| React        | `>=19.2.3 <20.0.0`                        |
 | iOS          | 15.1+                                     |
 | Android      | API 24+(Android 7.0)                      |
 
@@ -40,7 +40,7 @@ yarn add @unif/react-native-camera \
   @shopify/react-native-skia @dr.pogodin/react-native-fs react-native-video \
   react-native-reanimated react-native-worklets react-native-reanimated-carousel \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
-  @callstack/liquid-glass @unif/react-native-design
+  @callstack/liquid-glass @unif/react-native-design @unif/react-native-icons
 ```
 
 :::
@@ -61,15 +61,16 @@ yarn add @unif/react-native-camera \
 | `react-native-reanimated-carousel`    | `>=5.0.0 <6.0.0`   | 预览页轮播                                                     |
 | `react-native-gesture-handler`        | `>=3.0.0 <4.0.0`   | pinch 变焦 / 对焦手势                                          |
 | `react-native-safe-area-context`      | `>=5.0.0`          | 安全区适配                                                     |
-| `react-native-svg`                    | `>=15`             | 矢量绘制(design `Icon` 等)                                     |
-| `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面 |
-| `@unif/react-native-design`           | `>=0.41.0`          | 系统玻璃与回退表面、图标、按钮、主题 token 和缩放工具      |
+| `react-native-svg`                    | `>=15`             | 矢量绘制（Icons 组件与其他 SVG）                               |
+| `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面    |
+| `@unif/react-native-icons`            | `>=0.1.0`          | 独立命名图标组件                                               |
+| `@unif/react-native-design`           | `>=1.0.0`          | 系统玻璃与回退表面、按钮、主题 token 和缩放工具                |
 
 从 Camera 5.0 升级到 5.1 时，React 使用 19.2.3 至 19.x，Design 升级至 0.35.x，安装
 `@callstack/liquid-glass`，并在 iOS 重新执行 `pod install`。其他依赖不再使用
 `@sbaiahmed1/react-native-blur` 时，可将旧包移除。Camera 的拍摄 API 保持不变。
 
-当前版本要求 Design `>=0.41.0`，以统一控件、预览操作和局部提示的系统材质，并支持系统“减少透明度”实色回退。
+当前版本要求 Design `>=1.0.0`，以统一控件、预览操作和局部提示的系统材质，并支持系统“减少透明度”实色回退。
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,
@@ -219,7 +220,7 @@ Android 端无需额外配置,Gradle 自动同步。直接 `npx react-native run
 相机是全屏 RN `<Modal>`。相机内部的 Design `ConfirmHost` 负责本轮确认，并在本轮结束时释放未完成的请求；Toast 提示也在这个窗口内呈现。
 
 > 这是本库自身的设计;若你在**相机之外**使用 design 的命令式 `confirm` / `toast`,仍需按 design 文档在 App 根挂 `ConfirmHost` / `ToastHost`。
-:::
+> :::
 
 ---
 

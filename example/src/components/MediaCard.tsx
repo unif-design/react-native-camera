@@ -1,9 +1,9 @@
+import { ImageOutlined, PlayOutlined } from '@unif/react-native-icons';
 import { useState, type ReactElement } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import {
   Card,
   Empty,
-  Icon,
   fw,
   r,
   rf,
@@ -85,7 +85,7 @@ export function MediaCard({ media }: MediaCardProps): ReactElement {
           <Empty
             title="临时照片预览已失效"
             desc="文件可能已被系统清理；生产业务应及时复制或上传。"
-            icon="image"
+            icon={ImageOutlined}
             style={styles.imageEmpty}
             testID={`media-empty-${media.id}`}
           />
@@ -100,8 +100,7 @@ export function MediaCard({ media }: MediaCardProps): ReactElement {
           />
         ) : (
           <View style={styles.videoPreview}>
-            <Icon
-              name="play"
+            <PlayOutlined
               size={r(30)}
               color={colors.foregroundMuted}
               testID={`media-video-icon-${media.id}`}

@@ -1,3 +1,4 @@
+import { PermissionDeniedOutlined } from '@unif/react-native-icons';
 import { StyleSheet, View } from 'react-native';
 import {
   Button,
@@ -14,7 +15,7 @@ export function NoPermission({ onCancel, onOpenSettings }: Props) {
   return (
     <View style={styles.root} testID="no-permission">
       <Empty
-        icon="permission-denied"
+        icon={PermissionDeniedOutlined}
         title="相机权限被拒"
         desc="请前往系统设置开启权限"
       />

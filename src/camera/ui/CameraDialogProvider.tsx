@@ -1,3 +1,4 @@
+import { CloseOutlined, WarningOutlined } from '@unif/react-native-icons';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, {
@@ -10,7 +11,6 @@ import {
   ConfirmHost,
   confirm as confirmWithDesign,
   GlassLayer,
-  Icon,
   r,
   useColors,
   useThemedStyles,
@@ -135,7 +135,7 @@ export function CameraDialogProvider({ children }: CameraDialogProviderProps) {
               collapsable={false}
               style={[styles.errorContent, errorForegroundStyle]}
             >
-              <Icon name="warning" size={r(18)} color={c.error} />
+              <WarningOutlined size={r(18)} color={c.error} />
               <Text
                 style={[styles.errorText, { color: c.foreground }]}
                 numberOfLines={1}
@@ -151,7 +151,7 @@ export function CameraDialogProvider({ children }: CameraDialogProviderProps) {
                 accessibilityLabel="关闭错误提示"
                 testID="camera-error-close"
               >
-                <Icon name="close" size={r(18)} color={c.foreground} />
+                <CloseOutlined size={r(18)} color={c.foreground} />
               </Pressable>
             </Animated.View>
           </View>

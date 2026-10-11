@@ -1,3 +1,4 @@
+import { ArrowLeftOutlined } from '@unif/react-native-icons';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,7 +54,7 @@ export function ShowcaseScaffold({
         left={
           onBack
             ? {
-                icon: 'arrow-left',
+                icon: ArrowLeftOutlined,
                 onPress: onBack,
                 accessibilityLabel: '返回',
               }

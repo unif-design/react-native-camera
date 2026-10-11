@@ -1,3 +1,11 @@
+import {
+  CameraOutlined,
+  ListOutlined,
+  SettingsOutlined,
+  ShieldCheckOutlined,
+} from '@unif/react-native-icons';
+import type { ComponentType } from 'react';
+import type { IconProps } from '@unif/react-native-icons';
 import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
@@ -7,7 +15,6 @@ import {
   rf,
   useThemedStyles,
   type ColorTokens,
-  type IconName,
 } from '@unif/react-native-design';
 
 import { ResultHistory } from '../components/ResultHistory';
@@ -23,7 +30,7 @@ export type HomeScreenProps = {
 type Entry = {
   title: string;
   sub: string;
-  icon: IconName;
+  icon: ComponentType<IconProps>;
   route: Exclude<ShowcaseRoute, { name: 'home' }>;
 };
 
@@ -31,25 +38,25 @@ const entries: readonly Entry[] = [
   {
     title: '基础拍摄',
     sub: '单拍、连拍或录像',
-    icon: 'camera',
+    icon: CameraOutlined,
     route: { name: 'basic-capture' },
   },
   {
     title: '多模式',
     sub: '比较 clear 与 retain',
-    icon: 'list',
+    icon: ListOutlined,
     route: { name: 'multi-mode' },
   },
   {
     title: '水印存证',
     sub: '把可见信息烧入照片',
-    icon: 'shield-check',
+    icon: ShieldCheckOutlined,
     route: { name: 'watermark-evidence' },
   },
   {
     title: '质量实验室',
     sub: '显式参数与 SDK 默认',
-    icon: 'settings',
+    icon: SettingsOutlined,
     route: { name: 'quality-lab' },
   },
 ];

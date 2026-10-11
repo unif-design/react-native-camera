@@ -6318,7 +6318,8 @@ __metadata:
     "@shopify/react-native-skia": "npm:^2.6.4"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:>=0.41.0"
+    "@unif/react-native-design": "npm:>=1.0.0"
+    "@unif/react-native-icons": "npm:>=0.1.0"
     react: "npm:19.2.3"
     react-native: "npm:0.86.3"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6353,7 +6354,8 @@ __metadata:
     "@react-native/metro-config": "npm:0.86.3"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:>=0.41.0"
+    "@unif/react-native-design": "npm:>=1.0.0"
+    "@unif/react-native-icons": "npm:>=0.1.0"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:19.2.3"
@@ -6392,7 +6394,8 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:>=0.41.0"
+    "@unif/react-native-design": "npm:>=1.0.0"
+    "@unif/react-native-icons": "npm:>=0.1.0"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^8.57.1"
@@ -6426,7 +6429,8 @@ __metadata:
     "@callstack/liquid-glass": ">=0.8.2 <0.9.0"
     "@dr.pogodin/react-native-fs": ">=2"
     "@shopify/react-native-skia": ">=2"
-    "@unif/react-native-design": ">=0.41.0"
+    "@unif/react-native-design": ">=1.0.0"
+    "@unif/react-native-icons": ">=0.1.0"
     react: ">=19.2.3 <20.0.0"
     react-native: ">=0.86.0"
     react-native-gesture-handler: ">=3.0.0 <4.0.0"
@@ -6444,11 +6448,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:>=0.41.0":
-  version: 0.41.0
-  resolution: "@unif/react-native-design@npm:0.41.0"
+"@unif/react-native-design@npm:>=1.0.0":
+  version: 1.0.0
+  resolution: "@unif/react-native-design@npm:1.0.0"
+  dependencies:
+    react-is: "npm:^19.2.8"
   peerDependencies:
     "@callstack/liquid-glass": ">=0.8.2 <0.9.0"
+    "@unif/react-native-icons": ">=0.1.0"
     react: ">=19.2.3 <20.0.0"
     react-native: ">=0.86.0"
     react-native-gesture-handler: ">=3.0.0 <4.0.0"
@@ -6457,7 +6464,18 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.11.0 <0.13.0"
-  checksum: 10c0/c3739bc69690c17b587b017a18eb1750b1d79104673e5194bcbbf299c4abc83bcf4a72e99fc84131025c96fad947d46fe9adf8b3bbde08b9c9e688ef365c84d3
+  checksum: 10c0/3f19a49eafe361bd84804f2a1c49a915e198963f669d2cf6213dfdddc75cc646ff0383ae0596366e28d1a43d5c64e80f4bd6c486d74c961cf9bba34993bfc909
+  languageName: node
+  linkType: hard
+
+"@unif/react-native-icons@npm:>=0.1.0":
+  version: 0.1.0
+  resolution: "@unif/react-native-icons@npm:0.1.0"
+  peerDependencies:
+    react: ">=19.2.3 <20"
+    react-native: ">=0.86.3 <0.87"
+    react-native-svg: ">=15.15.5 <16"
+  checksum: 10c0/75844575fca1152649bf91aac32815a3f91c795dc4fd8808ae9b399df77a1adee51bc12f78f88999e0de722a659fea878481d47f925d1e8dee327c03de3c169d
   languageName: node
   linkType: hard
 
@@ -17685,6 +17703,13 @@ __metadata:
   version: 16.13.1
   resolution: "react-is@npm:16.13.1"
   checksum: 10c0/33977da7a5f1a287936a0c85639fec6ca74f4f15ef1e59a6bc20338fc73dc69555381e211f7a3529b8150a1f71e4225525b41b60b52965bda53ce7d47377ada1
+  languageName: node
+  linkType: hard
+
+"react-is@npm:^19.2.8":
+  version: 19.3.0
+  resolution: "react-is@npm:19.3.0"
+  checksum: 10c0/99b16fc1009222ec0bbe05286566c865908430778ea6ba90dd418c7a11594c6cbb8db58432735b9203e3c6463e3eef5a399df1317ee2d75fd96b3a88cfaa662e
   languageName: node
   linkType: hard
 
