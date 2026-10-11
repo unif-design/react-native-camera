@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
+  GlassLayer,
   Icon,
   r,
   fw,
@@ -11,6 +12,7 @@ import {
 } from '@unif/react-native-design';
 import type { AspectRatio, CameraFlash } from '../../utils';
 import { makeRailStyles } from './railStyles';
+import { VIEWFINDER } from '../colors/viewfinder';
 
 // CameraFlash / AspectRatio 单一来源在 utils/interface.ts(公开 API 类型);这里 re-export 供 setup/camera barrel 透出。
 export type { AspectRatio, CameraFlash };
@@ -58,6 +60,12 @@ export function SideRail({
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.rail}>
+      <GlassLayer
+        testID="side-rail-glass"
+        effect="clear"
+        tintColor={VIEWFINDER.glassPill}
+        style={styles.glass}
+      />
       <TouchableOpacity
         testID="aspect-btn"
         style={styles.btn}

@@ -1,5 +1,6 @@
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
+  GlassLayer,
   Icon,
   r,
   useColors,
@@ -7,6 +8,7 @@ import {
   type ColorTokens,
 } from '@unif/react-native-design';
 import { makeRailStyles } from './railStyles';
+import { VIEWFINDER } from '../colors/viewfinder';
 
 type Props = {
   /** 有照片时「保存」可点(橙底);无照片时保存常显但置灰 disabled。 */
@@ -30,6 +32,12 @@ export function SideActions({
   const saveDisabled = !canSave;
   return (
     <View style={styles.rail}>
+      <GlassLayer
+        testID="side-actions-glass"
+        effect="clear"
+        tintColor={VIEWFINDER.glassPill}
+        style={styles.glass}
+      />
       <TouchableOpacity
         testID="side-back-btn"
         style={styles.btn}
