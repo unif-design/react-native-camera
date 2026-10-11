@@ -1,5 +1,12 @@
 # Changelog
 
+# [5.3.0](https://github.com/unif-design/react-native-camera/compare/v5.2.1...v5.3.0) (2026-10-11)
+
+
+### Features
+
+* **camera:** use system glass across camera controls ([#134](https://github.com/unif-design/react-native-camera/issues/134)) ([a1587da](https://github.com/unif-design/react-native-camera/commit/a1587dad7f27bf0a2be71a3b0fe71996a2c62f3d))
+
 ## [5.2.1](https://github.com/unif-design/react-native-camera/compare/v5.2.0...v5.2.1) (2026-10-11)
 
 
