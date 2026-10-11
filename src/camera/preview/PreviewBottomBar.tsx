@@ -1,3 +1,9 @@
+import {
+  CheckOutlined,
+  RefreshOutlined,
+  TrashOutlined,
+  UndoOutlined,
+} from '@unif/react-native-icons';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { r, useThemedStyles, useColors } from '@unif/react-native-design';
@@ -33,14 +39,14 @@ export function PreviewBottomBar({
         {variant === 'confirm' ? (
           <>
             <PreviewActionButton
-              icon="refresh"
+              icon={RefreshOutlined}
               label="重拍"
               tone="neutral"
               onPress={onRetake}
               testID="retake-btn"
             />
             <PreviewActionButton
-              icon="check"
+              icon={CheckOutlined}
               label="保存"
               tone="primary"
               onPress={onSave}
@@ -50,14 +56,14 @@ export function PreviewBottomBar({
         ) : (
           <>
             <PreviewActionButton
-              icon="undo"
+              icon={UndoOutlined}
               label="返回"
               tone="neutral"
               onPress={onBack}
               testID="back-btn"
             />
             <PreviewActionButton
-              icon="trash"
+              icon={TrashOutlined}
               label="删除"
               tone="danger"
               onPress={onDelete}

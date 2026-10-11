@@ -1,8 +1,9 @@
+import { UndoOutlined, WarningOutlined } from '@unif/react-native-icons';
 import { useEffect } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { act, fireEvent, userEvent } from '@testing-library/react-native';
-import { GlassLayer, Icon, darkColors } from '@unif/react-native-design';
+import { GlassLayer, darkColors } from '@unif/react-native-design';
 import * as Reanimated from 'react-native-reanimated';
 import { renderDark } from '../__helpers__/renderDark';
 import { FlipButton } from '../../camera/footer/FlipButton';
@@ -56,7 +57,7 @@ test('预览普通操作按压和禁用不使玻璃祖先透明，禁用仍阻�
   const onPress = jest.fn();
   const content = (disabled = false) => (
     <PreviewActionButton
-      icon="undo"
+      icon={UndoOutlined}
       label="返回"
       tone="neutral"
       onPress={onPress}
@@ -96,9 +97,7 @@ test('错误提示在淡入中保持玻璃不透明，并保留告警颜色与�
       </CameraDialogProvider>
     );
     expectOpaqueAncestors(page.UNSAFE_getByType(GlassLayer));
-    const warning = page
-      .UNSAFE_getAllByType(Icon)
-      .find((node) => node.props.name === 'warning');
+    const warning = page.UNSAFE_getByType(WarningOutlined);
     expect(warning?.props.color).toBe(darkColors.error);
     expect(page.getByRole('alert')).toHaveTextContent('相机异常:拍摄失败');
     act(() => jest.advanceTimersByTime(4000));

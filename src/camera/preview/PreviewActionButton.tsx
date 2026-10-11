@@ -1,7 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import {
   GlassLayer,
-  Icon,
   r,
   useColors,
   useThemedStyles,
@@ -11,7 +10,7 @@ import type { PreviewActionButtonProps } from './types';
 
 // 普通操作使用玻璃圆盘；保存和删除保留实色语义，标签位于圆盘外。
 export function PreviewActionButton({
-  icon,
+  icon: Icon,
   label,
   tone,
   onPress,
@@ -47,7 +46,7 @@ export function PreviewActionButton({
               )}
               {/* 玻璃不跟随前景的按压或禁用透明度。 */}
               <View collapsable={false} style={{ opacity }}>
-                <Icon name={icon} size={r(26)} color={c.foreground} />
+                <Icon size={r(26)} color={c.foreground} />
               </View>
             </View>
             <Text style={[styles.label, { color: c.foreground, opacity }]}>

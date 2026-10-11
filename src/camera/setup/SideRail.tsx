@@ -1,14 +1,20 @@
+import {
+  FlashAutoOutlined,
+  FlashOffOutlined,
+  FlashOnOutlined,
+} from '@unif/react-native-icons';
+import { SoundOffOutlined, SoundOutlined } from '@unif/react-native-icons';
+import type { ComponentType } from 'react';
+import type { IconProps } from '@unif/react-native-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   GlassLayer,
-  Icon,
   r,
   fw,
   type as t,
   useColors,
   useThemedStyles,
   type ColorTokens,
-  type IconName,
 } from '@unif/react-native-design';
 import type { AspectRatio, CameraFlash } from '../../utils';
 import { makeRailStyles } from './railStyles';
@@ -26,10 +32,10 @@ type Props = {
   onToggleSound: () => void;
 };
 
-const flashIcon: Record<CameraFlash, IconName> = {
-  off: 'flash-off',
-  on: 'flash-on',
-  auto: 'flash-auto',
+const flashIcon: Record<CameraFlash, ComponentType<IconProps>> = {
+  off: FlashOffOutlined,
+  on: FlashOnOutlined,
+  auto: FlashAutoOutlined,
 };
 
 const FLASH_LABEL: Record<CameraFlash, string> = {
@@ -57,6 +63,8 @@ export function SideRail({
 }: Props) {
   const c = useColors();
   const styles = useThemedStyles(makeStyles);
+  const Glyph2 = sound ? SoundOutlined : SoundOffOutlined;
+  const Glyph = flashIcon[flash];
   return (
     <View style={styles.rail}>
       <GlassLayer
@@ -87,7 +95,7 @@ export function SideRail({
         accessibilityLabel={`切换闪光灯，当前${FLASH_LABEL[flash]}`}
         accessibilityState={{ disabled }}
       >
-        <Icon name={flashIcon[flash]} size={r(20)} color={c.foreground} />
+        <Glyph size={r(20)} color={c.foreground} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -99,11 +107,7 @@ export function SideRail({
         accessibilityLabel={sound ? '关闭快门声音' : '开启快门声音'}
         accessibilityState={{ disabled }}
       >
-        <Icon
-          name={sound ? 'sound' : 'sound-off'}
-          size={r(20)}
-          color={c.foreground}
-        />
+        <Glyph2 size={r(20)} color={c.foreground} />
       </TouchableOpacity>
     </View>
   );

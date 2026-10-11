@@ -1,7 +1,7 @@
+import { CheckOutlined, UndoOutlined } from '@unif/react-native-icons';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
   GlassLayer,
-  Icon,
   r,
   useColors,
   useThemedStyles,
@@ -45,7 +45,7 @@ export function SideActions({
         accessibilityLabel="返回"
         accessibilityState={{ disabled: backDisabled }}
       >
-        <Icon name="undo" size={r(20)} color={c.foreground} />
+        <UndoOutlined size={r(20)} color={c.foreground} />
       </TouchableOpacity>
       <TouchableOpacity
         testID="side-save-btn"
@@ -56,8 +56,7 @@ export function SideActions({
         accessibilityLabel="保存"
         accessibilityState={{ disabled: saveDisabled }}
       >
-        <Icon
-          name="check"
+        <CheckOutlined
           size={r(20)}
           color={canSave ? c.foreground : c.foregroundMuted}
         />

@@ -1,5 +1,6 @@
+import { CameraFlipOutlined } from '@unif/react-native-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { GlassLayer, Icon, r, useColors } from '@unif/react-native-design';
+import { GlassLayer, r, useColors } from '@unif/react-native-design';
 
 export function FlipButton({
   disabled = false,
@@ -28,7 +29,7 @@ export function FlipButton({
           />
           {/* 原生材质的祖先保持不透明，按压只淡化图标。 */}
           <View collapsable={false} style={pressed && styles.iconPressed}>
-            <Icon name="camera-flip" size={r(22)} color={c.foreground} />
+            <CameraFlipOutlined size={r(22)} color={c.foreground} />
           </View>
         </>
       )}

@@ -436,11 +436,12 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
     websitePkg.dependencies,
   ]) {
     expect(pkg['@callstack/liquid-glass']).toBe('0.8.2');
+    expect(pkg['@unif/react-native-icons']).toBe('>=0.1.0');
     expect(pkg['@sbaiahmed1/react-native-blur']).toBeUndefined();
     expect(pkg['react-native-reanimated']).toBe('^4.6.0');
     expect(pkg['react-native-worklets']).toBe('^0.12.1');
   }
-  // 系统材质与减少透明度回退需要 Design 0.41，RN 支持下限保持 0.86。
+  // 直接图标组件输入与共享材质需要 Design 1.0，RN 支持下限保持 0.86。
   expect(rootPkg.peerDependencies.react).toBe('>=19.2.3 <20.0.0');
   expect(rootPkg.peerDependencies['react-native']).toBe('>=0.86.0');
   expect(rootPkg.peerDependencies['@callstack/liquid-glass']).toBe(
@@ -449,18 +450,16 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
   expect(
     rootPkg.peerDependencies['@sbaiahmed1/react-native-blur']
   ).toBeUndefined();
-  expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe(
-    '>=0.41.0'
-  );
+  expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe('>=1.0.0');
   expect(rootPkg.peerDependencies['react-native-reanimated']).toBe(
     '>=4.5.2 <4.7.0'
   );
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
     '>=0.11.0 <0.13.0'
   );
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('>=0.41.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('>=0.41.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('>=0.41.0');
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('>=1.0.0');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('>=1.0.0');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('>=1.0.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();

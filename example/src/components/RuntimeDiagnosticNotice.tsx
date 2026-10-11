@@ -1,8 +1,8 @@
+import { ErrorAlertOutlined } from '@unif/react-native-icons';
 import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Card,
-  Icon,
   fw,
   r,
   rf,
@@ -69,7 +69,7 @@ export function RuntimeDiagnosticNotice({
         style={styles.content}
       >
         <View style={styles.heading}>
-          <Icon name="error-alert" size={r(20)} color={colors.error} />
+          <ErrorAlertOutlined size={r(20)} color={colors.error} />
           <Text style={styles.title}>相机运行异常</Text>
         </View>
         <Text style={styles.message}>{diagnostic.message}</Text>

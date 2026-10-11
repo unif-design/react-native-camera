@@ -1,9 +1,15 @@
+import {
+  CheckOutlined,
+  InfoOutlined,
+  ErrorAlertOutlined,
+} from '@unif/react-native-icons';
+import type { ComponentType } from 'react';
+import type { IconProps } from '@unif/react-native-icons';
 import { useSyncExternalStore, type ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   Button,
   Card,
-  Icon,
   Tag,
   fw,
   r,
@@ -11,7 +17,6 @@ import {
   useColors,
   useThemedStyles,
   type ColorTokens,
-  type IconName,
   type TagVariant,
 } from '@unif/react-native-design';
 
@@ -45,10 +50,10 @@ const toneVariants: Readonly<Record<ResultTone, TagVariant>> = {
   error: 'error',
 };
 
-const toneIcons: Readonly<Record<ResultTone, IconName>> = {
-  success: 'check',
-  neutral: 'info',
-  error: 'error-alert',
+const toneIcons: Readonly<Record<ResultTone, ComponentType<IconProps>>> = {
+  success: CheckOutlined,
+  neutral: InfoOutlined,
+  error: ErrorAlertOutlined,
 };
 
 const makeStyles = (colors: ColorTokens) =>
@@ -143,13 +148,13 @@ export function ResultSummary({
   const presentation = classifyCameraResult(record.result);
   const mediaLabel = `${presentation.media.length} 个临时文件`;
 
+  const Glyph = toneIcons[presentation.tone];
   return (
     <Card variant="plain">
       <View style={styles.header}>
         <Text style={styles.scenario}>{scenarioLabels[record.scenario]}</Text>
         <View style={styles.status}>
-          <Icon
-            name={toneIcons[presentation.tone]}
+          <Glyph
             size={r(18)}
             color={
               presentation.tone === 'success'
