@@ -8,7 +8,6 @@ import {
   type ColorTokens,
 } from '@unif/react-native-design';
 import { makeRailStyles } from './railStyles';
-import { VIEWFINDER } from '../colors/viewfinder';
 
 type Props = {
   /** 有照片时「保存」可点(橙底);无照片时保存常显但置灰 disabled。 */
@@ -34,8 +33,7 @@ export function SideActions({
     <View style={styles.rail}>
       <GlassLayer
         testID="side-actions-glass"
-        effect="clear"
-        tintColor={VIEWFINDER.glassPill}
+        colorScheme="dark"
         style={styles.glass}
       />
       <TouchableOpacity

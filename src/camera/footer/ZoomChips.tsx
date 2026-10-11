@@ -19,7 +19,6 @@ import {
   GlassLayer,
   type ColorTokens,
 } from '@unif/react-native-design';
-import { VIEWFINDER } from '../colors/viewfinder';
 import { activeStop } from '../hooks/zoomMath';
 
 // 仅 0.5x / 1x 两档(用户拍板去掉 2x):0.5 仅超广角机型有,1x 恒有。
@@ -62,8 +61,7 @@ export function ZoomChips({
       <View style={styles.row}>
         <GlassLayer
           testID="zoom-glass"
-          effect="clear"
-          tintColor={VIEWFINDER.glassPill}
+          colorScheme="dark"
           style={styles.glass}
         />
         {stops.map((stop) => (

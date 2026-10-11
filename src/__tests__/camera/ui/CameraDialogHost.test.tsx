@@ -53,7 +53,7 @@ function ErrorTrigger({ msg }: { msg: string }) {
 
 function wrap(children: React.ReactNode) {
   return (
-    <ThemeProvider>
+    <ThemeProvider forceScheme="dark">
       <CameraDialogProvider>{children}</CameraDialogProvider>
     </ThemeProvider>
   );
@@ -216,11 +216,12 @@ describe('CameraDialogHost', () => {
   });
 });
 
-test('确认提示和错误提示使用宿主字号', () => {
+test('确认、普通提示和错误提示使用宿主字号', () => {
   const view = render(
     <ThemeProvider forceScheme="dark" fontScale={1.4}>
       <CameraDialogProvider>
         <ConfirmTrigger onResult={() => {}} />
+        <ToastTrigger msg="已切换模式" />
         <ErrorTrigger msg="请重试" />
       </CameraDialogProvider>
     </ThemeProvider>
@@ -231,6 +232,9 @@ test('确认提示和错误提示使用宿主字号', () => {
   });
   expect(view.getByText('图片删除后无法恢复')).toHaveStyle({
     fontSize: font.body * 1.4,
+  });
+  expect(view.getByText('已切换模式')).toHaveStyle({
+    fontSize: font.sm * 1.4,
   });
   fireEvent.press(view.getByTestId('trigger-error'));
   expect(view.getByText('相机异常:请重试')).toHaveStyle({

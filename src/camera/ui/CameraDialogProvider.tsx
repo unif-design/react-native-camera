@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ConfirmHost,
   confirm as confirmWithDesign,
+  GlassLayer,
   Icon,
   r,
   useColors,
@@ -95,8 +96,10 @@ export function CameraDialogProvider({ children }: CameraDialogProviderProps) {
   // Compute Design dimensions before entering the Reanimated worklet.
   const errorSlideY = r(56);
   const errorBarStyle = useAnimatedStyle(() => ({
-    opacity: errorAnim.value,
     transform: [{ translateY: (errorAnim.value - 1) * errorSlideY }],
+  }));
+  const errorForegroundStyle = useAnimatedStyle(() => ({
+    opacity: errorAnim.value,
   }));
 
   return (
@@ -113,14 +116,12 @@ export function CameraDialogProvider({ children }: CameraDialogProviderProps) {
           pointerEvents="none"
           testID="camera-toast"
         >
-          <Text
-            style={[
-              styles.toast,
-              { color: c.foreground, backgroundColor: c.scrim },
-            ]}
-          >
-            {toastMsg}
-          </Text>
+          <View style={styles.toast}>
+            <GlassLayer colorScheme="dark" style={styles.toastGlass} />
+            <Text style={[styles.toastText, { color: c.foreground }]}>
+              {toastMsg}
+            </Text>
+          </View>
         </View>
       ) : null}
       {errorMsg ? (
@@ -128,25 +129,31 @@ export function CameraDialogProvider({ children }: CameraDialogProviderProps) {
           style={[styles.errorWrap, { top: insets.top + r(8) }, errorBarStyle]}
           testID="camera-error-bar"
         >
-          <View style={[styles.errorBar, { backgroundColor: c.error }]}>
-            <Icon name="warning" size={r(18)} color={c.foreground} />
-            <Text
-              style={[styles.errorText, { color: c.foreground }]}
-              numberOfLines={1}
-              accessibilityRole="alert"
-              accessibilityLiveRegion="assertive"
+          <View style={[styles.errorBar, { borderColor: c.error }]}>
+            <GlassLayer colorScheme="dark" style={styles.errorGlass} />
+            <Animated.View
+              collapsable={false}
+              style={[styles.errorContent, errorForegroundStyle]}
             >
-              相机异常:{errorMsg}
-            </Text>
-            <Pressable
-              onPress={dismissError}
-              hitSlop={r(8)}
-              accessibilityRole="button"
-              accessibilityLabel="关闭错误提示"
-              testID="camera-error-close"
-            >
-              <Icon name="close" size={r(18)} color={c.foreground} />
-            </Pressable>
+              <Icon name="warning" size={r(18)} color={c.error} />
+              <Text
+                style={[styles.errorText, { color: c.foreground }]}
+                numberOfLines={1}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                相机异常:{errorMsg}
+              </Text>
+              <Pressable
+                onPress={dismissError}
+                hitSlop={r(8)}
+                accessibilityRole="button"
+                accessibilityLabel="关闭错误提示"
+                testID="camera-error-close"
+              >
+                <Icon name="close" size={r(18)} color={c.foreground} />
+              </Pressable>
+            </Animated.View>
           </View>
         </Animated.View>
       ) : null}

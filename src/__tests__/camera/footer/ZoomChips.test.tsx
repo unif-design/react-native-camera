@@ -1,4 +1,4 @@
-import { VIEWFINDER } from '../../../camera/colors/viewfinder';
+import { darkColors } from '@unif/react-native-design';
 import { fireEvent, within } from '@testing-library/react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import { renderDark } from '../../__helpers__/renderDark';
@@ -168,12 +168,11 @@ test('变焦 capability 同时驱动 native disabled 与 accessibility disabled'
   ).toBeTruthy();
 });
 
-it('变焦档位共用不拦截触摸的暗色玻璃背景', () => {
+it('变焦档位在不支持玻璃时共用不拦截触摸的暗色实色表面', () => {
   const { getByTestId } = renderDark(
     <ZoomChips {...base} showHalf onSelect={() => {}} />
   );
   const glass = getByTestId('zoom-glass', { includeHiddenElements: true });
-  expect(glass.props.tintColor).toBe(VIEWFINDER.glassPill);
   expect(glass.props.pointerEvents).toBe('none');
-  expect(glass).toHaveStyle({ backgroundColor: VIEWFINDER.glassPill });
+  expect(glass).toHaveStyle({ backgroundColor: darkColors.surface });
 });

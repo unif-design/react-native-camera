@@ -1,7 +1,7 @@
 import { fireEvent } from '@testing-library/react-native';
+import { darkColors } from '@unif/react-native-design';
 import { renderDark } from '../../__helpers__/renderDark';
 import { FlipButton } from '../../../camera/footer/FlipButton';
-import { VIEWFINDER } from '../../../camera/colors/viewfinder';
 
 // 相机 Modal 强制 dark,FlipButton 用 useColors —— renderDark 包 dark Provider 对齐运行时。
 it('fires onFlip', () => {
@@ -11,12 +11,11 @@ it('fires onFlip', () => {
   expect(onFlip).toHaveBeenCalled();
 });
 
-it('切换按钮使用不拦截触摸的暗色玻璃背景', () => {
+it('切换按钮在不支持玻璃时使用不拦截触摸的暗色实色表面', () => {
   const { getByTestId } = renderDark(<FlipButton onFlip={() => {}} />);
   const glass = getByTestId('flip-glass', { includeHiddenElements: true });
-  expect(glass.props.tintColor).toBe(VIEWFINDER.glassPill);
   expect(glass.props.pointerEvents).toBe('none');
-  expect(glass).toHaveStyle({ backgroundColor: VIEWFINDER.glassPill });
+  expect(glass).toHaveStyle({ backgroundColor: darkColors.surface });
 });
 
 it('icon-only 按钮有可访问标签', () => {
