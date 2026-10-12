@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.1](https://github.com/unif-design/react-native-camera/compare/v6.0.0...v6.0.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **camera:** remove redundant post-capture white overlay ([#136](https://github.com/unif-design/react-native-camera/issues/136)) ([9c0a67f](https://github.com/unif-design/react-native-camera/commit/9c0a67fb96d76e426670ee8365ad250bfa8a3cc8))
+
 # [6.0.0](https://github.com/unif-design/react-native-camera/compare/v5.3.0...v6.0.0) (2026-10-11)
 
 
