@@ -36,7 +36,6 @@ export type UsePhotoCaptureTransactionParams = {
 export type PhotoCaptureTransaction = {
   capturePhoto: () => Promise<void>;
   photoBusy: boolean;
-  flashNonce: number;
   burning: boolean;
   freezeUri: string | null;
 };
@@ -103,7 +102,6 @@ export function usePhotoCaptureTransaction({
   config,
   onError,
 }: UsePhotoCaptureTransactionParams): PhotoCaptureTransaction {
-  const [flashNonce, setFlashNonce] = useState(0);
   const [burning, setBurning] = useState(false);
   const [freezeUri, setFreezeUri] = useState<string | null>(null);
   const [cleanupCommitVersion, setCleanupCommitVersion] = useState(0);
@@ -230,8 +228,6 @@ export function usePhotoCaptureTransaction({
       return;
     }
 
-    if (presentRef.current) setFlashNonce((value) => value + 1);
-
     const visibleWatermark = hasVisibleWatermark(captured.watermark);
     const needsProcessing = needsPhotoFileProcessing(
       normalized,
@@ -357,7 +353,6 @@ export function usePhotoCaptureTransaction({
     photoBusy:
       controller.state.phase === 'capturingPhoto' ||
       controller.state.phase === 'processingPhoto',
-    flashNonce,
     burning,
     freezeUri,
   };

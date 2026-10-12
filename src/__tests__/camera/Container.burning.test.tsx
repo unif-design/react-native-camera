@@ -37,7 +37,6 @@ function makePhotoTransaction(
   return {
     capturePhoto: jest.fn().mockResolvedValue(undefined),
     photoBusy: false,
-    flashNonce: 0,
     burning: false,
     freezeUri: null,
     ...overrides,

@@ -207,7 +207,6 @@ it('同一 call stack 四次快门只启动一个 capture transaction', async ()
   expect(harness.result.current.controller.state.files).toEqual([
     expect.objectContaining({ path: raw.path, mode: 'continuous' }),
   ]);
-  expect(harness.result.current.flashNonce).toBe(1);
   expect(harness.result.current.photoBusy).toBe(false);
 });
 
@@ -257,7 +256,6 @@ it('capture 晚到时先登记 raw 再按 stale token 删除，不触发视觉�
 
   expect(harness.fileRegistry.stateOf(raw.path)).toBe('deleted');
   expect(harness.unlink).toHaveBeenCalledTimes(1);
-  expect(harness.result.current.flashNonce).toBe(0);
   expect(harness.result.current.burning).toBe(false);
   expect(harness.result.current.freezeUri).toBeNull();
   expect(harness.onError).not.toHaveBeenCalled();
@@ -304,7 +302,6 @@ it('processor 晚到时登记 final 后回收 raw/final，不提交文件或晚�
     shutter = harness.result.current.capturePhoto();
     await flushMicrotasks();
   });
-  expect(harness.result.current.flashNonce).toBe(1);
   expect(harness.result.current.burning).toBe(true);
   expect(harness.result.current.freezeUri).toBe(raw.uri);
 

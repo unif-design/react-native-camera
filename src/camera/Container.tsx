@@ -54,7 +54,6 @@ import { NoPermission } from './NoPermission';
 import { Loading } from '../components/Loading';
 import { Camera, type CameraHandle } from './Camera';
 import { PreviewOverlay, MODE_LABEL } from './preview';
-import { CaptureFlash } from './CaptureFlash';
 import { SideRail, SideActions } from './setup';
 import { ZoomChips } from './footer/ZoomChips';
 import { ModeSwitcherPill, type ModeItem } from './footer/ModeSwitcherPill';
@@ -544,8 +543,6 @@ export function Container({
               </View>
             </View>
           )}
-
-          <CaptureFlash trigger={photo.flashNonce} />
 
           <View
             style={[styles.bottom, { paddingBottom: insets.bottom + r(1) }]}
