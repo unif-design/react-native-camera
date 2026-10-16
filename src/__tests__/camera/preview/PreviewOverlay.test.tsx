@@ -236,10 +236,12 @@ it('滑动开始或点击预览其它位置会取消确认，重新确认才交�
   fireEvent.press(view.getByTestId('delete-btn'));
   fireEvent(view.getByTestId('preview-overlay'), 'touchStart', {});
   expect(view.getByRole('button', { name: '确认删除' })).toBeTruthy();
-  fireEvent(view.getByTestId('preview-overlay'), 'touchEnd', {});
-  await waitFor(() =>
-    expect(view.queryByRole('button', { name: '确认删除' })).toBeNull()
-  );
+  await act(async () => {
+    fireEvent(view.getByTestId('preview-overlay'), 'touchEnd', {});
+    // Scope 在释放后的事件轮撤销确认，将该轮状态更新完整交回 React。
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+  expect(view.queryByRole('button', { name: '确认删除' })).toBeNull();
   fireEvent.press(view.getByTestId('delete-btn'));
   fireEvent.press(view.getByTestId('rnrc-scroll-start'));
   expect(view.queryByRole('button', { name: '确认删除' })).toBeNull();
