@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.2](https://github.com/unif-design/react-native-camera/compare/v6.0.1...v6.0.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **camera:** confirm preview deletion inline ([#137](https://github.com/unif-design/react-native-camera/issues/137)) ([5dfa171](https://github.com/unif-design/react-native-camera/commit/5dfa171d167d7f8900fc46e701575780af6982bf))
+
 ## [6.0.1](https://github.com/unif-design/react-native-camera/compare/v6.0.0...v6.0.1) (2026-10-12)
 
 
