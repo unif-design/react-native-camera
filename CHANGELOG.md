@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.3](https://github.com/unif-design/react-native-camera/compare/v6.0.2...v6.0.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* accept Reanimated 4.7 and Worklets 0.13 ([163ada4](https://github.com/unif-design/react-native-camera/commit/163ada4165a5e2cef619dff5b98217d1d5451a6a))
+
 ## [6.0.2](https://github.com/unif-design/react-native-camera/compare/v6.0.1...v6.0.2) (2026-10-16)
 
 
