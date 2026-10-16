@@ -452,10 +452,10 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
   ).toBeUndefined();
   expect(rootPkg.peerDependencies['@unif/react-native-design']).toBe('>=1.6.0');
   expect(rootPkg.peerDependencies['react-native-reanimated']).toBe(
-    '>=4.5.2 <4.7.0'
+    '>=4.5.2 <4.8.0'
   );
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
-    '>=0.11.0 <0.13.0'
+    '>=0.11.0 <0.14.0'
   );
   expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.6.0');
   expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.6.0');
