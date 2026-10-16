@@ -545,8 +545,10 @@ it('keeps the configured Camera mounted and ready after deleting the last previe
   );
   fireEvent.press(harness.getByTestId('thumbnail-stack'));
   fireEvent.press(harness.getByTestId('delete-btn'));
+  expect(harness.getByTestId('preview-overlay')).toBeTruthy();
+  expect(harness.queryByTestId('confirm-scrim')).toBeNull();
   await act(async () => {
-    fireEvent.press(harness.getByTestId('confirm-ok'));
+    fireEvent.press(harness.getByRole('button', { name: '确认删除' }));
     await Promise.resolve();
   });
 

@@ -6,7 +6,12 @@ import {
 } from '@unif/react-native-icons';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { r, useThemedStyles, useColors } from '@unif/react-native-design';
+import {
+  IconButton,
+  r,
+  useThemedStyles,
+  useColors,
+} from '@unif/react-native-design';
 
 import type { PreviewBottomBarProps } from './types';
 import { PreviewActionButton } from './PreviewActionButton';
@@ -21,6 +26,7 @@ export function PreviewBottomBar({
   onBack,
   onDelete,
   deleteDisabled = false,
+  deleteConfirmation,
 }: PreviewBottomBarProps) {
   const insets = useSafeAreaInsets();
   const c = useColors();
@@ -62,14 +68,22 @@ export function PreviewBottomBar({
               onPress={onBack}
               testID="back-btn"
             />
-            <PreviewActionButton
-              icon={TrashOutlined}
-              label="删除"
-              tone="danger"
-              onPress={onDelete}
-              testID="delete-btn"
-              disabled={deleteDisabled}
-            />
+            <View style={styles.item}>
+              <IconButton
+                icon={TrashOutlined}
+                accessibilityLabel="删除"
+                color={c.error}
+                variant="glass"
+                size="lg"
+                surfaceSize={r(56)}
+                iconSize={r(26)}
+                onPress={onDelete}
+                confirmation={deleteConfirmation ?? { label: '确认删除' }}
+                testID="delete-btn"
+                disabled={deleteDisabled}
+              />
+              <Text style={[styles.label, { color: c.foreground }]}>删除</Text>
+            </View>
           </>
         )}
       </View>

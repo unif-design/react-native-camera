@@ -8,7 +8,7 @@ import {
 import { makePreviewBottomStyles } from './styles';
 import type { PreviewActionButtonProps } from './types';
 
-// 普通操作使用玻璃圆盘；保存和删除保留实色语义，标签位于圆盘外。
+// 普通操作使用玻璃圆盘；保存保留品牌色，标签位于圆盘外。
 export function PreviewActionButton({
   icon: Icon,
   label,
@@ -19,8 +19,7 @@ export function PreviewActionButton({
 }: PreviewActionButtonProps) {
   const c = useColors();
   const styles = useThemedStyles(makePreviewBottomStyles);
-  const bg =
-    tone === 'primary' ? c.primary : tone === 'danger' ? c.error : undefined;
+  const bg = tone === 'primary' ? c.primary : undefined;
   return (
     <Pressable
       testID={testID}

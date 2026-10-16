@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { InlineConfirmScope } from '@unif/react-native-design';
 import type { CapturedFile, CameraCaptureMode } from '../../utils';
-import { useCameraDialog } from '../ui/CameraDialogHost';
 import { Carousel, carouselRemountKey } from '../../components/Carousel';
 import { VIEWFINDER } from '../colors/viewfinder';
 import { distinctTypes, filesOfType } from './groupTypes';
@@ -25,20 +25,27 @@ export function PreviewOverlay({
   onBack,
   onDelete,
 }: Props) {
-  // 本地弹窗:删除二次确认走相机 Modal 内部 host(见 ../ui/CameraDialogHost),
-  // 不走 design 全局 —— 后者会被相机 Modal 盖住。
-  const { confirm } = useCameraDialog();
   const types = useMemo(() => distinctTypes(files), [files]);
   const [activeType, setActiveType] = useState<CameraCaptureMode>(
     types[0] ?? 'single'
   );
   const [index, setIndex] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<CapturedFile>();
+  const deleteTargetRef = useRef<CapturedFile | undefined>(undefined);
+  const updateDeleteTarget = useCallback((target?: CapturedFile) => {
+    deleteTargetRef.current = target;
+    setDeleteTarget(target);
+  }, []);
   const [carouselMoving, setCarouselMoving] = useState(false);
   const carouselMovingRef = useRef(false);
-  const updateCarouselMoving = useCallback((moving: boolean) => {
-    carouselMovingRef.current = moving;
-    setCarouselMoving(moving);
-  }, []);
+  const updateCarouselMoving = useCallback(
+    (moving: boolean) => {
+      if (moving) updateDeleteTarget();
+      carouselMovingRef.current = moving;
+      setCarouselMoving(moving);
+    },
+    [updateDeleteTarget]
+  );
   const handleCarouselViewportChange = useCallback(() => {
     updateCarouselMoving(false);
   }, [updateCarouselMoving]);
@@ -66,7 +73,16 @@ export function PreviewOverlay({
 
   useEffect(() => {
     latestSettledCurrentRef.current = current;
-  }, [current]);
+    if (deleteTargetRef.current && deleteTargetRef.current !== current)
+      updateDeleteTarget();
+  }, [current, updateDeleteTarget]);
+
+  useEffect(
+    () => () => {
+      deleteTargetRef.current = undefined;
+    },
+    []
+  );
 
   // key 变化会 remount RNCarousel,旧实例可能来不及发 onSnapToItem;此时必须主动解除 moving。
   useEffect(() => {
@@ -78,6 +94,8 @@ export function PreviewOverlay({
       0,
       Math.min(nextIndex, Math.max(data.length - 1, 0))
     );
+    if (deleteTargetRef.current?.id !== data[nextSafeIndex]?.id)
+      updateDeleteTarget();
     latestSettledCurrentRef.current = data[nextSafeIndex];
     setIndex(nextSafeIndex);
     updateCarouselMoving(false);
@@ -87,27 +105,28 @@ export function PreviewOverlay({
   const handleSave = () => {
     onSave();
   };
-  const handleDelete = async () => {
+  const requestDelete = () => {
     if (carouselMovingRef.current || !current) return;
-    const requestedId = current.id;
-    const ok = await confirm({
-      title: '确认删除?',
-      message: '图片删除后无法恢复',
-    });
+    updateDeleteTarget(current);
+  };
+  const handleDelete = () => {
+    const requested = deleteTargetRef.current;
+    updateDeleteTarget();
     const latestSettledCurrent = latestSettledCurrentRef.current;
-    // confirm 等待期间 Carousel 可能刚好完成落位。只删仍是同一 settled id 的文件;
-    // 不一致代表用户屏上已换图,取消本次删除以免删到上一张。
+    // 第二次点击仍复核 settled id 与原文件归属，切图或退场后的旧回调不交付删除。
     if (
-      ok &&
+      requested &&
       !carouselMovingRef.current &&
-      latestSettledCurrent?.id === requestedId
+      latestSettledCurrent?.id === requested.id &&
+      current?.id === requested.id &&
+      files.includes(requested)
     ) {
-      onDelete(latestSettledCurrent);
+      onDelete(requested);
     }
   };
 
   return (
-    <View style={styles.root} testID="preview-overlay">
+    <InlineConfirmScope style={styles.root} testID="preview-overlay">
       <PreviewTopBar
         variant={variant}
         files={files}
@@ -115,6 +134,7 @@ export function PreviewOverlay({
         tabsDisabled={carouselMoving}
         onSelectType={(t) => {
           if (t === activeType || carouselMovingRef.current) return;
+          updateDeleteTarget();
           setActiveType(t);
           setIndex(0);
         }}
@@ -134,11 +154,21 @@ export function PreviewOverlay({
         total={data.length}
         onRetake={onRetake}
         onSave={handleSave}
-        onBack={onBack}
+        onBack={() => {
+          updateDeleteTarget();
+          onBack();
+        }}
         onDelete={handleDelete}
-        deleteDisabled={carouselMoving}
+        deleteDisabled={carouselMoving || !current}
+        deleteConfirmation={{
+          label: '确认删除',
+          confirmationKey: `${variant}:${activeType}:${current?.id ?? ''}`,
+          confirming: !!deleteTarget,
+          onRequest: requestDelete,
+          onCancel: () => updateDeleteTarget(),
+        }}
       />
-    </View>
+    </InlineConfirmScope>
   );
 }
 

@@ -6318,7 +6318,7 @@ __metadata:
     "@shopify/react-native-skia": "npm:^2.6.4"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:>=1.0.0"
+    "@unif/react-native-design": "npm:^1.6.0"
     "@unif/react-native-icons": "npm:>=0.1.0"
     react: "npm:19.2.3"
     react-native: "npm:0.86.3"
@@ -6354,7 +6354,7 @@ __metadata:
     "@react-native/metro-config": "npm:0.86.3"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:>=1.0.0"
+    "@unif/react-native-design": "npm:^1.6.0"
     "@unif/react-native-icons": "npm:>=0.1.0"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
@@ -6394,7 +6394,7 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:>=1.0.0"
+    "@unif/react-native-design": "npm:^1.6.0"
     "@unif/react-native-icons": "npm:>=0.1.0"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
@@ -6429,7 +6429,7 @@ __metadata:
     "@callstack/liquid-glass": ">=0.8.2 <0.9.0"
     "@dr.pogodin/react-native-fs": ">=2"
     "@shopify/react-native-skia": ">=2"
-    "@unif/react-native-design": ">=1.0.0"
+    "@unif/react-native-design": ">=1.6.0"
     "@unif/react-native-icons": ">=0.1.0"
     react: ">=19.2.3 <20.0.0"
     react-native: ">=0.86.0"
@@ -6448,9 +6448,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:>=1.0.0":
-  version: 1.0.0
-  resolution: "@unif/react-native-design@npm:1.0.0"
+"@unif/react-native-design@npm:^1.6.0":
+  version: 1.6.0
+  resolution: "@unif/react-native-design@npm:1.6.0"
   dependencies:
     react-is: "npm:^19.2.8"
   peerDependencies:
@@ -6464,7 +6464,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.11.0 <0.13.0"
-  checksum: 10c0/3f19a49eafe361bd84804f2a1c49a915e198963f669d2cf6213dfdddc75cc646ff0383ae0596366e28d1a43d5c64e80f4bd6c486d74c961cf9bba34993bfc909
+  checksum: 10c0/9bebe265ef250c1c6979282b1ce109c259cb0ffc78deb1394e9fd805331f67190e5372e866ffa3e9fc91d1f1d40c10d2ad1b5185bc51823fda6f9959c4e889f5
   languageName: node
   linkType: hard
 

@@ -64,13 +64,13 @@ yarn add @unif/react-native-camera \
 | `react-native-svg`                    | `>=15`             | 矢量绘制（Icons 组件与其他 SVG）                               |
 | `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面    |
 | `@unif/react-native-icons`            | `>=0.1.0`          | 独立命名图标组件                                               |
-| `@unif/react-native-design`           | `>=1.0.0`          | 系统玻璃与回退表面、按钮、主题 token 和缩放工具                |
+| `@unif/react-native-design`           | `>=1.6.0`          | 系统玻璃与回退表面、原位确认按钮、主题 token 和缩放工具        |
 
 从 Camera 5.0 升级到 5.1 时，React 使用 19.2.3 至 19.x，Design 升级至 0.35.x，安装
 `@callstack/liquid-glass`，并在 iOS 重新执行 `pod install`。其他依赖不再使用
 `@sbaiahmed1/react-native-blur` 时，可将旧包移除。Camera 的拍摄 API 保持不变。
 
-当前版本要求 Design `>=1.0.0`，以统一控件、预览操作和局部提示的系统材质，并支持系统“减少透明度”实色回退。
+当前版本要求 Design `>=1.6.0`，以支持预览删除的原位确认，并统一控件和局部提示的系统材质及系统“减少透明度”实色回退。
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,
