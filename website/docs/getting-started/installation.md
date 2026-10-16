@@ -56,8 +56,8 @@ yarn add @unif/react-native-camera \
 | `@shopify/react-native-skia`          | `>=2`              | 取景器水印实时预览                                             |
 | `@dr.pogodin/react-native-fs`         | `>=2`              | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
 | `react-native-video`                  | `>=7.0.0-beta.0`   | 录像预览播放                                                   |
-| `react-native-reanimated`             | `>=4.5.2 <4.7.0`   | 取景器 / 预览动画;当前验证 4.6.x                               |
-| `react-native-worklets`               | `>=0.11.0 <0.13.0` | reanimated 4 / vision-camera 的 worklet 运行时;当前验证 0.12.x |
+| `react-native-reanimated`             | `>=4.5.2 <4.8.0`   | 取景器 / 预览动画;仓库开发基线 4.6.x                           |
+| `react-native-worklets`               | `>=0.11.0 <0.14.0` | reanimated 4 / vision-camera 的 worklet 运行时;仓库开发基线 0.12.x |
 | `react-native-reanimated-carousel`    | `>=5.0.0 <6.0.0`   | 预览页轮播                                                     |
 | `react-native-gesture-handler`        | `>=3.0.0 <4.0.0`   | pinch 变焦 / 对焦手势                                          |
 | `react-native-safe-area-context`      | `>=5.0.0`          | 安全区适配                                                     |
@@ -65,6 +65,8 @@ yarn add @unif/react-native-camera \
 | `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面    |
 | `@unif/react-native-icons`            | `>=0.1.0`          | 独立命名图标组件                                               |
 | `@unif/react-native-design`           | `>=1.6.0`          | 系统玻璃与回退表面、原位确认按钮、主题 token 和缩放工具        |
+
+本仓保留 RN 0.86.3 开发基线；另在 Portal 消费端用 RN 0.88、React 19.3、Expo 58、Reanimated 4.7.1 与 Worklets 0.13.0 验证了类型、双平台 production JS bundle 与 Android/iOS arm64 Debug 完整编译。拍摄、录像和预览仍需宿主真机验收。
 
 从 Camera 5.0 升级到 5.1 时，React 使用 19.2.3 至 19.x，Design 升级至 0.35.x，安装
 `@callstack/liquid-glass`，并在 iOS 重新执行 `pod install`。其他依赖不再使用
