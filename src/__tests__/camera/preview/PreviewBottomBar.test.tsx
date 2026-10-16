@@ -1,4 +1,8 @@
-import { ThemeProvider, type as font } from '@unif/react-native-design';
+import {
+  darkColors,
+  ThemeProvider,
+  type as font,
+} from '@unif/react-native-design';
 import { fireEvent, render } from '@testing-library/react-native';
 import { renderDark } from '../../__helpers__/renderDark';
 import { PreviewBottomBar } from '../../../camera/preview/PreviewBottomBar';
@@ -61,10 +65,10 @@ it('gallery 操作暴露中文 label，删除 capability 同时驱动 disabled s
   expect(getByRole('button', { name: '删除', disabled: true })).toBeTruthy();
 });
 
-it('gallery 变体: 第X/Y张 + 返回/删除', () => {
+it('gallery 变体: 第X/Y张 + 返回，删除先在原位确认', () => {
   const onBack = jest.fn();
   const onDelete = jest.fn();
-  const { getByTestId, getByText } = renderDark(
+  const { getByRole, getByTestId, getByText } = renderDark(
     <PreviewBottomBar
       variant="gallery"
       index={1}
@@ -81,7 +85,10 @@ it('gallery 变体: 第X/Y张 + 返回/删除', () => {
   fireEvent.press(getByTestId('back-btn'));
   expect(onBack).toHaveBeenCalled();
   fireEvent.press(getByTestId('delete-btn'));
-  expect(onDelete).toHaveBeenCalled();
+  expect(onDelete).not.toHaveBeenCalled();
+  expect(getByText('确认删除')).toHaveStyle({ color: darkColors.error });
+  fireEvent.press(getByRole('button', { name: '确认删除' }));
+  expect(onDelete).toHaveBeenCalledTimes(1);
 });
 
 test('gallery 只含返回/删除,无完成按钮', () => {

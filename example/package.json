@@ -14,7 +14,7 @@
     "@dr.pogodin/react-native-fs": "^2.38.2",
     "@shopify/react-native-skia": "^2.6.4",
     "@unif/react-native-camera": "workspace:*",
-    "@unif/react-native-design": ">=1.0.0",
+    "@unif/react-native-design": "^1.6.0",
     "@unif/react-native-icons": ">=0.1.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
