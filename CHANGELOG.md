@@ -1,5 +1,7 @@
 # Changelog
 
+## [6.0.5](https://github.com/unif-design/react-native-camera/compare/v6.0.4...v6.0.5) (2026-10-17)
+
 ## [6.0.4](https://github.com/unif-design/react-native-camera/compare/v6.0.3...v6.0.4) (2026-10-17)
 
 
