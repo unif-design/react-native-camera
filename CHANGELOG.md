@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.4](https://github.com/unif-design/react-native-camera/compare/v6.0.3...v6.0.4) (2026-10-17)
+
+
+### Bug Fixes
+
+* align RN 0.88 hosts and harden capture cleanup ([#139](https://github.com/unif-design/react-native-camera/issues/139)) ([dc83712](https://github.com/unif-design/react-native-camera/commit/dc837125351be3498ca6624562e5a2b51f7ffa0a))
+
 ## [6.0.3](https://github.com/unif-design/react-native-camera/compare/v6.0.2...v6.0.3) (2026-10-16)
 
 
