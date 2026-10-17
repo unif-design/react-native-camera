@@ -105,3 +105,12 @@ describe('Carousel stable v5 props', () => {
     expect(onIndexChange).toHaveBeenCalledWith(0);
   });
 });
+
+it('defaults to the first media when no index or callbacks are supplied', () => {
+  const view = render(<Carousel data={[f('first')]} />);
+  fireEvent(view.getByTestId('camera-preview-carousel-track'), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 480 } },
+  });
+  expect(rnCarouselRenderSpy.mock.calls.at(-1)![0].defaultIndex).toBe(0);
+  fireEvent.press(view.getByTestId('rnrc-snap-0'));
+});

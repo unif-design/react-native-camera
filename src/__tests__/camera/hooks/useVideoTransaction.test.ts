@@ -830,3 +830,216 @@ it('同一显示秒的 250ms 采样不重新渲染，停止与最终交付仍保
   });
   expect(harness.result.current.controller.state.video.duration).toBe(1.95);
 });
+
+it('a missing camera fails the accepted transaction without creating a file', async () => {
+  const harness = setup();
+  harness.cameraRef.current = null;
+  await act(async () => {
+    await harness.start();
+  });
+  expect(harness.result.current.controller.state.phase).toBe('ready');
+  expect(harness.onError).toHaveBeenCalledWith('录像启动失败,请重试');
+  expect(harness.unlink).not.toHaveBeenCalled();
+});
+
+it('invalid native duration samples keep the last valid time through stop', async () => {
+  jest.useFakeTimers();
+  const duration = jest.fn().mockReturnValue(2.4);
+  const harness = setup({ camera: { getRecordedDuration: duration } });
+  await act(async () => {
+    await harness.start();
+  });
+  duration
+    .mockReturnValueOnce(-1)
+    .mockReturnValueOnce(Number.NaN)
+    .mockImplementation(() => {
+      throw new Error('detached');
+    });
+  act(() => {
+    jest.advanceTimersByTime(750);
+    harness.result.current.transaction.stop();
+  });
+  expect(harness.result.current.controller.state).toMatchObject({
+    phase: 'stoppingVideo',
+    video: { duration: 2.4 },
+  });
+  expect(harness.camera.stopVideo).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await harness.result.current.transaction.cancel();
+  });
+});
+
+it('a synchronously throwing stop fails once and keeps later native errors silent', async () => {
+  const harness = setup({
+    camera: {
+      stopVideo: jest.fn(() => {
+        throw new Error('native stop failed');
+      }),
+    },
+  });
+  await act(async () => {
+    await harness.start();
+  });
+  act(() => {
+    harness.result.current.transaction.stop();
+    harness.callbacks[0]!.onError(new Error('late'));
+  });
+  expect(harness.result.current.controller.state.phase).toBe('ready');
+  expect(harness.onError).toHaveBeenCalledTimes(1);
+});
+
+it('a throwing native cancel is swallowed and repeated cancellation stays idempotent', async () => {
+  const harness = setup({
+    camera: {
+      cancelVideo: jest.fn(() => {
+        throw new Error('native cancel failed');
+      }),
+    },
+  });
+  await act(async () => {
+    await harness.start();
+  });
+  await act(async () => {
+    await harness.result.current.transaction.cancel();
+    await harness.result.current.transaction.cancel();
+  });
+  expect(harness.camera.cancelVideo).toHaveBeenCalledTimes(1);
+  expect(harness.onError).not.toHaveBeenCalled();
+});
+
+it('progress after the session has settled cancels recording without reviving UI', async () => {
+  jest.useFakeTimers();
+  const harness = setup();
+  await act(async () => {
+    await harness.start();
+  });
+  act(() => {
+    harness.result.current.controller.forceTeardown();
+    jest.advanceTimersByTime(250);
+  });
+  await act(flushMicrotasks);
+  expect(harness.camera.cancelVideo).toHaveBeenCalledTimes(1);
+  expect(harness.result.current.controller.state.phase).toBe('settling');
+  expect(harness.onError).not.toHaveBeenCalled();
+});
+
+it('a current operation invalidated while start was pending never enters recording', async () => {
+  const startResult = deferred<'started' | 'denied'>();
+  const harness = setup({
+    camera: { startVideo: jest.fn(() => startResult.promise) },
+  });
+  const start = harness.start();
+  act(() => {
+    harness.result.current.controller.forceTeardown();
+  });
+  await act(async () => {
+    startResult.resolve('started');
+    await start;
+  });
+  expect(harness.camera.cancelVideo).toHaveBeenCalledTimes(1);
+  expect(harness.result.current.controller.state.phase).toBe('settling');
+});
+
+it('a local cancel acknowledgement only restores its original current operation once', async () => {
+  const harness = setup();
+  await act(async () => {
+    await harness.start();
+  });
+  await act(async () => {
+    await harness.result.current.transaction.cancel();
+  });
+  act(() => {
+    harness.callbacks[0]!.onCancelled?.();
+    harness.callbacks[0]!.onCancelled?.();
+  });
+  expect(harness.result.current.controller.state.phase).toBe('ready');
+  expect(harness.eventLog.filter((entry) => entry === 'fail')).toHaveLength(1);
+  expect(harness.onError).not.toHaveBeenCalled();
+});
+
+it('queued duration callbacks after unmount are inert', async () => {
+  jest.useFakeTimers();
+  const intervals = jest.spyOn(global, 'setInterval');
+  const h = setup();
+  await act(async () => h.start());
+  const tick = intervals.mock.calls.at(-1)![0] as () => void;
+  h.unmount();
+  const before = h.eventLog.length;
+  act(tick);
+  expect(h.eventLog).toHaveLength(before);
+  expect(h.camera.cancelVideo).toHaveBeenCalledTimes(1);
+});
+it('duration sampling during stop uses the latest valid sample and tolerates missing native values', async () => {
+  jest.useFakeTimers();
+  const duration = jest.fn(() => 1 as number | undefined);
+  const h = setup({
+    camera: { getRecordedDuration: duration as () => number },
+  });
+  await act(async () => h.start());
+  duration.mockReturnValue(undefined);
+  act(() => {
+    jest.advanceTimersByTime(250);
+    h.result.current.transaction.stop();
+  });
+  expect(h.result.current.controller.state.video.duration).toBe(1);
+  duration.mockReturnValue(2);
+  act(() => jest.advanceTimersByTime(250));
+  expect(h.result.current.controller.state.video.duration).toBe(2);
+  expect(h.camera.stopVideo).toHaveBeenCalledTimes(1);
+});
+it('controller teardown while the native duration getter runs cancels instead of committing progress', async () => {
+  let h!: ReturnType<typeof setup>;
+  h = setup({
+    camera: {
+      getRecordedDuration: () => {
+        h.result.current.controller.forceTeardown();
+        return 2;
+      },
+    },
+  });
+  await act(async () => h.start());
+  expect(h.camera.cancelVideo).toHaveBeenCalledTimes(1);
+  expect(h.result.current.controller.state.phase).toBe('settling');
+});
+it('stop after controller teardown cancels the outstanding native operation', async () => {
+  const h = setup();
+  await act(async () => h.start());
+  act(() => {
+    h.result.current.controller.forceTeardown();
+    h.result.current.transaction.stop();
+  });
+  expect(h.camera.stopVideo).not.toHaveBeenCalled();
+  expect(h.camera.cancelVideo).toHaveBeenCalledTimes(1);
+});
+
+it.each(['cancel', 'finish'] as const)(
+  'native duration sampling may synchronously %s before stop submits',
+  async (event) => {
+    const h = setup();
+    await act(async () => h.start());
+    jest.mocked(h.camera.getRecordedDuration).mockImplementationOnce(() => {
+      if (event === 'cancel') h.result.current.transaction.cancel();
+      else h.callbacks[0]!.onFinished(video('/settled.mp4', 2), 'stopped', 2);
+      return 2;
+    });
+    await act(async () => h.result.current.transaction.stop());
+    expect(h.camera.stopVideo).not.toHaveBeenCalled();
+    expect(h.camera.cancelVideo).toHaveBeenCalledTimes(
+      event === 'cancel' ? 1 : 0
+    );
+  }
+);
+it('retained failed start after unmount cannot report a user error', async () => {
+  const h = setup({
+    camera: {
+      startVideo: jest.fn().mockRejectedValue(new Error('late caller')),
+    },
+  });
+  const token = h.begin();
+  const transaction = h.result.current.transaction;
+  const events = h.eventsFor(h.result.current.controller);
+  h.unmount();
+  await transaction.start(token, events);
+  expect(h.onError).not.toHaveBeenCalled();
+  expect(h.eventLog).not.toContain('fail');
+});

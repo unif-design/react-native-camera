@@ -48,7 +48,7 @@ export function useVideoOutputController(
 
   const createRecorder = useCallback(
     async (settings: RecorderSettings, signal: AbortSignal) => {
-      if (configurationFailed.current && !signal.aborted) {
+      if (configurationFailed.current) {
         configurationFailed.current = false;
         configuredOutput.current = null;
         requestedRevision.current += 1;
@@ -56,10 +56,6 @@ export function useVideoOutputController(
       }
       const configured = await new Promise<CameraVideoOutput>(
         (resolve, reject) => {
-          if (signal.aborted) {
-            reject(new Error('Video preparation cancelled'));
-            return;
-          }
           const latest = current.current;
           if (
             latest.hasPermission &&

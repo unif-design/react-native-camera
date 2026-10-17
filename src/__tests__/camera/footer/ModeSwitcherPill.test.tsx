@@ -133,3 +133,15 @@ it('模式 capability 同时驱动 native disabled 与 accessibility disabled', 
     })
   ).toBeTruthy();
 });
+
+it('an empty mode collection exposes no selectable action after layout', () => {
+  const onSelect = jest.fn();
+  const view = renderDark(
+    <ModeSwitcherPill items={[]} currentIndex={0} onSelect={onSelect} />
+  );
+  fireEvent(view.getByTestId('mode-switcher-wrap'), 'layout', {
+    nativeEvent: { layout: { width: 300, height: 40 } },
+  });
+  expect(view.queryAllByRole('button')).toHaveLength(0);
+  expect(onSelect).not.toHaveBeenCalled();
+});

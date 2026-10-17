@@ -231,7 +231,7 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark, size_t outputWidth,
   for (id value in rawLines) {
     NSString *line =
         [value isKindOfClass:NSString.class] ? value : [value description];
-    [lines addObject:line ?: @""];
+    [lines addObject:line];
     if ([line stringByTrimmingCharactersInSet:
                   NSCharacterSet.whitespaceAndNewlineCharacterSet]
             .length > 0) {
@@ -247,10 +247,10 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark, size_t outputWidth,
   NSString *text = [lines componentsJoinedByString:@"\n"];
   CGFloat shortSide = MIN(outputWidth, outputHeight);
   CGFloat fontSize = MAX(1, round(shortSide * 0.033));
-  CGFloat lineHeight = MAX(fontSize, round(fontSize * 1.45));
-  CGFloat padding = MAX(0, round(shortSide * 0.04));
+  CGFloat lineHeight = round(fontSize * 1.45);
+  CGFloat padding = round(shortSide * 0.04);
   CGFloat paragraphWidth =
-      MAX(1, MIN(round(outputWidth * 0.7), outputWidth - 2 * padding));
+      MIN(round(outputWidth * 0.7), outputWidth - 2 * padding);
 
   CTFontRef normalFont =
       CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, NULL);
@@ -306,8 +306,7 @@ static CIImage *UnifWatermarkImage(NSDictionary *watermark, size_t outputWidth,
 
   CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString(
       (__bridge CFAttributedStringRef)attributed);
-  CGSize constraints =
-      CGSizeMake(paragraphWidth, MAX(1, outputHeight - 2 * padding));
+  CGSize constraints = CGSizeMake(paragraphWidth, outputHeight - 2 * padding);
   CGSize measured = CTFramesetterSuggestFrameSizeWithConstraints(
       framesetter, CFRangeMake(0, 0), NULL, constraints, NULL);
   size_t bitmapWidth = (size_t)ceil(paragraphWidth);
@@ -509,8 +508,7 @@ RCT_EXPORT_MODULE(UnifPhotoProcessor)
       NSString *failureCode = nil;
       UnifPhotoMetadata metadata = {};
       if (!UnifReadMetadata(inputPath, &metadata, &failureCode)) {
-        reject(failureCode ?: EPhotoRead, @"Photo metadata inspection failed",
-               nil);
+        reject(failureCode, @"Photo metadata inspection failed", nil);
         return;
       }
       NSString *json = UnifJSON(@{
@@ -596,7 +594,7 @@ RCT_EXPORT_MODULE(UnifPhotoProcessor)
                                   (NSInteger)llround(quality), watermarkJson,
                                   &failureCode, &failureStage);
       } @catch (__unused NSException *exception) {
-        failureCode = failureCode ?: EPhotoDecode;
+        // The common rejection path below preserves the same decoder fallback.
       }
       os_signpost_interval_end(UnifPhotoLog(), signpost, "PhotoProcessing",
                                "stage=%{public}s", failureStage.UTF8String);

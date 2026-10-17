@@ -201,3 +201,13 @@ it('iOS 保持原生 session 重配期间立即下发 zoom/torch', () => {
   expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
   expect(currentVisionCameraProps().torchMode).toBe('on');
 });
+
+it('late preview stopped from the preceding output cannot disable the current stream', () => {
+  const view = renderDark(cameraElement());
+  act(emitPreviewStarted);
+  const oldStop = currentVisionCameraProps().onPreviewStopped as () => void;
+  view.rerender(cameraElement({ currentMode: VIDEO_MODE }));
+  act(emitPreviewStarted);
+  act(oldStop);
+  expect(currentVisionCameraProps().zoom).toBe(ZOOM_SHARED);
+});

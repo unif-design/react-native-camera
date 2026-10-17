@@ -50,8 +50,6 @@ type VideoOperation = {
   displayedSecond: number;
   timer: ReturnType<typeof setInterval> | null;
   stopIssued: boolean;
-  nativeCancelIssued: boolean;
-  cancelPromise: Promise<void> | null;
   cancelCallbackHandled: boolean;
   deliveredPath: string | null;
 };
@@ -83,9 +81,7 @@ export function useVideoTransaction({
       if (!isLive(operation.status)) return false;
       operation.status = status;
       clearDurationTimer(operation);
-      if (activeOperationRef.current === operation) {
-        activeOperationRef.current = null;
-      }
+      activeOperationRef.current = null;
       return true;
     },
     []
@@ -93,27 +89,17 @@ export function useVideoTransaction({
 
   const requestNativeCancel = useCallback(
     (operation: VideoOperation): Promise<void> => {
-      if (operation.cancelPromise != null) return operation.cancelPromise;
-      if (!isLive(operation.status)) return Promise.resolve();
-
       // 先同步失效 continuation，再碰 native；cancelVideo 同步回调也只能走 stale 清理。
       claimTerminal(operation, 'cancelled');
-      if (operation.nativeCancelIssued || operation.camera == null) {
-        operation.cancelPromise = Promise.resolve();
-        return operation.cancelPromise;
-      }
-
-      operation.nativeCancelIssued = true;
       let request: void | Promise<void>;
       try {
-        request = operation.camera.cancelVideo();
+        request = operation.camera!.cancelVideo();
       } catch {
         request = undefined;
       }
-      operation.cancelPromise = Promise.resolve(request).catch(() => {
+      return Promise.resolve(request).catch(() => {
         // force teardown 有界且不可逆；native cancel 失败不能恢复 reducer/UI。
       });
-      return operation.cancelPromise;
     },
     [claimTerminal]
   );
@@ -144,7 +130,7 @@ export function useVideoTransaction({
         return;
       }
       if (!operation.events.isCurrent(operation.token)) {
-        requestNativeCancel(operation).catch(() => {});
+        requestNativeCancel(operation);
         return;
       }
 
@@ -160,7 +146,7 @@ export function useVideoTransaction({
       if (displayedSecond === operation.displayedSecond) return;
       operation.displayedSecond = displayedSecond;
       if (!operation.events.videoProgress(operation.token, duration)) {
-        requestNativeCancel(operation).catch(() => {});
+        requestNativeCancel(operation);
       }
     },
     [requestNativeCancel]
@@ -185,8 +171,6 @@ export function useVideoTransaction({
         displayedSecond: 0,
         timer: null,
         stopIssued: false,
-        nativeCancelIssued: false,
-        cancelPromise: null,
         cancelCallbackHandled: false,
         deliveredPath: null,
       };
@@ -334,8 +318,11 @@ export function useVideoTransaction({
       // stop 的 reducer snapshot 回退到上一个有效 duration。
     }
 
+    // A native getter can synchronously deliver completion/cancellation. Never revive it as stopping.
+    if (activeOperationRef.current !== operation || !isLive(operation.status))
+      return;
     if (!operation.events.stopVideo(operation.token, duration)) {
-      requestNativeCancel(operation).catch(() => {});
+      requestNativeCancel(operation);
       return;
     }
     operation.stopIssued = true;
@@ -365,7 +352,7 @@ export function useVideoTransaction({
       mountedRef.current = false;
       const operation = activeOperationRef.current;
       if (operation != null) {
-        requestNativeCancel(operation).catch(() => {});
+        requestNativeCancel(operation);
       }
     };
   }, [requestNativeCancel]);

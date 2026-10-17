@@ -66,3 +66,21 @@ it('卸载后 resolve 不再 setState(cancelled 守卫)', async () => {
   expect(errSpy).not.toHaveBeenCalled();
   errSpy.mockRestore();
 });
+
+it('a permission rejection after unmount cannot revive the permission flow', async () => {
+  let reject!: (error: Error) => void;
+  const request = jest.fn(
+    () =>
+      new Promise<boolean>((_, fail) => {
+        reject = fail;
+      })
+  );
+  mockRequestImpl = request;
+  const hook = renderHook(() => usePermissionFlow());
+  hook.unmount();
+  reject(new Error('late platform response'));
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(hook.result.current).toBe('pending');
+});

@@ -146,8 +146,6 @@ export async function processPhoto(
     `${safePathSegment(captured.sessionId)}_${safePathSegment(captured.captureId)}.jpg`;
   let outputMayExist = false;
   let stage: PhotoProcessingStage = 'read';
-  let failure: PhotoProcessingError | null = null;
-  let result: CapturedFile | null = null;
 
   try {
     assertCurrent(context, stage);
@@ -179,7 +177,7 @@ export async function processPhoto(
     stage = 'write';
     assertCurrent(context, stage);
 
-    result = {
+    return {
       ...raw,
       facing: captured.cameraPosition,
       path: outputPath,
@@ -189,13 +187,10 @@ export async function processPhoto(
     };
   } catch (error) {
     const nativeStage = nativePhotoProcessingStage(error);
-    failure =
+    const failure =
       error instanceof PhotoProcessingError
         ? error
         : new PhotoProcessingError(nativeStage ?? stage, error);
-  }
-
-  if (failure != null) {
     // write reject 仍可能留下部分文件；先登记所有权，再同步标 deleted 并 fire-and-forget
     // unlink。registry 的状态门禁保证 raw/final 即使同 path 或重复进入也只删一次。
     if (outputMayExist) registry.register(outputPath);
@@ -206,10 +201,4 @@ export async function processPhoto(
     );
     throw failure;
   }
-
-  if (result == null) {
-    requestCleanup(registry, context, [raw.path]);
-    throw new PhotoProcessingError(stage);
-  }
-  return result;
 }

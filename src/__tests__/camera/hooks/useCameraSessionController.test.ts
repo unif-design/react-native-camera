@@ -1059,3 +1059,87 @@ describe('useCameraSessionController', () => {
     expect(onSettle).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('retained controller boundaries', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('unmount rejects retained commands without a second settlement', () => {
+    const h = setup();
+    configureReady(h.result);
+    const retained = h.result.current;
+    h.unmount();
+    expect(retained.beginPhoto()).toBeNull();
+    expect(retained.beginVideo()).toBeNull();
+    expect(retained.clearFiles()).toBeNull();
+    expect(retained.settle(savedResult)).toBe(false);
+    expect(h.onSettle).not.toHaveBeenCalled();
+  });
+  it('a stale rejected confirmation does not diagnose the next phase', async () => {
+    const pending = deferred<boolean>();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const h = setup({
+      files: [photo],
+      confirm: jest.fn<Promise<boolean>, [unknown]>(() => pending.promise),
+    });
+    configureReady(h.result);
+    act(() => h.result.current.requestUserCancel());
+    act(() => h.result.current.forceTeardown());
+    await act(async () => pending.reject(new Error('old host ended')));
+    expect(warn).not.toHaveBeenCalled();
+    expect(h.onSettle).not.toHaveBeenCalled();
+  });
+  it.each([false, true])(
+    'a throwing settlement observer remains terminal for recording=%s',
+    async (recording) => {
+      const failure = new Error('consumer observer failed');
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const h = setup({
+        files: [photo],
+        onSettle: jest.fn<void, [CameraSessionOutcome]>(() => {
+          throw failure;
+        }),
+      });
+      configureReady(h.result);
+      if (recording) beginRecording(h.result);
+      await act(async () => h.result.current.requestUserCancel());
+      expect(h.result.current.state.phase).toBe('settling');
+      expect(warn).toHaveBeenCalledWith(
+        'camera user cancellation failed',
+        failure
+      );
+      act(() => h.result.current.requestUserCancel());
+      expect(h.onSettle).toHaveBeenCalledTimes(1);
+    }
+  );
+});
+
+it('force teardown still consumes rejection when the cancellation diagnostic itself throws', async () => {
+  const diagnosticFailure = new Error('diagnostic unavailable');
+  const warn = jest
+    .spyOn(console, 'warn')
+    .mockImplementationOnce(() => {
+      throw diagnosticFailure;
+    })
+    .mockImplementation(() => {});
+  const h = setup({
+    cancelRecording: jest
+      .fn()
+      .mockRejectedValue(new Error('native cancel failed')),
+  });
+  configureReady(h.result);
+  beginRecording(h.result);
+  await act(async () => h.result.current.forceTeardown());
+  expect(h.result.current.state.phase).toBe('settling');
+  expect(warn).toHaveBeenLastCalledWith(
+    'camera force teardown failed',
+    diagnosticFailure
+  );
+  warn.mockRestore();
+});
+
+it('deleting a missing path during preview preserves the selected media', () => {
+  const h = setup({ files: [photo] });
+  configureReady(h.result);
+  act(() => h.result.current.openPreview({ variant: 'gallery', index: 0 }));
+  expect(h.result.current.deleteFile('/missing.jpg')).toBeNull();
+  expect(h.result.current.state.files).toEqual([photo]);
+});

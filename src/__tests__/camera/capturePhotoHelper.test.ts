@@ -4,12 +4,9 @@ import type {
   CapturePhotoSettings,
 } from 'react-native-vision-camera';
 
-jest.mock('../../camera/image/nativePhotoProcessor', () => ({
-  inspectPhotoFile: jest.fn(),
-}));
+import nativePhotoProcessor from '../../NativePhotoProcessor';
 
 const RNFS = require('@dr.pogodin/react-native-fs');
-const nativePhotoProcessor = require('../../camera/image/nativePhotoProcessor');
 
 // 官方文件路径不创建 JS 持有的原生 Photo，也不需要 save/dispose 中转。尺寸与方向只读
 // JPEG 文件头；若文件头读取失败，helper 必须删除已产生但尚未交给 FileRegistry 的临时文件。
@@ -30,11 +27,11 @@ const settings = { flash: 'off' } as unknown as CapturePhotoSettings;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  nativePhotoProcessor.inspectPhotoFile.mockResolvedValue({
-    width: 1440,
-    height: 1920,
-    orientation: 'up',
-  });
+  jest
+    .mocked(nativePhotoProcessor.inspectPhotoFile)
+    .mockResolvedValue(
+      JSON.stringify({ width: 1440, height: 1920, orientation: 'up' })
+    );
 });
 
 it('成功路径:capturePhotoToFile(settings,{}) 直接落盘，再只读文件头元数据', async () => {
@@ -58,12 +55,30 @@ it('成功路径:capturePhotoToFile(settings,{}) 直接落盘，再只读文件�
 
 it('文件已生成但元数据读取失败时，先删除未登记临时文件再向上抛', async () => {
   const { photoOutput } = makeStubs();
-  nativePhotoProcessor.inspectPhotoFile.mockRejectedValue(
-    new Error('metadata boom')
-  );
+  jest
+    .mocked(nativePhotoProcessor.inspectPhotoFile)
+    .mockRejectedValue(new Error('metadata boom'));
 
   await expect(captureToTempFile(photoOutput, settings)).rejects.toThrow(
     'metadata boom'
   );
   expect(RNFS.unlink).toHaveBeenCalledWith('/tmp/captured.jpg');
+});
+
+it('cleanup failure does not replace the original metadata failure', async () => {
+  const failure = new Error('metadata unavailable');
+  jest
+    .mocked(nativePhotoProcessor.inspectPhotoFile)
+    .mockRejectedValueOnce(failure);
+  RNFS.unlink.mockRejectedValueOnce(new Error('disk busy'));
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    await expect(
+      captureToTempFile(makeStubs().photoOutput, settings)
+    ).rejects.toBe(failure);
+    expect(RNFS.unlink).toHaveBeenCalledWith('/tmp/captured.jpg');
+    expect(warn).toHaveBeenCalledWith('captured photo cleanup failed');
+  } finally {
+    warn.mockRestore();
+  }
 });

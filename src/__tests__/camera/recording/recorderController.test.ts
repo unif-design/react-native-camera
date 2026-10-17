@@ -1586,3 +1586,566 @@ describe('recorderController', () => {
     warn.mockRestore();
   });
 });
+
+describe('recorder external failures and reentrant cancellation', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('normalizes a non-Error native creation rejection', async () => {
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: async () => {
+        throw 'native unavailable';
+      },
+    });
+    await expect(controller.start(startOptions(callbacks))).rejects.toThrow(
+      'native unavailable'
+    );
+    expect(callbacks.onError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'native unavailable' })
+    );
+  });
+
+  it('permission rejection is denied and a disposed controller never requests again', async () => {
+    const createRecorder = jest.fn();
+    const request = jest
+      .fn()
+      .mockRejectedValue(new Error('permission service lost'));
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({ createRecorder });
+    const options = startOptions(callbacks, {
+      hasMicrophonePermission: false,
+      requestMicrophonePermission: request,
+    });
+    await expect(controller.start(options)).resolves.toBe('denied');
+    await controller.dispose();
+    await expect(controller.start(options)).resolves.toBe('denied');
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(createRecorder).not.toHaveBeenCalled();
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    () => Number.NaN,
+    () => {
+      throw new Error('clock unavailable');
+    },
+  ])('invalid initial clock reads keep duration finite', async (now) => {
+    const harness = makeRecorder();
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: async () => harness.recorder,
+      now,
+    });
+    await controller.start(startOptions(callbacks));
+    expect(controller.getRecordedDuration()).toBe(0);
+    harness.finish(undefined, 'max-duration-reached');
+    expect(callbacks.onFinished).toHaveBeenCalledWith(
+      '/tmp/video.mp4',
+      'max-duration-reached',
+      0
+    );
+  });
+
+  it('falls back to Date.now when performance is absent', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'performance'
+    );
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    Object.defineProperty(globalThis, 'performance', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const harness = makeRecorder();
+      const callbacks = makeCallbacks();
+      const controller = createRecorderController({
+        createRecorder: async () => harness.recorder,
+      });
+      await controller.start(startOptions(callbacks));
+      clock.mockReturnValue(2500);
+      harness.finish();
+      expect(callbacks.onFinished).toHaveBeenCalledWith(
+        '/tmp/video.mp4',
+        'stopped',
+        1.5
+      );
+    } finally {
+      if (descriptor)
+        Object.defineProperty(globalThis, 'performance', descriptor);
+      clock.mockRestore();
+    }
+  });
+
+  it.each(['finished', 'error', 'cancelled', 'discarded'] as const)(
+    'a throwing %s callback never leaks the native recorder',
+    async (kind) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const harness = makeRecorder();
+      const callbacks = makeCallbacks();
+      const failure = new Error('consumer callback failed');
+      if (kind === 'finished')
+        callbacks.onFinished.mockImplementation(() => {
+          throw failure;
+        });
+      if (kind === 'error')
+        callbacks.onError.mockImplementation(() => {
+          throw failure;
+        });
+      if (kind === 'cancelled')
+        callbacks.onCancelled.mockImplementation(() => {
+          throw failure;
+        });
+      if (kind === 'discarded')
+        callbacks.onDiscardedFile.mockImplementation(() => {
+          throw failure;
+        });
+      const controller = createRecorderController({
+        createRecorder: async () => harness.recorder,
+      });
+      await controller.start(startOptions(callbacks));
+      if (kind === 'finished') harness.finish();
+      else if (kind === 'error') harness.fail();
+      else {
+        await controller.dispose();
+        if (kind === 'discarded') harness.finish('/late.mp4');
+      }
+      expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.any(String), failure);
+    }
+  );
+
+  it('native dispose failure cannot retain the output owner', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const first = makeRecorder();
+    const second = makeRecorder();
+    const failure = new Error('native disposal failed');
+    jest.mocked(first.recorder.dispose).mockImplementation(() => {
+      throw failure;
+    });
+    const createRecorder = jest
+      .fn()
+      .mockResolvedValueOnce(first.recorder)
+      .mockResolvedValueOnce(second.recorder);
+    const controller = createRecorderController({ createRecorder });
+    await controller.start(startOptions(makeCallbacks()));
+    first.finish();
+    await expect(controller.start(startOptions(makeCallbacks()))).resolves.toBe(
+      'started'
+    );
+    second.finish();
+    expect(warn).toHaveBeenCalledWith('recorder dispose failed', failure);
+  });
+
+  it('abort listener reentry settles the same pending creation exactly once', async () => {
+    const pending = deferred<RecorderLike>();
+    let cancellation: Promise<void> | undefined;
+    const createRecorder = jest.fn((_settings, signal: AbortSignal) => {
+      signal.addEventListener('abort', () => {
+        cancellation = controller.cancel();
+      });
+      return pending.promise;
+    });
+    const controller = createRecorderController({ createRecorder });
+    const callbacks = makeCallbacks();
+    const start = controller.start(startOptions(callbacks));
+    await flushMicrotasks();
+    await controller.cancel();
+    await cancellation;
+    await expect(start).resolves.toBe('denied');
+    const native = makeRecorder();
+    pending.resolve(native.recorder);
+    await flushMicrotasks();
+    expect(native.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(native.recorder.startRecording).not.toHaveBeenCalled();
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it('an unstarted late recorder with an unreadable path is still disposed', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const pending = deferred<RecorderLike>();
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: () => pending.promise,
+    });
+    const start = controller.start(startOptions(callbacks));
+    await controller.cancel();
+    const native = makeRecorder();
+    Object.defineProperty(native.recorder, 'filePath', {
+      get: () => {
+        throw new Error('detached');
+      },
+    });
+    pending.resolve(native.recorder);
+    await expect(start).resolves.toBe('denied');
+    await flushMicrotasks();
+    expect(native.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(callbacks.onDiscardedFile).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      'unstarted recorder path unavailable',
+      expect.any(Error)
+    );
+  });
+
+  it('synchronous timer expiry clears its late-installed timer handle', async () => {
+    const harness = makeRecorder({ deferredStart: true, deferredCancel: true });
+    const clear = jest.fn();
+    const scheduleTimeout = jest.fn((expire: () => void) => {
+      expire();
+      return clear;
+    });
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: async () => harness.recorder,
+      scheduleTimeout,
+    });
+    const start = controller.start(startOptions(callbacks));
+    await flushMicrotasks();
+    await controller.cancel();
+    await expect(start).resolves.toBe('denied');
+    expect(clear).toHaveBeenCalledTimes(2);
+    harness.fail();
+    harness.startDeferred!.resolve();
+    harness.cancelDeferred!.resolve();
+    await flushMicrotasks();
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('timer clear failures cannot prevent native cancellation and disposal', async () => {
+    const failure = new Error('timer clear failed');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const harness = makeRecorder();
+    const controller = createRecorderController({
+      createRecorder: async () => harness.recorder,
+      scheduleTimeout: () => () => {
+        throw failure;
+      },
+    });
+    await controller.start(startOptions(makeCallbacks()));
+    await expect(controller.cancel()).resolves.toBeUndefined();
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'recorder teardown timer clear failed',
+      failure
+    );
+  });
+
+  it('scheduler failure during start-error cleanup preserves the original failure', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const harness = makeRecorder();
+    const failure = new Error('start failed');
+    jest.mocked(harness.recorder.startRecording).mockRejectedValueOnce(failure);
+    const controller = createRecorderController({
+      createRecorder: async () => harness.recorder,
+      scheduleTimeout: () => {
+        throw new Error('timer unavailable');
+      },
+    });
+    await expect(controller.start(startOptions(makeCallbacks()))).rejects.toBe(
+      failure
+    );
+    expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'recorder bounded teardown failed',
+      expect.any(Error)
+    );
+  });
+});
+
+describe('native termination during bounded cancellation', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('duplicate native errors after a completed recording never notify twice', async () => {
+    const h = makeRecorder({ deferredStart: true });
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+    });
+    const start = controller.start(startOptions(callbacks));
+    await flushMicrotasks();
+    const args = jest.mocked(h.recorder.startRecording).mock.calls[0]!;
+    args[2]?.();
+    args[3]?.();
+    h.finish();
+    h.fail();
+    await expect(start).resolves.toBe('started');
+    h.startDeferred!.resolve();
+    await flushMicrotasks();
+    expect(callbacks.onFinished).toHaveBeenCalledTimes(1);
+    expect(callbacks.onError).not.toHaveBeenCalled();
+    expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+  it('a terminal callback inside the first failing cancel releases the recorder once', async () => {
+    const h = makeRecorder();
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+    });
+    await controller.start(startOptions(callbacks));
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.mocked(h.recorder.cancelRecording).mockImplementationOnce(() => {
+      h.finish();
+      return Promise.reject(new Error('already stopped'));
+    });
+    await controller.cancel();
+    expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+    expect(callbacks.onDiscardedFile).toHaveBeenCalledWith('/tmp/video.mp4');
+  });
+  it('a terminal callback while awaiting native start invalidates the waiting retry', async () => {
+    const h = makeRecorder({ deferredStart: true });
+    const timers = makeTimerHarness();
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+      scheduleTimeout: timers.scheduleTimeout,
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const start = controller.start(startOptions(makeCallbacks()));
+    await flushMicrotasks();
+    jest
+      .mocked(h.recorder.cancelRecording)
+      .mockRejectedValueOnce(new Error('not started'));
+    const cancel = controller.cancel();
+    await flushMicrotasks();
+    h.finish();
+    h.startDeferred!.resolve();
+    await flushMicrotasks();
+    await cancel;
+    await start;
+    expect(h.recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+  it('a failing post-start cancel which also finishes cannot retry a disposed recorder', async () => {
+    const h = makeRecorder({ deferredStart: true });
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const start = controller.start(startOptions(makeCallbacks()));
+    await flushMicrotasks();
+    jest
+      .mocked(h.recorder.cancelRecording)
+      .mockRejectedValueOnce(new Error('not started'))
+      .mockImplementationOnce(() => {
+        h.finish();
+        return Promise.reject(new Error('finished'));
+      });
+    const cancel = controller.cancel();
+    await flushMicrotasks();
+    h.startDeferred!.resolve();
+    await cancel;
+    await start;
+    expect(h.recorder.cancelRecording).toHaveBeenCalledTimes(2);
+    expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+  it.each([false, true])(
+    'failed initial timer retains cleanup responsibility unless native already ended=%s',
+    async (ended) => {
+      const h = makeRecorder();
+      const failure = new Error('scheduler offline');
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const controller = createRecorderController({
+        createRecorder: async () => h.recorder,
+        scheduleTimeout: () => {
+          throw failure;
+        },
+      });
+      await controller.start(startOptions(makeCallbacks()));
+      if (ended)
+        jest
+          .mocked(h.recorder.cancelRecording)
+          .mockImplementationOnce(async () => h.finish());
+      await controller.cancel();
+      expect(warn).toHaveBeenCalledWith('recorder teardown failed', failure);
+      if (!ended) {
+        expect(h.recorder.dispose).not.toHaveBeenCalled();
+        h.finish();
+      }
+      expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+    }
+  );
+  it('a failed post-start timer is consumed and releases its retained native handle', async () => {
+    const h = makeRecorder({ deferredStart: true });
+    const timers = makeTimerHarness();
+    const failure = new Error('retry scheduler offline');
+    let schedules = 0;
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+      scheduleTimeout: (callback, ms) => {
+        schedules += 1;
+        if (schedules === 3) throw failure;
+        return timers.scheduleTimeout(callback, ms);
+      },
+    });
+    const start = controller.start(startOptions(makeCallbacks()));
+    await flushMicrotasks();
+    jest
+      .mocked(h.recorder.cancelRecording)
+      .mockRejectedValueOnce(new Error('not started'));
+    const cancel = controller.cancel();
+    await flushMicrotasks();
+    h.startDeferred!.resolve();
+    await cancel;
+    await start;
+    expect(warn).toHaveBeenCalledWith(
+      'recorder post-start teardown failed',
+      failure
+    );
+    expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+  it('a rejected cancellation diagnostic still settles the timer race', async () => {
+    const h = makeRecorder();
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+    });
+    await controller.start(startOptions(makeCallbacks()));
+    const diagnostic = new Error('diagnostic offline');
+    jest
+      .spyOn(console, 'warn')
+      .mockImplementationOnce(() => {
+        throw diagnostic;
+      })
+      .mockImplementation(() => {});
+    jest
+      .mocked(h.recorder.cancelRecording)
+      .mockRejectedValueOnce(new Error('native cancel'));
+    await controller.cancel();
+    expect(h.recorder.cancelRecording).toHaveBeenCalledTimes(2);
+    expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('cancellation from the injected clock while preparing cannot start an orphan recorder', async () => {
+  const h = makeRecorder();
+  let controller!: ReturnType<typeof createRecorderController>;
+  controller = createRecorderController({
+    createRecorder: async () => h.recorder,
+    now: () => {
+      controller.cancel();
+      return 0;
+    },
+  });
+  await expect(controller.start(startOptions(makeCallbacks()))).resolves.toBe(
+    'denied'
+  );
+  expect(h.recorder.startRecording).not.toHaveBeenCalled();
+  expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+});
+it('a terminal native error reentered from duration sampling wins over outer finish', async () => {
+  const h = makeRecorder();
+  const callbacks = makeCallbacks();
+  const controller = createRecorderController({
+    createRecorder: async () => h.recorder,
+  });
+  await controller.start(startOptions(callbacks));
+  let first = true;
+  Object.defineProperty(h.recorder, 'recordedDuration', {
+    get: () => {
+      if (first) {
+        first = false;
+        h.fail(new Error('terminal native error'));
+      }
+      return 2;
+    },
+  });
+  h.finish();
+  expect(callbacks.onError).toHaveBeenCalledTimes(1);
+  expect(callbacks.onFinished).not.toHaveBeenCalled();
+  expect(callbacks.onDiscardedFile).toHaveBeenCalledWith('/tmp/video.mp4');
+  expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+});
+it('stop is harmless without an active recorder', async () => {
+  const createRecorder = jest.fn();
+  const controller = createRecorderController({ createRecorder });
+  await controller.stop();
+  expect(createRecorder).not.toHaveBeenCalled();
+});
+
+it('an unprintable late start rejection still releases a cancelled recorder', async () => {
+  const h = makeRecorder({ deferredStart: true });
+  const controller = createRecorderController({
+    createRecorder: async () => h.recorder,
+  });
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const start = controller.start(startOptions(makeCallbacks()));
+  await flushMicrotasks();
+  jest
+    .mocked(h.recorder.cancelRecording)
+    .mockRejectedValueOnce(new Error('not started'));
+  const cancel = controller.cancel();
+  await flushMicrotasks();
+  h.startDeferred!.reject({
+    toString: () => {
+      throw new Error('invalid native rejection');
+    },
+  });
+  await cancel;
+  await start;
+  expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
+});
+it.each(['error', 'stop'] as const)(
+  'a synchronous finished callback during %s duration sampling retains only its result',
+  async (event) => {
+    const h = makeRecorder();
+    const callbacks = makeCallbacks();
+    const controller = createRecorderController({
+      createRecorder: async () => h.recorder,
+    });
+    await controller.start(startOptions(callbacks));
+    let first = true;
+    Object.defineProperty(h.recorder, 'recordedDuration', {
+      get: () => {
+        if (first) {
+          first = false;
+          h.finish();
+        }
+        return 2;
+      },
+    });
+    if (event === 'error') h.fail();
+    else {
+      jest
+        .mocked(h.recorder.stopRecording)
+        .mockRejectedValueOnce(new Error('stop failed'));
+      await controller.stop();
+    }
+    expect(callbacks.onFinished).toHaveBeenCalledTimes(1);
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  }
+);
+
+it('repeated stop shares the pending native request', async () => {
+  const h = makeRecorder({ deferredStop: true });
+  const controller = createRecorderController({
+    createRecorder: async () => h.recorder,
+  });
+  await controller.start(startOptions(makeCallbacks()));
+  const first = controller.stop();
+  const second = controller.stop();
+  expect(h.recorder.stopRecording).toHaveBeenCalledTimes(1);
+  h.stopDeferred!.resolve();
+  await first;
+  await second;
+});
+it('a completion reentered while sampling a failed stop prevents its error result', async () => {
+  const h = makeRecorder();
+  const callbacks = makeCallbacks();
+  const controller = createRecorderController({
+    createRecorder: async () => h.recorder,
+  });
+  await controller.start(startOptions(callbacks));
+  let reads = 0;
+  Object.defineProperty(h.recorder, 'recordedDuration', {
+    get: () => {
+      reads += 1;
+      if (reads === 2) h.finish();
+      return 2;
+    },
+  });
+  jest
+    .mocked(h.recorder.stopRecording)
+    .mockRejectedValueOnce(new Error('stop failed'));
+  await controller.stop();
+  expect(callbacks.onFinished).toHaveBeenCalledTimes(1);
+  expect(callbacks.onError).not.toHaveBeenCalled();
+});

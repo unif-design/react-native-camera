@@ -83,3 +83,37 @@ describe('watermark Paragraph', () => {
     expect(order).toEqual(['paragraph', 'builder']);
   });
 });
+
+it.each(['build', 'layout'] as const)(
+  'releases resources and preserves the native %s error',
+  (stage) => {
+    const skia = require('@shopify/react-native-skia');
+    const failure = new Error('native paragraph failure');
+    const paragraph = {
+      layout: jest.fn(() => {
+        throw failure;
+      }),
+      dispose: jest.fn(),
+    };
+    const builder = {
+      pushStyle: jest.fn(),
+      addText: jest.fn(),
+      pop: jest.fn(),
+      build: jest.fn(() => paragraph),
+      dispose: jest.fn(),
+    };
+    builder.pushStyle.mockReturnValue(builder);
+    builder.addText.mockReturnValue(builder);
+    builder.pop.mockReturnValue(builder);
+    if (stage === 'build')
+      builder.build.mockImplementation(() => {
+        throw failure;
+      });
+    skia.Skia.ParagraphBuilder.Make.mockReturnValueOnce(builder);
+    expect(() =>
+      createWatermarkParagraph(300, 400, { lines: ['title'] })
+    ).toThrow(failure);
+    expect(builder.dispose).toHaveBeenCalledTimes(1);
+    expect(paragraph.dispose).toHaveBeenCalledTimes(stage === 'layout' ? 1 : 0);
+  }
+);

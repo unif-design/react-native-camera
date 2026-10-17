@@ -62,3 +62,8 @@ describe('depsAreSame', () => {
     expect(depsAreSame([0], [-0])).toBe(false);
   });
 });
+
+it('dependency identity short-circuits without reading entries', () => {
+  const values = [1, { stable: true }];
+  expect(depsAreSame(values, values)).toBe(true);
+});

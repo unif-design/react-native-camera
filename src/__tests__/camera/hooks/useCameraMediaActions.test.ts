@@ -115,3 +115,15 @@ describe.each(['photo', 'video'] as const)('%s 媒体操作', (kind) => {
     expect(harness.unlink).not.toHaveBeenCalled();
   });
 });
+
+it('rejected deletion and clearing never unlink files still owned by the session', () => {
+  const file = makePhotoFile({ path: '/kept.jpg' });
+  const harness = setup({ files: [file] });
+  act(() => {
+    expect(harness.result.current.deleteMedia(file)).toBe(false);
+    expect(harness.result.current.controller.beginPhoto()).not.toBeNull();
+    expect(harness.result.current.clear()).toBe(false);
+  });
+  expect(harness.unlink).not.toHaveBeenCalled();
+  expect(harness.fileRegistry.stateOf(file.path)).toBe('owned');
+});
