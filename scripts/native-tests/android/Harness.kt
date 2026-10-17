@@ -13,10 +13,11 @@ import com.unif.reactnativecamera.UnifPhotoProcessorModule
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
-private class Receipt : Promise {
+private class Receipt(private val worker: ExecutorService) : Promise {
   private val done = CountDownLatch(1)
   var value: JSONObject? = null
   var code: String? = null
@@ -36,6 +37,8 @@ private class Receipt : Promise {
   }
   fun await(): Receipt {
     check(done.await(10, TimeUnit.SECONDS)) { "native promise did not settle" }
+    // Promise settlement precedes native finally blocks; wait for the serial worker too.
+    worker.submit {}.get(10, TimeUnit.SECONDS)
     check(calls == 1) { "native promise settled more than once" }
     return this
   }
@@ -78,6 +81,8 @@ fun main() {
   val input = File(directory, "input.jpg").apply { writeText("original fixture") }
   val output = File(directory, "output.jpg")
   val module = UnifPhotoProcessorModule(ReactApplicationContext())
+  val worker = module.javaClass.getDeclaredField("executor").apply { isAccessible = true }
+    .get(module) as ExecutorService
   var groups = 0
   fun group(name: String, body: () -> Unit) {
     reset()
@@ -91,7 +96,7 @@ fun main() {
   fun process(
     ratio: String = "4:3", width: Double = 240.0, height: Double = 320.0,
     quality: Double = 85.0, watermark: String = "null", destination: File = output,
-  ): Receipt = Receipt().also {
+  ): Receipt = Receipt(worker).also {
     module.processPhoto(input.path, destination.path, ratio, width, height, quality, watermark, it)
   }
   try {
@@ -108,7 +113,7 @@ fun main() {
     group("all EXIF dimensions and orientation names") {
       for (orientation in 0..9) {
         ExifInterface.orientation = orientation
-        val result = Receipt().also { module.inspectPhotoFile(input.path, it) }.success()
+        val result = Receipt(worker).also { module.inspectPhotoFile(input.path, it) }.success()
         val swapped = orientation in 5..8
         check(result.getInt("width") == if (swapped) 480 else 640)
         check(result.getInt("height") == if (swapped) 640 else 480)
@@ -116,7 +121,7 @@ fun main() {
         check(result.getString("orientation") == name)
       }
       ExifInterface.failure = true
-      check(Receipt().also { module.inspectPhotoFile(input.path, it) }.success().getString("orientation") == "up")
+      check(Receipt(worker).also { module.inspectPhotoFile(input.path, it) }.success().getString("orientation") == "up")
     }
     group("internal raw metadata stays distinct from oriented dimensions") {
       ExifInterface.orientation = 6
@@ -131,18 +136,18 @@ fun main() {
       check(android.util.Log.entries.last() == "stage=partial-dimension")
     }
     group("invalid photo paths and metadata failures") {
-      Receipt().also { module.inspectPhotoFile(File(directory, "absent").path, it) }.failure("E_PHOTO_READ")
-      Receipt().also { module.inspectPhotoFile(directory.path, it) }.failure("E_PHOTO_READ")
+      Receipt(worker).also { module.inspectPhotoFile(File(directory, "absent").path, it) }.failure("E_PHOTO_READ")
+      Receipt(worker).also { module.inspectPhotoFile(directory.path, it) }.failure("E_PHOTO_READ")
       input.setReadable(false, false)
-      try { Receipt().also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ") }
+      try { Receipt(worker).also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ") }
       finally { input.setReadable(true, true) }
       BitmapFactory.width = 0
-      Receipt().also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ")
+      Receipt(worker).also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ")
       BitmapFactory.width = 10
       BitmapFactory.height = 0
-      Receipt().also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ")
+      Receipt(worker).also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ")
       BitmapFactory.boundsFailure = true
-      Receipt().also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ")
+      Receipt(worker).also { module.inspectPhotoFile(input.path, it) }.failure("E_PHOTO_READ")
       process().failure("E_PHOTO_DECODE")
     }
     group("sampled crop, every EXIF matrix, both aspect ratios") {
@@ -226,7 +231,7 @@ fun main() {
         for (duration in listOf(null, "0", "1000", "-1", "invalid")) {
           if (rotation == null) MediaMetadataRetriever.metadata.remove(24) else MediaMetadataRetriever.metadata[24] = rotation
           if (duration == null) MediaMetadataRetriever.metadata.remove(9) else MediaMetadataRetriever.metadata[9] = duration
-          val result = Receipt().also { module.inspectVideoFile(input.path, it) }.success()
+          val result = Receipt(worker).also { module.inspectVideoFile(input.path, it) }.success()
           val swapped = rotation == "90" || rotation == "270"
           check(result.getInt("width") == if (swapped) 480 else 640)
           check(result.getInt("height") == if (swapped) 640 else 480)
@@ -243,11 +248,11 @@ fun main() {
           MediaMetadataRetriever.metadata[18] = "640"
           MediaMetadataRetriever.metadata[19] = "480"
           if (invalid == null) MediaMetadataRetriever.metadata.remove(key) else MediaMetadataRetriever.metadata[key] = invalid
-          Receipt().also { module.inspectVideoFile(input.path, it) }.failure("E_VIDEO_READ")
+          Receipt(worker).also { module.inspectVideoFile(input.path, it) }.failure("E_VIDEO_READ")
         }
       }
       MediaMetadataRetriever.failure = true
-      Receipt().also { module.inspectVideoFile(input.path, it) }.failure("E_VIDEO_READ")
+      Receipt(worker).also { module.inspectVideoFile(input.path, it) }.failure("E_VIDEO_READ")
       check(MediaMetadataRetriever.releases == 9)
     }
     println("$groups native test groups passed")
