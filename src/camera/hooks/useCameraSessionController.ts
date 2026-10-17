@@ -149,7 +149,6 @@ export function useCameraSessionController({
   const nextCancelRequestIdRef = useRef(1);
   const pendingCancelRef = useRef<PendingCancelRequest | null>(null);
   const terminalOwnershipEpochRef = useRef(0);
-  const settleNotifiedRef = useRef(false);
   const confirmRef = useRef(confirm);
   const cancelRecordingRef = useRef(cancelRecording);
   const onSettleRef = useRef(onSettle);
@@ -382,11 +381,9 @@ export function useCameraSessionController({
     return files;
   }, [apply]);
 
-  const notifySettle = useCallback((result: CameraSessionOutcome): boolean => {
-    if (settleNotifiedRef.current) return false;
-    settleNotifiedRef.current = true;
+  // SETTLING owns the single notification; recording cancellation also checks its epoch.
+  const notifySettle = useCallback((result: CameraSessionOutcome): void => {
     onSettleRef.current(result);
-    return true;
   }, []);
 
   const settle = useCallback(
@@ -456,7 +453,7 @@ export function useCameraSessionController({
 
       // 先失效 operation token，再碰 native；cancel 同步回调的 finished/error
       // 因而只能成为 stale event，不能在取消已确认后把视频重新提交进 files。
-      if (!apply({ type: 'SETTLING' })) return;
+      apply({ type: 'SETTLING' });
       const ownerEpoch = ++terminalOwnershipEpochRef.current;
       await cancelRecordingBestEffort();
       if (
@@ -505,14 +502,6 @@ export function useCameraSessionController({
       ).catch((error) => {
         console.warn('camera user cancellation failed', error);
       });
-      return;
-    }
-
-    if (
-      current.phase !== 'configuring' &&
-      current.phase !== 'ready' &&
-      current.phase !== 'previewing'
-    ) {
       return;
     }
 

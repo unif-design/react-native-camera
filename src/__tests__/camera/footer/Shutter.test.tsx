@@ -64,3 +64,25 @@ it('快门 disabled 与 busy 复用同一个 capability 结果', () => {
     })
   ).toBeTruthy();
 });
+
+it('press-in and release animate the visible ring without firing capture', () => {
+  const { Animated } = require('react-native');
+  const start = jest.fn();
+  const timing = jest.spyOn(Animated, 'timing').mockReturnValue({ start });
+  const onPress = jest.fn();
+  try {
+    const view = renderDark(
+      <Shutter mode="single" recording={false} onPress={onPress} />
+    );
+    fireEvent(view.getByTestId('shutter-btn'), 'pressIn');
+    fireEvent(view.getByTestId('shutter-btn'), 'pressOut');
+    expect(timing.mock.calls.map((call) => call[1])).toEqual([
+      { toValue: 0.94, duration: 100, useNativeDriver: true },
+      { toValue: 1, duration: 100, useNativeDriver: true },
+    ]);
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(onPress).not.toHaveBeenCalled();
+  } finally {
+    timing.mockRestore();
+  }
+});

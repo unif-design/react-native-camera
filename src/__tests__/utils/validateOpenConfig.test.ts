@@ -224,3 +224,16 @@ describe('validateOpenConfig', () => {
     expect(validated.config).toEqual(before);
   });
 });
+
+it('a throwing input property fails validation without escaping the API', () => {
+  const config = {
+    ...validConfig,
+    get watermark() {
+      throw new Error('unreadable input');
+    },
+  };
+  expect(validateOpenConfig(config)).toEqual({
+    ok: false,
+    result: invalidResult,
+  });
+});

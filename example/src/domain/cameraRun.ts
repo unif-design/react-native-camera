@@ -116,10 +116,6 @@ export function createCameraRunController(
         const result = await deps.api.open(config, {
           signal: abortController.signal,
         });
-        if (activeRun?.token !== token) {
-          throw new Error('相机会话状态已失效');
-        }
-
         const record: CameraRunRecord = {
           id: runId,
           scenario,

@@ -1,3 +1,7 @@
+# Nitro/Video's JSI module imports require the source Core header layout on
+# RN 0.88 / Xcode 27. Use React Native's supported source build mode.
+ENV['RCT_USE_PREBUILT_RNCORE'] = '0'
+
 # Resolve react_native_pods.rb with node to allow for hoisting
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(

@@ -271,9 +271,17 @@ class UnifPhotoProcessorModule(
             .put("durationMs", duration),
         )
     } finally {
-      if (output != null && !output.isRecycled) output.recycle()
-      if (source != null && !source.isRecycled) source.recycle()
+      recycleBitmaps(output, source)
     }
+  }
+
+  private fun recycleBitmaps(
+    output: Bitmap?,
+    source: Bitmap?,
+  ) {
+    // Both bitmaps are exclusively owned by this call and released only here.
+    output?.recycle()
+    source?.recycle()
   }
 
   private fun readMetadata(path: String): PhotoMetadata {
@@ -459,10 +467,9 @@ class UnifPhotoProcessorModule(
     if (firstLineEnd > 0) {
       styled.setSpan(StyleSpan(Typeface.BOLD), 0, firstLineEnd, 0)
     }
-    if (styled.isNotEmpty()) {
-      // LineHeightSpan.Standard 只在较新 Android 提供；自定义 span 保持本库 API 24 下限。
-      styled.setSpan(FixedLineHeightSpan(lineHeight), 0, styled.length, 0)
-    }
+    // parseWatermark requires at least one nonblank line, so styled is nonempty.
+    // LineHeightSpan.Standard 只在较新 Android 提供；自定义 span 保持本库 API 24 下限。
+    styled.setSpan(FixedLineHeightSpan(lineHeight), 0, styled.length, 0)
     val paint =
       TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE

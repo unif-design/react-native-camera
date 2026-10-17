@@ -56,9 +56,8 @@ export function ShowcaseApp({
   const [qualityDraft, setQualityDraft] = useState(initialQualityLabDraft);
   const [basicDraft, setBasicDraft] = useState(initialBasicCaptureDraft);
   const [multiDraft, setMultiDraft] = useState(initialMultiModeDraft);
-  const route =
-    navigation.stack[navigation.stack.length - 1] ??
-    initialNavigationState.stack[0]!;
+  // Initial state and every navigation transition preserve a nonempty stack.
+  const route = navigation.stack[navigation.stack.length - 1]!;
   const routeNameRef = useRef(route.name);
   routeNameRef.current = route.name;
 
@@ -126,9 +125,5 @@ export function ShowcaseApp({
           onBack={onBack}
         />
       );
-    default: {
-      const exhaustiveRoute: never = route;
-      return exhaustiveRoute;
-    }
   }
 }

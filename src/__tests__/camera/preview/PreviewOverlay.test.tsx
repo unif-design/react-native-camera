@@ -1,3 +1,5 @@
+import { PreviewBottomBar } from '../../../camera/preview/PreviewBottomBar';
+import { PreviewTopBar } from '../../../camera/preview/PreviewTopBar';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
@@ -376,4 +378,99 @@ it('gallery 删除末张:render-time safeIndex 让 remount/计数/下一次删�
   fireEvent.press(getByRole('button', { name: '确认删除' }));
   await waitFor(() => expect(deleted).toEqual(['c', 'b']));
   expect(getByTestId('preview-counter')).toHaveTextContent('第 1/1 张');
+});
+
+it('removing the final active type produces an empty, non-deletable preview', () => {
+  const onDelete = jest.fn();
+  const view = renderPreview(
+    <PreviewOverlay
+      files={[f('video', 'v')]}
+      variant="gallery"
+      {...noop}
+      onDelete={onDelete}
+    />
+  );
+  view.rerender(
+    <PreviewOverlay
+      files={[]}
+      variant="gallery"
+      {...noop}
+      onDelete={onDelete}
+    />
+  );
+  expect(view.getByTestId('delete-btn')).toBeDisabled();
+  const bar = view.UNSAFE_getByType(PreviewBottomBar);
+  act(() => {
+    bar.props.deleteConfirmation.onRequest();
+    bar.props.onDelete();
+  });
+  expect(onDelete).not.toHaveBeenCalled();
+});
+
+it('replacing the selected media while confirmation is open clears the old target', () => {
+  const onDelete = jest.fn();
+  const original = f('single', 'a');
+  const view = renderPreview(
+    <PreviewOverlay
+      files={[original]}
+      variant="gallery"
+      {...noop}
+      onDelete={onDelete}
+    />
+  );
+  fireEvent.press(view.getByTestId('delete-btn'));
+  const oldDelete = view.UNSAFE_getByType(PreviewBottomBar).props.onDelete;
+  view.rerender(
+    <PreviewOverlay
+      files={[{ ...original }]}
+      variant="gallery"
+      {...noop}
+      onDelete={onDelete}
+    />
+  );
+  act(() => oldDelete());
+  expect(onDelete).not.toHaveBeenCalled();
+  expect(view.queryByRole('button', { name: '确认删除' })).toBeNull();
+});
+
+it('queued selection and delete requests cannot act while the carousel moves', () => {
+  const onDelete = jest.fn();
+  const view = renderPreview(
+    <PreviewOverlay
+      files={[f('single', 'a'), f('video', 'v')]}
+      variant="gallery"
+      {...noop}
+      onDelete={onDelete}
+    />
+  );
+  layoutCarousel(view.getByTestId);
+  const top = view.UNSAFE_getByType(PreviewTopBar).props.onSelectType;
+  const request =
+    view.UNSAFE_getByType(PreviewBottomBar).props.deleteConfirmation.onRequest;
+  act(() => top('single'));
+  fireEvent.press(view.getByTestId('rnrc-scroll-start'));
+  act(() => {
+    request();
+    top('video');
+  });
+  expect(view.getByRole('tab', { name: /单拍/, selected: true })).toBeTruthy();
+  expect(onDelete).not.toHaveBeenCalled();
+});
+
+it('repeated settled index keeps the current deletion confirmation', () => {
+  const onDelete = jest.fn();
+  const h = renderPreview(
+    <PreviewOverlay
+      files={[f('single', 'a')]}
+      variant="gallery"
+      {...noop}
+      onDelete={onDelete}
+    />
+  );
+  layoutCarousel(h.getByTestId);
+  fireEvent.press(h.getByTestId('delete-btn'));
+  const props = rnCarouselRenderSpy.mock.calls.at(-1)![0];
+  act(() => props.onSnapToItem(0));
+  fireEvent.press(h.getByTestId('delete-btn'));
+  expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
 });

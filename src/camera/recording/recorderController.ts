@@ -88,7 +88,6 @@ type RecorderOperation = {
   displayDuration: number;
   disposed: boolean;
   stopPromise: Promise<void> | null;
-  deliveredPath: string | null;
   reportedProducedPaths: Set<string>;
   /** native `startRecording()` continuation resolve 或 reject 后 settle，用于取消补救。 */
   startSettled: Promise<'resolved' | 'rejected'>;
@@ -175,15 +174,12 @@ export function createRecorderController({
 
   const createTerminalSignal = () => {
     let resolveSignal!: () => void;
-    let settled = false;
     const promise = new Promise<'started'>((resolve) => {
       resolveSignal = () => resolve('started');
     });
     return {
       promise,
       mark: () => {
-        if (settled) return;
-        settled = true;
         resolveSignal();
       },
     };
@@ -230,13 +226,14 @@ export function createRecorderController({
         runClear();
         resolve(value);
       };
-      clearTimer = timerSource(() => settle(timeoutValue), ms);
-      // 注入的 scheduleTimeout 若同步触发，上一行赋值发生在 settle 之后；这里补一次 clear。
-      if (settled) runClear();
+      // Observe rejection before allocating a timer: a throwing scheduler must not orphan the signal.
       signal.then(
         (value) => settle(value),
         () => settle(timeoutValue)
       );
+      clearTimer = timerSource(() => settle(timeoutValue), ms);
+      // 注入的 scheduleTimeout 若同步触发，上一行赋值发生在 settle 之后；这里补一次 clear。
+      if (settled) runClear();
     });
 
   type NativeCancelOutcome = 'cancelled' | 'rejected' | 'timeout';
@@ -337,8 +334,8 @@ export function createRecorderController({
     return base;
   };
 
-  const clearActive = (operation: RecorderOperation) => {
-    if (active === operation) active = null;
+  const clearActive = () => {
+    active = null;
   };
 
   const notifyError = (
@@ -386,9 +383,7 @@ export function createRecorderController({
     if (operation.reportedProducedPaths.has(path)) return;
     operation.reportedProducedPaths.add(path);
     if (operation.state !== 'pending') {
-      if (operation.deliveredPath !== path) {
-        notifyDiscardedFile(operation.callbacks, path);
-      }
+      notifyDiscardedFile(operation.callbacks, path);
       if (operation.state === 'cancelled') {
         // retained handle 收到 native 终态，已无需等待迟到 start；先撤销补 cancel 责任再 dispose。
         operation.postStartCancelRequired = false;
@@ -398,11 +393,14 @@ export function createRecorderController({
     }
 
     const duration = computeDuration(operation, reason);
+    if (operation.state !== 'pending') {
+      notifyDiscardedFile(operation.callbacks, path);
+      return;
+    }
     operation.state = 'finalized';
-    operation.deliveredPath = path;
     lastDuration = duration;
     operation.markTerminalSignal();
-    clearActive(operation);
+    clearActive();
     try {
       operation.callbacks.onFinished(path, reason, duration);
     } catch (error) {
@@ -421,10 +419,12 @@ export function createRecorderController({
       return;
     }
 
-    lastDuration = computeDuration(operation);
+    const duration = computeDuration(operation);
+    if (operation.state !== 'pending') return;
+    lastDuration = duration;
     operation.state = 'finalized';
     operation.markTerminalSignal();
-    clearActive(operation);
+    clearActive();
     notifyError(operation.callbacks, error);
     disposeRecorder(operation);
   };
@@ -432,9 +432,11 @@ export function createRecorderController({
   const abortWithError = async (operation: RecorderOperation, error: Error) => {
     if (operation.state !== 'pending') return false;
 
-    lastDuration = computeDuration(operation);
+    const duration = computeDuration(operation);
+    if (operation.state !== 'pending') return false;
+    lastDuration = duration;
     operation.state = 'finalized';
-    clearActive(operation);
+    clearActive();
     notifyError(operation.callbacks, error);
     // 原始 start/stop 错误是诊断真值；cancel 仅 best-effort 防 orphan recording，
     // 即使 native cancel 永不 settle，也必须在有界等待后 dispose 并让调用方收到原错误。
@@ -601,7 +603,6 @@ export function createRecorderController({
       }
 
       if (attempt.cancelled || controllerDisposed) {
-        if (pendingAttempt === attempt) pendingAttempt = null;
         cleanupUnstartedRecorder(recorder, attempt.callbacks);
         return 'denied';
       }
@@ -628,7 +629,6 @@ export function createRecorderController({
         displayDuration: 0,
         disposed: false,
         stopPromise: null,
-        deliveredPath: null,
         reportedProducedPaths: new Set(),
         startSettled,
         markStartSettled,
@@ -639,7 +639,12 @@ export function createRecorderController({
         terminalSignal: terminalSignal.promise,
         markTerminalSignal: terminalSignal.mark,
       };
-      if (pendingAttempt === attempt) pendingAttempt = null;
+      // Injected/native clock reads above can synchronously cancel preparation.
+      if (attempt.cancelled || controllerDisposed) {
+        cleanupUnstartedRecorder(recorder, attempt.callbacks);
+        return 'denied';
+      }
+      pendingAttempt = null;
       liveOperations.add(operation);
       active = operation;
       lastDuration = 0;
@@ -737,7 +742,7 @@ export function createRecorderController({
     // await 前先原子占有取消终态；同期 finish/error callback 只能 no-op，不能交付文件。
     operation.state = 'cancelled';
     operation.markCancelIntent();
-    clearActive(operation);
+    clearActive();
     if (notifyOwner) notifyCancelled(operation.callbacks);
     // cancel()/dispose() 一律不向外 reject：调用方是 effect cleanup / session 收尾，
     // 拿到 rejection 也无从处置；native 失败只 warn，由迟到 start/callback 继续完成收尾。

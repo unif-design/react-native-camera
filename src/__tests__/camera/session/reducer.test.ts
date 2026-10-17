@@ -489,3 +489,109 @@ describe('cameraSessionReducer', () => {
     ).toBe(settling);
   });
 });
+
+describe('phase and stale-event boundaries', () => {
+  it.each(['settling', 'closed'] as const)(
+    'repeated settling preserves %s identity',
+    (phase) => {
+      const state = makeState({ phase });
+      expect(cameraSessionReducer(state, { type: 'SETTLING' })).toBe(state);
+    }
+  );
+
+  it.each<CameraSessionAction>([
+    { type: 'CLOSED' },
+    { type: 'PHOTO_CAPTURED', operationId: 1 },
+    { type: 'VIDEO_STARTED', operationId: 1 },
+    { type: 'VIDEO_PROGRESS', operationId: 1, duration: 3 },
+    { type: 'STOP_VIDEO', operationId: 1, duration: 3 },
+    { type: 'VIDEO_FINISHED', operationId: 1, duration: 3, reason: 'user' },
+    { type: 'OPERATION_FAILED', operationId: 1 },
+    { type: 'OPEN_PREVIEW', preview: { variant: 'gallery', index: -1 } },
+    { type: 'OPEN_PREVIEW', preview: { variant: 'gallery', index: 1 } },
+    { type: 'CLOSE_PREVIEW' },
+    { type: 'DELETE_FILE', path: photo.path },
+    { type: 'SET_FLASH', flash: 'off' },
+    { type: 'SET_SOUND', sound: false },
+  ])('rejects $type without a valid current transition', (action) => {
+    const state = makeState({ files: [photo], operationId: 1 });
+    expect(cameraSessionReducer(state, action)).toBe(state);
+  });
+
+  it.each<CameraSessionAction>([
+    { type: 'SET_FLASH', flash: 'on' },
+    { type: 'SET_SOUND', sound: true },
+    { type: 'BEGIN_CONFIGURATION', nativeConfigurationKey: 'other' },
+    { type: 'START_VIDEO', operationId: 2 },
+    { type: 'CLEAR_FILES' },
+  ])('busy capture ignores $type', (action) => {
+    const state = makeState({
+      phase: 'capturingPhoto',
+      operationId: 1,
+      files: [photo],
+    });
+    expect(cameraSessionReducer(state, action)).toBe(state);
+  });
+
+  it.each<CameraSessionAction>([
+    { type: 'CAPTURE_PHOTO', operationId: 2 },
+    { type: 'START_VIDEO', operationId: 2 },
+  ])('recording shutter capability does not authorize $type', (action) => {
+    const state = makeState({ phase: 'recording', operationId: 1 });
+    expect(cameraSessionReducer(state, action)).toBe(state);
+  });
+
+  it.each<[CameraSessionPhase, CameraSessionAction]>([
+    ['capturingPhoto', { type: 'PHOTO_CAPTURED', operationId: 2 }],
+    ['startingVideo', { type: 'VIDEO_STARTED', operationId: 2 }],
+    ['recording', { type: 'VIDEO_PROGRESS', operationId: 2, duration: 9 }],
+    ['recording', { type: 'STOP_VIDEO', operationId: 2, duration: 9 }],
+    [
+      'startingVideo',
+      { type: 'VIDEO_FINISHED', operationId: 2, duration: 9, reason: 'user' },
+    ],
+  ])('rejects a foreign operation while %s', (phase, action) => {
+    const state = makeState({ phase, operationId: 1 });
+    expect(cameraSessionReducer(state, action)).toBe(state);
+  });
+
+  it('empty clear is idempotent and a preview without an active selection cannot delete', () => {
+    const state = makeState();
+    expect(cameraSessionReducer(state, { type: 'CLEAR_FILES' })).toBe(state);
+    const preview = makeState({
+      phase: 'previewing',
+      files: [photo],
+      preview: null,
+    });
+    expect(
+      cameraSessionReducer(preview, { type: 'DELETE_FILE', path: photo.path })
+    ).toBe(preview);
+    expect(
+      cameraSessionReducer(preview, { type: 'CLEAR_FILES' })
+    ).toMatchObject({ phase: 'ready', files: [], preview: null });
+  });
+});
+
+it('close only transitions a settling session and a fileless video result returns ready', () => {
+  expect(
+    cameraSessionReducer(makeState({ phase: 'settling' }), { type: 'CLOSED' })
+      .phase
+  ).toBe('closed');
+  const state = makeState({
+    phase: 'recording',
+    operationId: 8,
+    files: [photo],
+  });
+  const result = cameraSessionReducer(state, {
+    type: 'VIDEO_FINISHED',
+    operationId: 8,
+    duration: 3,
+    reason: 'stopped',
+  });
+  expect(result).toMatchObject({
+    phase: 'ready',
+    files: [photo],
+    operationId: null,
+  });
+  expect(result.files).toBe(state.files);
+});

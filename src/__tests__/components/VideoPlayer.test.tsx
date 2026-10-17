@@ -224,3 +224,20 @@ it('播放到结尾后不自动 loop', () => {
   render(<VideoPlayer uri="file:///v.mp4" />);
   expect(latestPlayer().loop).toBe(false);
 });
+
+it('duplicate buffer and non-error status events preserve active playback', () => {
+  const view = render(<VideoPlayer uri="file:///v.mp4" />);
+  const player = latestPlayer();
+  act(() => {
+    videoMock.emit(player, 'onPlaybackStateChange', {
+      isPlaying: true,
+      isBuffering: false,
+    });
+    videoMock.emit(player, 'onBuffer', false);
+    videoMock.emit(player, 'onStatusChange', 'readyToPlay');
+  });
+  expect(
+    view.getByRole('button', { name: '暂停视频', selected: true, busy: false })
+  ).toBeTruthy();
+  expect(player.pause).not.toHaveBeenCalled();
+});

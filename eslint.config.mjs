@@ -32,6 +32,12 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', 'lib/', 'website/'],
+    ignores: [
+      'coverage/',
+      'example/coverage/',
+      'node_modules/',
+      'lib/',
+      'website/',
+    ],
   },
 ];

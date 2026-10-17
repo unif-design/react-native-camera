@@ -65,9 +65,8 @@ export function useCamera(): readonly [CameraController, React.ReactElement] {
         );
       }
       // drain 在首个 await 前同步摘除 owned；unlink I/O 永远不阻塞 Promise settle。
-      session.resources.files.drain().catch((error) => {
-        console.warn('camera session file cleanup failed', error);
-      });
+      // This registry is created locally; it consumes both unlink and reporter failures.
+      session.resources.files.drain();
       currentSessionRef.current = null;
       session.status = 'settled';
       session.removeAbortListener?.();

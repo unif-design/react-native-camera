@@ -8,3 +8,7 @@ it('渲染 spinner 不崩,testID loading 在', () => {
   const { getByTestId } = renderDark(<Loading />);
   expect(getByTestId('loading')).toBeTruthy();
 });
+
+it('supports the optional no-argument render helper', () => {
+  expect(renderDark(Loading()).getByTestId('loading')).toBeTruthy();
+});

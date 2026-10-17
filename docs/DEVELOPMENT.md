@@ -30,3 +30,7 @@
 `website/docs` 是使用文档源；运行 `node website/scripts/build-llms.js` 可单独生成。共同实现由组织 `templates/llms` 分发，维护源后使用 `sync-llms.cjs` 同步，不手改生成副本。
 
 索引按任务列出单页，全文位于 Optional；包版本取当前 package.json。`node website/scripts/build-llms.test.js` 验证公共生成契约与本库资料，文档站构建沿既有 CI 运行。
+
+## RN 0.88 验证入口
+
+[开发基线与覆盖率](rn88-coverage.md)记录正式依赖、完整源码分母、原生插桩与 example 宿主边界。标准 `yarn test --coverage` 强制库与 example 的 JS/TS 四项 100%；原生检查接入本库 `.github/ci` 钩子。

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -14,11 +15,15 @@ import type {
   CameraWatermark,
 } from '../../utils';
 import type { CameraHandle } from '../Camera';
-import { processPhoto, PhotoProcessingError } from '../image/processPhoto';
+import { processPhoto } from '../image/processPhoto';
 import { needsPhotoFileProcessing } from '../image/photoResolution';
 import { discardOwnedFiles, type FileRegistry } from '../session/fileRegistry';
 import { hasVisibleWatermark } from '../watermark/paragraph';
 import type { AspectRatio } from '../setup';
+import {
+  createPhotoCleanupQueue,
+  type FileCleanupRequest,
+} from './photoCleanupQueue';
 import type { CameraOperationToken } from './useCameraSessionController';
 import type { CameraSessionController } from './useCameraSessionController';
 
@@ -47,21 +52,6 @@ type CaptureSnapshot = {
   cameraPosition: CameraFacing;
   retention: CameraInput['retention'];
   previewIndex: number;
-};
-
-type FileCleanupRequest =
-  | {
-      type: 'replace';
-      rawPath: string;
-      finalPath: string;
-    }
-  | {
-      type: 'delete';
-      paths: string[];
-    };
-
-type PendingFileCleanup = FileCleanupRequest & {
-  commitVersion: number;
 };
 
 function snapshotCapture(
@@ -106,39 +96,17 @@ export function usePhotoCaptureTransaction({
   const [freezeUri, setFreezeUri] = useState<string | null>(null);
   const [cleanupCommitVersion, setCleanupCommitVersion] = useState(0);
   const presentRef = useRef(false);
-  const nextCleanupVersionRef = useRef(0);
-  const pendingCleanupRef = useRef<PendingFileCleanup[]>([]);
-
-  const consumePendingCleanup = useCallback(
-    (throughVersion = Number.POSITIVE_INFINITY): void => {
-      const ready: PendingFileCleanup[] = [];
-      const deferred: PendingFileCleanup[] = [];
-      pendingCleanupRef.current.forEach((cleanup) => {
-        (cleanup.commitVersion <= throughVersion ? ready : deferred).push(
-          cleanup
-        );
-      });
-      pendingCleanupRef.current = deferred;
-
-      ready.forEach((cleanup) => {
-        if (cleanup.type === 'delete') {
-          discardOwnedFiles(fileRegistry, cleanup.paths);
-          return;
-        }
-        fileRegistry.replace(cleanup.rawPath, cleanup.finalPath).catch(() => {
-          // registry 已负责 best-effort 诊断；替换清理永远不能回滚已提交的照片。
-        });
-      });
-    },
+  const cleanupQueue = useMemo(
+    () => createPhotoCleanupQueue(fileRegistry),
     [fileRegistry]
   );
-
-  const enqueueCleanup = useCallback((cleanup: FileCleanupRequest): void => {
-    const commitVersion = nextCleanupVersionRef.current + 1;
-    nextCleanupVersionRef.current = commitVersion;
-    pendingCleanupRef.current.push({ ...cleanup, commitVersion });
-    setCleanupCommitVersion(commitVersion);
-  }, []);
+  const consumePendingCleanup = cleanupQueue.consume;
+  const enqueueCleanup = useCallback(
+    (cleanup: FileCleanupRequest): void => {
+      setCleanupCommitVersion(cleanupQueue.enqueue(cleanup));
+    },
+    [cleanupQueue]
+  );
 
   useLayoutEffect(() => {
     presentRef.current = true;
@@ -181,7 +149,8 @@ export function usePhotoCaptureTransaction({
 
   const reportCaptureFailure = useCallback(
     (token: CameraOperationToken): void => {
-      if (!tokenIsCurrent(token) || !controller.fail(token)) return;
+      if (!tokenIsCurrent(token)) return;
+      controller.fail(token);
       onError('拍摄失败,请重试');
     },
     [controller, onError, tokenIsCurrent]
@@ -240,21 +209,13 @@ export function usePhotoCaptureTransaction({
         : undefined;
 
     if (!needsProcessing) {
-      if (!tokenIsCurrent(token)) {
-        discardOwnedFiles(fileRegistry, [raw.path]);
-        return;
-      }
-      if (!controller.photoSucceeded(token, normalized, preview)) {
-        discardOwnedFiles(fileRegistry, [raw.path]);
-      }
+      controller.photoSucceeded(token, normalized, preview);
       return;
     }
 
     const processingStartedAt = Date.now();
-    if (presentRef.current) {
-      setFreezeUri(normalized.uri);
-      setBurning(true);
-    }
+    setFreezeUri(normalized.uri);
+    setBurning(true);
 
     let final: CapturedFile | null = null;
     try {
@@ -287,23 +248,11 @@ export function usePhotoCaptureTransaction({
         cleanupAfterFreeze([raw.path, final.path, ...delegatedCleanupPaths]);
         return;
       }
-      if (final.path === raw.path) {
-        throw new PhotoProcessingError('write');
-      }
-
-      if (presentRef.current) setBurning(false);
+      setBurning(false);
       if (visibleWatermark) {
         const remaining = MIN_FREEZE_MS - (Date.now() - processingStartedAt);
         if (remaining > 0) {
           await wait(remaining);
-          if (!tokenIsCurrent(token)) {
-            cleanupAfterFreeze([
-              raw.path,
-              final.path,
-              ...delegatedCleanupPaths,
-            ]);
-            return;
-          }
         }
       }
 
@@ -311,20 +260,13 @@ export function usePhotoCaptureTransaction({
         cleanupAfterFreeze([raw.path, final.path, ...delegatedCleanupPaths]);
         return;
       }
-      if (presentRef.current) setFreezeUri(null);
-      if (!controller.photoSucceeded(token, final, preview)) {
-        cleanupAfterFreeze([raw.path, final.path, ...delegatedCleanupPaths]);
-        return;
-      }
-
-      if (presentRef.current) {
-        const finalPath = final.path;
-        enqueueCleanup({
-          type: 'replace',
-          rawPath: raw.path,
-          finalPath,
-        });
-      }
+      setFreezeUri(null);
+      controller.photoSucceeded(token, final, preview);
+      enqueueCleanup({
+        type: 'replace',
+        rawPath: raw.path,
+        finalPath: final.path,
+      });
     } catch {
       const fallbackCleanupPaths = [
         raw.path,
@@ -332,7 +274,8 @@ export function usePhotoCaptureTransaction({
       ].filter((path) => !delegatedCleanupPaths.has(path));
       const current = tokenIsCurrent(token);
       cleanupAfterFreeze(fallbackCleanupPaths);
-      if (!current || !controller.fail(token)) return;
+      if (!current) return;
+      controller.fail(token);
       onError('照片处理失败,请重试');
     }
   }, [

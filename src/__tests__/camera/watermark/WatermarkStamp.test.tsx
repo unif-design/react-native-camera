@@ -182,3 +182,23 @@ it('effect cleanup 的 dispose 抛错不冒泡，并继续尝试 Paragraph 与 B
   expect(paragraph.dispose).toHaveBeenCalledTimes(1);
   expect(builder.dispose).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  [{ ...frame, width: 0 }, { lines: ['title'] }],
+  [{ ...frame, height: 0 }, { lines: ['title'] }],
+  [frame, { lines: ['   ', '\n'] }],
+])(
+  'invalid frame or blank content does not allocate a paragraph',
+  (currentFrame, watermark) => {
+    const skia = require('@shopify/react-native-skia');
+    const view = renderDark(
+      <WatermarkStamp
+        frame={currentFrame}
+        animatedFrame={animatedFrame}
+        watermark={watermark}
+      />
+    );
+    expect(view.getByTestId('watermark-canvas')).toBeTruthy();
+    expect(skia.Skia.ParagraphBuilder.Make).not.toHaveBeenCalled();
+  }
+);

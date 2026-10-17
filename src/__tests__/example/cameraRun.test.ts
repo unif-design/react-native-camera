@@ -220,3 +220,42 @@ it('clear 清空已有记录与 diagnostic，并允许取消订阅', async () =>
   controller.clear();
   expect(listener).toHaveBeenCalledTimes(3);
 });
+
+it.each([
+  ['bridge disappeared', 'bridge disappeared'],
+  [null, '未知相机运行时错误'],
+])('records non-Error runtime rejection %p', async (reason, message) => {
+  const { controller, mockOpen } = createSubject();
+  mockOpen.mockRejectedValueOnce(reason);
+  await expect(
+    controller.open('basic-capture', {
+      modes: [{ mode: 'single' }],
+      retention: 'clear',
+    })
+  ).rejects.toBe(reason);
+  expect(controller.getSnapshot()).toMatchObject({
+    phase: 'idle',
+    records: [],
+    diagnostics: [{ message }],
+  });
+});
+
+it('a failing settled observer does not replace the completed outcome with a diagnostic', async () => {
+  const { controller, mockOpen } = createSubject();
+  const failure = new Error('observer failed');
+  mockOpen.mockResolvedValueOnce(cancelledResult);
+  controller.subscribe(() => {
+    if (controller.getSnapshot().phase === 'idle') throw failure;
+  });
+  await expect(
+    controller.open('basic-capture', {
+      modes: [{ mode: 'single' }],
+      retention: 'clear',
+    })
+  ).rejects.toBe(failure);
+  expect(controller.getSnapshot()).toMatchObject({
+    phase: 'idle',
+    records: [{ result: cancelledResult }],
+    diagnostics: [],
+  });
+});

@@ -241,3 +241,38 @@ test('确认、普通提示和错误提示使用宿主字号', () => {
     fontSize: font.sm * 1.4,
   });
 });
+
+it('retained toast and timer callbacks are inert after host unmount', () => {
+  jest.useFakeTimers();
+  const timers = jest.spyOn(global, 'setTimeout');
+  let api!: ReturnType<typeof useCameraDialog>;
+  function Probe() {
+    api = useCameraDialog();
+    return null;
+  }
+  const view = render(wrap(<Probe />));
+  act(() => {
+    api.toast('first');
+    api.toast('second');
+    api.showError('failure');
+  });
+  const close = timers.mock.calls.find(
+    (call) => call[1] === 4000
+  )![0] as () => void;
+  act(() => {
+    close();
+    close();
+  });
+  const queued = timers.mock.calls
+    .map((call) => call[0])
+    .filter((callback) => typeof callback === 'function');
+  view.unmount();
+  act(() => {
+    api.toast('late');
+    close();
+    queued.forEach((callback) => (callback as () => void)());
+  });
+  expect(view.toJSON()).toBeNull();
+  timers.mockRestore();
+  jest.useRealTimers();
+});

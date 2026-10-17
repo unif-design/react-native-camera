@@ -1,4 +1,7 @@
-import { createFileRegistry } from '../../../camera/session/fileRegistry';
+import {
+  createFileRegistry,
+  discardOwnedFiles,
+} from '../../../camera/session/fileRegistry';
 
 function deferred() {
   let resolve!: () => void;
@@ -171,4 +174,33 @@ describe('FileRegistry', () => {
     expect(currentSession.stateOf('/late-video.mp4')).toBeUndefined();
     expect(currentUnlink).not.toHaveBeenCalled();
   });
+});
+
+it('same-path replacement preserves ownership without deleting the result', async () => {
+  const unlink = jest.fn(async () => {});
+  const registry = createFileRegistry(unlink);
+  registry.register('/same.jpg');
+  await registry.replace('/same.jpg', '/same.jpg');
+  expect(registry.stateOf('/same.jpg')).toBe('owned');
+  expect(unlink).not.toHaveBeenCalled();
+});
+
+it('discard consumes a rejecting consumer registry extension after real deletion', async () => {
+  const unlink = jest.fn().mockResolvedValue(undefined);
+  const base = createFileRegistry(unlink);
+  base.register('/extension');
+  discardOwnedFiles(
+    {
+      ...base,
+      delete: async (path) => {
+        await base.delete(path);
+        throw new Error('consumer persistence failed');
+      },
+    },
+    ['/extension']
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(base.stateOf('/extension')).toBe('deleted');
+  expect(unlink).toHaveBeenCalledWith('/extension');
 });

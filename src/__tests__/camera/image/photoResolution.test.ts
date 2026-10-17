@@ -20,3 +20,16 @@ it.each([
     true
   );
 });
+
+it.each([
+  [0, 100],
+  [100, 0],
+  [-1, 100],
+])(
+  'invalid dimensions %sx%s require processing instead of delivery',
+  (width, height) => {
+    expect(needsPhotoFileProcessing(jpeg(width, height), '4:3', false)).toBe(
+      true
+    );
+  }
+);

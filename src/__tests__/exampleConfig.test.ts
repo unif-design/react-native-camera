@@ -342,8 +342,8 @@ it('example 显式安装 workspace camera 与照片处理、录像 native peers'
     expect.objectContaining({
       '@unif/react-native-camera': 'workspace:*',
       '@dr.pogodin/react-native-fs': '^2.38.2',
-      '@shopify/react-native-skia': '^2.6.4',
-      'react-native-video': '7.0.0-beta.9',
+      '@shopify/react-native-skia': '^2.14.0',
+      'react-native-video': '7.0.0-beta.11',
     })
   );
   expect(pkg.dependencies?.['react-native-fs']).toBeUndefined();
@@ -402,7 +402,7 @@ it('安装后的 RN Gradle included build 使用兼容 Gradle 9 的 Foojay 1.0.0
   );
 });
 
-it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 peer 保留支持区间', () => {
+it('根、example 与 website 使用统一 RN 0.88.0 动画运行图且公共 peer 保留支持区间', () => {
   const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const examplePkg = JSON.parse(readExample('package.json'));
   const websitePkg = JSON.parse(readWebsite('package.json'));
@@ -416,30 +416,30 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
     readWebsite('node_modules/react-native/package.json')
   );
 
-  expect(rootPkg.devDependencies['react-native']).toBe('0.86.3');
-  expect(examplePkg.dependencies['react-native']).toBe('0.86.3');
+  expect(rootPkg.devDependencies['react-native']).toBe('0.88.0');
+  expect(examplePkg.dependencies['react-native']).toBe('0.88.0');
   expect(examplePkg.devDependencies['@react-native/metro-config']).toBe(
-    '0.86.3'
+    '0.88.0'
   );
   expect(examplePkg.devDependencies['@react-native-community/cli']).toBe(
-    '20.1.0'
+    '20.2.0'
   );
-  expect(websitePkg.dependencies.react).toBe('19.2.3');
-  expect(websitePkg.dependencies['react-dom']).toBe('19.2.3');
-  expect(websitePkg.dependencies['react-native']).toBe('0.86.3');
-  expect(installedWebsiteReact.version).toBe('19.2.3');
-  expect(installedWebsiteReactDom.version).toBe('19.2.3');
-  expect(installedWebsiteReactNative.version).toBe('0.86.3');
+  expect(websitePkg.dependencies.react).toBe('19.3.0');
+  expect(websitePkg.dependencies['react-dom']).toBe('19.3.0');
+  expect(websitePkg.dependencies['react-native']).toBe('0.88.0');
+  expect(installedWebsiteReact.version).toBe('19.3.0');
+  expect(installedWebsiteReactDom.version).toBe('19.3.0');
+  expect(installedWebsiteReactNative.version).toBe('0.88.0');
   for (const pkg of [
     rootPkg.devDependencies,
     examplePkg.dependencies,
     websitePkg.dependencies,
   ]) {
     expect(pkg['@callstack/liquid-glass']).toBe('0.8.2');
-    expect(pkg['@unif/react-native-icons']).toBe('>=0.1.0');
+    expect(pkg['@unif/react-native-icons']).toBe('^0.4.1');
     expect(pkg['@sbaiahmed1/react-native-blur']).toBeUndefined();
-    expect(pkg['react-native-reanimated']).toBe('^4.6.0');
-    expect(pkg['react-native-worklets']).toBe('^0.12.1');
+    expect(pkg['react-native-reanimated']).toBe('4.7.1');
+    expect(pkg['react-native-worklets']).toBe('0.13.0');
   }
   // 预览原位确认需要 Design 1.6，RN 支持下限保持 0.86。
   expect(rootPkg.peerDependencies.react).toBe('>=19.2.3 <20.0.0');
@@ -457,9 +457,9 @@ it('根、example 与 website 使用统一 RN 0.86.3 动画运行图且公共 pe
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
     '>=0.11.0 <0.14.0'
   );
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.6.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.6.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('^1.6.0');
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.6.2');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.6.2');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('^1.6.2');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();
