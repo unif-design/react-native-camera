@@ -6,6 +6,7 @@ import {
   type SkParagraphBuilder,
 } from '@shopify/react-native-skia';
 import type { CameraWatermark } from '../../utils';
+import { mediaPalette } from '@unif/react-native-design';
 import { VIEWFINDER } from '../colors/viewfinder';
 import { computeWatermarkLayout, type WmLayout } from './layout';
 
@@ -61,7 +62,7 @@ export function createWatermarkParagraph(
       blurRadius: Math.max(2, Math.round(layout.fontSize * 0.1)),
       offset: { x: 0, y: 0 },
     };
-    const color = Skia.Color('white');
+    const color = Skia.Color(mediaPalette.foreground);
     layout.content.forEach((line, index) => {
       builder
         .pushStyle({

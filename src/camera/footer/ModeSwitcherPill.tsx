@@ -11,6 +11,7 @@ import {
   GlassLayer,
   r,
   fw,
+  tracking,
   type as t,
   useThemedStyles,
   type ColorTokens,
@@ -123,7 +124,7 @@ const makeStyles = (c: ColorTokens) =>
       color: c.foregroundMuted,
       fontSize: t.body,
       fontWeight: fw.medium,
-      letterSpacing: 1,
+      letterSpacing: tracking.loose,
     },
     txtSel: { color: c.primary, fontWeight: fw.semi },
     // 单模式即当前生效模式 —— 与多模式选中态同款主题色(灰会读成不可用)。
@@ -131,7 +132,7 @@ const makeStyles = (c: ColorTokens) =>
       color: c.primary,
       fontSize: t.sm,
       fontWeight: fw.semi,
-      letterSpacing: 2,
+      letterSpacing: tracking.extraWide,
       alignSelf: 'center',
     },
   });

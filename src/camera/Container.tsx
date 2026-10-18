@@ -17,6 +17,7 @@ import { useCameraDevice, type DeviceFilter } from 'react-native-vision-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GlassLayer,
+  mediaPalette,
   r,
   type as t,
   fw,
@@ -538,7 +539,11 @@ export function Container({
             >
               <View style={styles.burningCard}>
                 <GlassLayer colorScheme="dark" style={styles.burningGlass} />
-                <Loading size={r(40)} color="#fff" thickness={r(3)} />
+                <Loading
+                  size={r(40)}
+                  color={mediaPalette.foreground}
+                  thickness={r(3)}
+                />
                 <Text style={styles.burningText}>水印生成中…</Text>
               </View>
             </View>

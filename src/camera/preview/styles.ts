@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { r, fw, type as t } from '@unif/react-native-design';
+import { mediaPalette, r, fw, type as t } from '@unif/react-native-design';
 
 // 预览底部走相机黑底,计数文字 / 按钮文字用 foreground token(Modal 强制 dark → 恒白);
 // paddingBottom 由组件按底部安全区(home indicator)+ 基础 20 给。
@@ -33,7 +33,7 @@ export const makePreviewBottomStyles = () =>
     label: {
       fontSize: t.xxs,
       fontWeight: fw.medium,
-      textShadowColor: 'rgba(0,0,0,0.4)',
+      textShadowColor: mediaPalette.overlay,
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 4,
     },
