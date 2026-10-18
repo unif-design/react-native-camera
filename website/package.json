@@ -23,7 +23,7 @@
     "@mdx-js/react": "^3.0.0",
     "@react-native/assets-registry": "0.88.0",
     "@unif/react-native-camera": "workspace:*",
-    "@unif/react-native-design": "^1.6.2",
+    "@unif/react-native-design": "^1.7.0",
     "@unif/react-native-icons": "^0.4.1",
     "clsx": "^2.0.0",
     "prism-react-renderer": "^2.3.0",
