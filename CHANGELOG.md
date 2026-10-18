@@ -1,5 +1,12 @@
 # Changelog
 
+# [6.1.0](https://github.com/unif-design/react-native-camera/compare/v6.0.5...v6.1.0) (2026-10-18)
+
+
+### Features
+
+* adopt shared camera theme palettes ([#141](https://github.com/unif-design/react-native-camera/issues/141)) ([43251eb](https://github.com/unif-design/react-native-camera/commit/43251ebd6c1ac648b0cc7c4e986916e815888142))
+
 ## [6.0.5](https://github.com/unif-design/react-native-camera/compare/v6.0.4...v6.0.5) (2026-10-17)
 
 ## [6.0.4](https://github.com/unif-design/react-native-camera/compare/v6.0.3...v6.0.4) (2026-10-17)
