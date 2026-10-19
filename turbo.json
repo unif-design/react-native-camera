@@ -57,6 +57,7 @@
         "XCODE_VERSION"
       ],
       "inputs": [
+        "$TURBO_ROOT$/.github/workflows/ci.yml",
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/yarn.lock",
         "$TURBO_ROOT$/tsconfig.json",
