@@ -37,7 +37,6 @@ target 'ReactNativeCameraExample' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
     )
 
     # CocoaPods 的资源 bundle 会保留依赖自己的最低版本（如 RNSVG 的 12.4）。
