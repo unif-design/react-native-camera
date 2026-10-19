@@ -229,9 +229,16 @@ assert(
   'CI changes job 缺少 website output'
 );
 
+const scopeStep = changesJob
+  .split(/\n {6}- /)
+  .find((step) => /^ {8}id: scope$/m.test(step));
 assert(
-  /id: scope\n\s+uses: \.\/\.github\/actions\/changes/.test(changesJob),
+  scopeStep?.includes('uses: ./.github/actions/changes'),
   'CI changes job 必须调用共享分类 action'
+);
+assert(
+  scopeStep.includes("if: steps.verification.outputs.reused != 'true'"),
+  '只有完整验证过的 PR 结果才能跳过共享分类'
 );
 const changeAction = fs.readFileSync(
   path.join(repositoryRoot, '.github/actions/changes/action.yml'),
