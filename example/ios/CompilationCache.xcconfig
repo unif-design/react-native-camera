@@ -1,0 +1,6 @@
+// PODS_ROOT resolves to the same directory for the app and every CocoaPods target.
+// Keep compiler entries inside the existing GitHub Actions iOS cache.
+COMPILATION_CACHE_ENABLE_CACHING = YES
+COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS = YES
+COMPILATION_CACHE_KEEP_CAS_DIRECTORY = YES
+COMPILATION_CACHE_CAS_PATH = $(PODS_ROOT)/../../../.turbo/ios/compilation-cache
