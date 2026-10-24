@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.1.1](https://github.com/unif-design/react-native-camera/compare/v6.1.0...v6.1.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **camera:** inset mode selection without native glass ([be3eadf](https://github.com/unif-design/react-native-camera/commit/be3eadf4f54d2a3374d7edae858bf61d0a03b78b))
+
 # [6.1.0](https://github.com/unif-design/react-native-camera/compare/v6.0.5...v6.1.0) (2026-10-18)
 
 
