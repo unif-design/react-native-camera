@@ -1,5 +1,6 @@
-import { Animated } from 'react-native';
-import { fireEvent } from '@testing-library/react-native';
+import { Animated, StyleSheet } from 'react-native';
+import * as LiquidGlass from '@callstack/liquid-glass';
+import { act, fireEvent } from '@testing-library/react-native';
 import { renderDark } from '../../__helpers__/renderDark';
 import { ModeSwitcherPill } from '../../../camera/footer/ModeSwitcherPill';
 
@@ -145,3 +146,47 @@ it('an empty mode collection exposes no selectable action after layout', () => {
   expect(view.queryAllByRole('button')).toHaveLength(0);
   expect(onSelect).not.toHaveBeenCalled();
 });
+
+it.each([
+  { nativeGlass: false, currentIndex: 0, translateX: 0 },
+  { nativeGlass: false, currentIndex: 1, translateX: 100 },
+  { nativeGlass: true, currentIndex: 0, translateX: 0 },
+  { nativeGlass: true, currentIndex: 1, translateX: 100 },
+])(
+  '模式 $currentIndex 的选中块在 nativeGlass=$nativeGlass 时保留对应边距',
+  async ({ nativeGlass, currentIndex, translateX }) => {
+    const supported = jest.replaceProperty(
+      LiquidGlass as { isLiquidGlassSupported: boolean },
+      'isLiquidGlassSupported',
+      nativeGlass
+    );
+    try {
+      const view = renderDark(
+        <ModeSwitcherPill
+          items={items.slice(0, 2)}
+          currentIndex={currentIndex}
+          onSelect={jest.fn()}
+        />
+      );
+      await act(async () => {
+        fireEvent(view.getByTestId('mode-switcher-wrap'), 'layout', {
+          nativeEvent: { layout: { width: 200, height: 40 } },
+        });
+      });
+      const sliderNode = view
+        .UNSAFE_getAllByType(Animated.View)
+        .find(
+          (node) => StyleSheet.flatten(node.props.style).position === 'absolute'
+        );
+      const slider = StyleSheet.flatten(sliderNode!.props.style);
+      const inset = nativeGlass ? 0 : slider.top;
+      expect(slider.top).toBeGreaterThan(0);
+      expect(slider.bottom).toBe(slider.top);
+      expect(slider.left).toBe(inset);
+      expect(slider.width + inset * 2).toBe(100);
+      expect(slider.transform[0].translateX.__getValue()).toBe(translateX);
+    } finally {
+      supported.restore();
+    }
+  }
+);
