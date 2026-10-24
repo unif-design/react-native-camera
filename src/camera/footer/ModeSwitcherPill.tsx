@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isLiquidGlassSupported } from '@callstack/liquid-glass';
 import {
   Animated,
   StyleSheet,
@@ -34,6 +35,7 @@ export function ModeSwitcherPill({
   const [w, setW] = useState(0);
   const slide = useRef(new Animated.Value(0)).current;
   const itemW = items.length ? w / items.length : 0;
+  const sliderInset = isLiquidGlassSupported ? 0 : r(4);
   // 上次已定位的档位:区分「(重)挂载/relayout 直接落位」与「用户切档平滑滑动」。
   // 烧水印时 Container 卸载本组件、烧完重挂(录像 start/stop 同理切走计时器再切回)——
   // slide 是组件内部 Animated.Value(0),重挂会重置回 0(首档),若仍 timing 滑到当前档,
@@ -71,7 +73,11 @@ export function ModeSwitcherPill({
         <Animated.View
           style={[
             styles.slider,
-            { width: itemW, transform: [{ translateX: slide }] },
+            {
+              left: sliderInset,
+              width: itemW - sliderInset * 2,
+              transform: [{ translateX: slide }],
+            },
           ]}
         />
       )}
@@ -110,7 +116,6 @@ const makeStyles = (c: ColorTokens) =>
       position: 'absolute',
       top: r(4),
       bottom: r(4),
-      left: 0,
       borderRadius: r(999),
       // 选中段底:品牌橙浅 tint(design dark brandTint10 = 橙 16% alpha,与原值一致)。
       backgroundColor: c.brandTint10,
