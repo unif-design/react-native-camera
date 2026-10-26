@@ -56,23 +56,23 @@ yarn add @unif/react-native-camera \
 | `@shopify/react-native-skia`          | `>=2`              | 取景器水印实时预览                                             |
 | `@dr.pogodin/react-native-fs`         | `>=2`              | 临时路径与 owned file 清理(**fork,非 `react-native-fs`**,见下) |
 | `react-native-video`                  | `>=7.0.0-beta.0`   | 录像预览播放                                                   |
-| `react-native-reanimated`             | `>=4.5.2 <4.8.0`   | 取景器 / 预览动画;仓库开发基线 4.6.x                           |
-| `react-native-worklets`               | `>=0.11.0 <0.14.0` | reanimated 4 / vision-camera 的 worklet 运行时;仓库开发基线 0.12.x |
+| `react-native-reanimated`             | `>=4.5.2 <4.8.0`   | 取景器 / 预览动画;仓库开发基线 4.7.1                           |
+| `react-native-worklets`               | `>=0.11.0 <0.14.0` | reanimated 4 / vision-camera 的 worklet 运行时;仓库开发基线 0.13.0 |
 | `react-native-reanimated-carousel`    | `>=5.0.0 <6.0.0`   | 预览页轮播                                                     |
 | `react-native-gesture-handler`        | `>=3.0.0 <4.0.0`   | pinch 变焦 / 对焦手势                                          |
 | `react-native-safe-area-context`      | `>=5.0.0`          | 安全区适配                                                     |
 | `react-native-svg`                    | `>=15`             | 矢量绘制（Icons 组件与其他 SVG）                               |
 | `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面    |
 | `@unif/react-native-icons`            | `>=0.1.0`          | 独立命名图标组件                                               |
-| `@unif/react-native-design`           | `>=1.6.0`          | 系统玻璃与回退表面、原位确认按钮、主题 token 和缩放工具        |
+| `@unif/react-native-design`           | `^1.7.0`           | 系统玻璃与回退表面、原位确认按钮、共享字体和相机调色板        |
 
-本仓保留 RN 0.86.3 开发基线；另在 Portal 消费端用 RN 0.88、React 19.3、Expo 58、Reanimated 4.7.1 与 Worklets 0.13.0 验证了类型、双平台 production JS bundle 与 Android/iOS arm64 Debug 完整编译。拍摄、录像和预览仍需宿主真机验收。
+当前仓库、example 与网站使用 RN 0.88.0、React 19.3.0、Reanimated 4.7.1 与 Worklets 0.13.0 开发基线。以上 peer 范围是安装约束，拍摄、录像和预览仍需宿主真机验收。
 
 从 Camera 5.0 升级到 5.1 时，React 使用 19.2.3 至 19.x，Design 升级至 0.35.x，安装
 `@callstack/liquid-glass`，并在 iOS 重新执行 `pod install`。其他依赖不再使用
 `@sbaiahmed1/react-native-blur` 时，可将旧包移除。Camera 的拍摄 API 保持不变。
 
-当前版本要求 Design `>=1.6.0`，以支持预览删除的原位确认，并统一控件和局部提示的系统材质及系统“减少透明度”实色回退。
+当前版本要求 Design `^1.7.0`，以使用共享字体和相机调色板，并支持预览删除的原位确认、系统材质及系统“减少透明度”实色回退。
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,
@@ -192,6 +192,14 @@ module.exports = {
 ## 4. 原生编译
 
 ### iOS:pod install
+
+本仓的 RN 0.88.0 / Xcode 27 与 Nitro Modules 0.37.1、Nitro Image 0.15.2、react-native-video 7.0.0-beta.11 组合曾因预编译 RN Core 的 JSI 导入失败而无法编译，切换源码 Core 后构建通过。使用这组依赖与工具链时，按 `example/ios/Podfile` 在加载 `react_native_pods.rb` 前设置：
+
+```ruby title="ios/Podfile"
+ENV['RCT_USE_PREBUILT_RNCORE'] = '0'
+```
+
+此配置针对上述已验证组合；其他 RN、Xcode 或原生依赖组合需按宿主实际构建结果核对。
 
 安装或升级依赖后,**必须重新执行 pod install**:
 
