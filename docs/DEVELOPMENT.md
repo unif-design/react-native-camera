@@ -2,6 +2,10 @@
 
 本仓库维护 `@unif/react-native-camera`，职责为拍摄库。
 
+## 库能力技能
+
+本库使用 unif-camera 定位当前版本的公开能力、接入与排障资料。修改源码时同时采用 code-development 的库开发规则；设计、测试、审查和交付按当前阶段取得依据。应用仅消费库时可直接查公开类型和文档，无需先取得维护工作区。
+
 ## 目标契约
 
 [本库新版本设计](../../unif-platform-architecture/libraries/react-native-camera.md)定义职责、公共输入输出、状态和验证边界；[库版本原则](../../unif-platform-architecture/libraries/README.md)明确新旧版本独立。规范根默认是并列的 `unif-platform-architecture` 工作区，其他目录布局由任务提供实际位置。

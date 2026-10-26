@@ -19,8 +19,6 @@ module.exports = function reactNativeWebPlugin(context) {
   // context.siteDir = <repo>/website ; 上一级是 <repo>(camera 仓根)。
   const projectRoot = path.resolve(context.siteDir, '..');
   const srcDir = path.join(projectRoot, 'src');
-  const animationFrameShim = path.join(__dirname, 'shims/AnimationFrame.js');
-  const rnghPressableShim = path.join(__dirname, 'shims/RnghPressable.js');
 
   // 几个 ESM-shipped 且带 Flow / TS 注解的 RN 库要让 babel-loader 处理（默认 node_modules 不走 babel）。
   // 用 regex 匹配，因为这些包同时在 root 和 website/ 两份 node_modules 下都可能存在。
@@ -43,32 +41,6 @@ module.exports = function reactNativeWebPlugin(context) {
             ),
             'process.env.JEST_WORKER_ID': JSON.stringify(undefined),
           }),
-          // Worklets 0.12 的 Web 调度器会在 queueMicrotask 后直接调用 rAF；
-          // Docusaurus SSG 的 Node runtime 没有这个全局函数。按需注入同构 shim：
-          // 浏览器继续委托原生 rAF，SSR 才退回 setTimeout。
-          new webpack.ProvidePlugin({
-            requestAnimationFrame: [
-              animationFrameShim,
-              'requestAnimationFrame',
-            ],
-            cancelAnimationFrame: [animationFrameShim, 'cancelAnimationFrame'],
-          }),
-          // RNGH 的 Pressable 实现依赖 GestureDetector + reanimated worklets + Gesture objects 链，
-          // 在 react-native-web 环境里 onPress 完全不触发（实测：原生 click / pointerdown / mousedown 都无效）。
-          // RNGH 包内是相对 import `./components/Pressable`，webpack alias 对相对路径不生效，
-          // 改用 NormalModuleReplacementPlugin 在 module 解析阶段强制重定向到 shim（用 RNW 的 Pressable）。
-          // 仅 web bundle 走 shim，RN native 端仍用 RNGH 原版保留 native 性能。
-          new webpack.NormalModuleReplacementPlugin(
-            /^\.\/components\/Pressable$/,
-            (resource) => {
-              if (
-                resource.context &&
-                resource.context.includes('react-native-gesture-handler')
-              ) {
-                resource.request = rnghPressableShim;
-              }
-            }
-          ),
         ],
         // module.rules 必须 prepend，否则我们的 rule 会被 oneOf 短路掉。
         // resolve.extensions 也要 prepend，否则 .web.js 会排在 .js 后面，
