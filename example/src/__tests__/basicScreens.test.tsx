@@ -5,16 +5,16 @@ import type {
   CameraRunController,
   CameraRunRecord,
   CameraRunSnapshot,
-} from '../../../example/src/domain/cameraRun';
+} from '../domain/cameraRun';
 import {
   BasicCaptureScreen,
   initialBasicCaptureDraft,
-} from '../../../example/src/screens/BasicCaptureScreen';
-import { HomeScreen } from '../../../example/src/screens/HomeScreen';
+} from '../screens/BasicCaptureScreen';
+import { HomeScreen } from '../screens/HomeScreen';
 import {
   initialMultiModeDraft,
   MultiModeScreen,
-} from '../../../example/src/screens/MultiModeScreen';
+} from '../screens/MultiModeScreen';
 
 // 屏幕跑的是真实 design 组件,真 useTheme 找不到 Provider 会 warn;这里的 ThemeProvider
 // 对齐 example/src/App.tsx 的真实装配(默认跟随系统 scheme)。

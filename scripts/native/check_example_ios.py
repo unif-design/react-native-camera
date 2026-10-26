@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-TESTS = ROOT / "__tests__/native-example/ios/swift"
+TESTS = ROOT / "example/ios/__tests__/swift"
 SOURCES = ROOT / "example/ios/ReactNativeCameraExample"
 OUTPUT = ROOT / "coverage/native/example-ios"
 

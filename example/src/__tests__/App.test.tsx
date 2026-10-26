@@ -12,7 +12,7 @@ import type {
 } from '@unif/react-native-camera';
 import { useCamera } from '@unif/react-native-camera';
 
-import App from '../../../example/src/App';
+import App from '../App';
 
 // App 自带 GestureHandlerRootView / ThemeProvider / SafeAreaProvider 三层真实装配,
 // RNGH 与 safe-area 的接线由 `@unif/react-native-design/jest-setup` 统一提供,

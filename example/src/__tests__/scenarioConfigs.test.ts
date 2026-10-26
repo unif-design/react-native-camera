@@ -3,7 +3,7 @@ import {
   buildMultiModeConfig,
   buildQualityConfig,
   buildWatermarkConfig,
-} from '../../../example/src/domain/scenarioConfigs';
+} from '../domain/scenarioConfigs';
 
 const fixedNow = new Date('2026-08-03T10:20:30.000Z');
 

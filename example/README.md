@@ -46,3 +46,18 @@ yarn example android --deviceId "ANDROID_DEVICE_SERIAL"
 - 模拟器和 mock 可验证普通 UI／调用交接，不能代替真实录像、水印及设备内存验证。
 
 定向验证入口见[开发资料](../docs/DEVELOPMENT.md)，消费者接入见[安装指南](../website/docs/getting-started/installation.md)。
+
+## 测试
+
+示例测试与被测宿主放在一起：`src/__tests__/` 验证页面、导航与调用流程，`__tests__/config.test.ts` 验证配置和 CI 测试发现，`android/__tests__/` 与 `ios/__tests__/` 保存各端宿主测试及外部依赖替身。库自身测试保留在仓库根目录的 `src/__tests__/` 和 `scripts/native-tests/`。
+
+以下命令均从仓库根目录运行，复用根 Jest 配置与现有原生检查脚本：
+
+```sh
+yarn test example --runInBand
+yarn test --coverage --runInBand
+yarn test:example:native:android
+yarn test:example:native:ios
+```
+
+根 Jest 的完整覆盖率检查包含所有示例 JS/TS 用例；配置测试还执行 `ios/__tests__/ios-config-command.test.mjs` 的 Podfile 行为断言。原生检查编译并执行原始 Kotlin／Swift 宿主代码，Android／UIKit／React Native 使用受控替身，不能替代 APK／iOS 构建和真实设备验收。
