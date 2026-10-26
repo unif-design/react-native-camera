@@ -30,6 +30,6 @@ description: 'React Native 相机库：单拍、连拍、录像、预览确认�
 
 ## 平台说明
 
-需要 React Native 新架构。完整拍摄链路在 iOS／Android 真机验证；Web 不提供摄像头能力，模拟器和 mock 不替代真机行为验收。具体系统与依赖要求见安装指南。
+需要 React Native 新架构。浏览器可阅读文档；本库的拍摄能力没有 Web 实现，请运行仓库 `example/`，在 iOS／Android 真机体验。模拟器和 mock 不替代真机行为验收。具体系统与依赖要求见安装指南。
 
 [调用与资源说明](/docs/getting-started/concepts) · [测试](/docs/testing) · [常见问题](/docs/troubleshooting)
