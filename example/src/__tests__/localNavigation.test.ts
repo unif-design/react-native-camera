@@ -2,7 +2,7 @@ import {
   navigationReducer,
   type NavigationState,
   type ShowcaseRoute,
-} from '../../../example/src/navigation/localNavigation';
+} from '../navigation/localNavigation';
 
 const routeCases = [
   ['home', { name: 'home' }, { stack: [{ name: 'home' }, { name: 'home' }] }],

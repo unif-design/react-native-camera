@@ -36,7 +36,10 @@ const cacheDirectory = join(process.cwd(), '.turbo/check-inputs');
 for (const platform of ['android', 'ios']) {
   const taskName = `@unif/react-native-camera-example#build:${platform}`;
   const configuredInputs = turboConfig.tasks[taskName]?.inputs ?? [];
-  for (const exclusion of requiredNativeExclusions) {
+  for (const exclusion of [
+    ...requiredNativeExclusions,
+    `!$TURBO_ROOT$/example/${platform}/__tests__/**`,
+  ]) {
     if (!configuredInputs.includes(exclusion)) {
       throw new Error(`${taskName} 缺少 test-only 排除 input: ${exclusion}`);
     }

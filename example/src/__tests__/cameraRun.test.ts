@@ -4,7 +4,7 @@ import {
   type CameraOutcome,
   type CameraInput,
 } from '@unif/react-native-camera';
-import { createCameraRunController } from '../../../example/src/domain/cameraRun';
+import { createCameraRunController } from '../domain/cameraRun';
 
 jest.mock('@unif/react-native-camera', () =>
   require('@unif/react-native-camera/mock')

@@ -5,15 +5,15 @@ import { ThemeProvider } from '@unif/react-native-design';
 import type {
   CameraRunController,
   CameraRunSnapshot,
-} from '../../../example/src/domain/cameraRun';
+} from '../domain/cameraRun';
 import {
   initialQualityLabDraft,
   QualityLabScreen,
-} from '../../../example/src/screens/QualityLabScreen';
+} from '../screens/QualityLabScreen';
 import {
   initialWatermarkEvidenceDraft,
   WatermarkEvidenceScreen,
-} from '../../../example/src/screens/WatermarkEvidenceScreen';
+} from '../screens/WatermarkEvidenceScreen';
 
 // 屏幕跑的是真实 design 组件,真 useTheme 找不到 Provider 会 warn;这里的 ThemeProvider
 // 对齐 example/src/App.tsx 的真实装配(默认跟随系统 scheme)。

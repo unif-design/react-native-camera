@@ -6,24 +6,24 @@ import {
   Stepper,
 } from '@unif/react-native-design';
 import { Text } from 'react-native';
-import { createCameraRunController } from '../../../example/src/domain/cameraRun';
+import { createCameraRunController } from '../domain/cameraRun';
 import {
   BasicCaptureScreen,
   initialBasicCaptureDraft,
-} from '../../../example/src/screens/BasicCaptureScreen';
+} from '../screens/BasicCaptureScreen';
 import {
   MultiModeScreen,
   initialMultiModeDraft,
-} from '../../../example/src/screens/MultiModeScreen';
+} from '../screens/MultiModeScreen';
 import {
   QualityLabScreen,
   initialQualityLabDraft,
-} from '../../../example/src/screens/QualityLabScreen';
+} from '../screens/QualityLabScreen';
 import {
   WatermarkEvidenceScreen,
   initialWatermarkEvidenceDraft,
-} from '../../../example/src/screens/WatermarkEvidenceScreen';
-import { ShowcaseScaffold } from '../../../example/src/components/ShowcaseScaffold';
+} from '../screens/WatermarkEvidenceScreen';
+import { ShowcaseScaffold } from '../components/ShowcaseScaffold';
 
 const now = () => new Date('2026-10-16T10:00:00Z');
 function setupRun() {

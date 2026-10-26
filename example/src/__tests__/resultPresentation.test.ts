@@ -6,7 +6,7 @@ import type {
 import {
   classifyCameraResult,
   projectMedia,
-} from '../../../example/src/domain/resultPresentation';
+} from '../domain/resultPresentation';
 const photo: CameraMedia = {
   id: 'photo-1',
   facing: 'back',

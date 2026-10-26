@@ -13,7 +13,7 @@ import path from 'node:path';
 import { URL, fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const root = fileURLToPath(new URL('../..', import.meta.url));
+const podfile = fileURLToPath(new URL('../Podfile', import.meta.url));
 test('Podfile CLI config passes its directory as data without String.to_json', () => {
   const fixture = mkdtempSync(path.join(tmpdir(), 'unif-ios-cli-'));
   try {
@@ -44,7 +44,7 @@ test('Podfile CLI config passes its directory as data without String.to_json', (
       values = eval(command[1], TOPLEVEL_BINDING, ARGV[1])
       puts JSON.generate(values)
     `,
-        path.join(root, 'example/ios/Podfile'),
+        podfile,
         path.join(directory, 'Podfile'),
       ],
       { encoding: 'utf8' }
@@ -91,7 +91,7 @@ test('Podfile raises only resource bundles below the React Native iOS minimum', 
         target.build_configurations.first.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
       })
       `,
-      path.join(root, 'example/ios/Podfile'),
+      podfile,
     ],
     { encoding: 'utf8' }
   );
