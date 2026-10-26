@@ -18,7 +18,7 @@ iOS 首次运行或原生依赖变化后，使用示例自己的 Bundler 环境�
 (cd example && bundle exec pod install --project-directory=ios)
 ```
 
-构建及完整测试由 CI 执行。开展真机测试时，从根目录使用 `yarn example android` 或 `yarn example ios`；真实拍摄需要带摄像头的设备。
+构建及完整测试由 CI 执行。开展真机测试时，从根目录使用 `yarn example android` 或 `yarn example ios --device`；iOS 也可用 `yarn example ios --udid "IOS_DEVICE_UDID"` 指定设备。`yarn example ios` 默认选择模拟器；真实拍摄需要带摄像头的设备。
 
 连接多个 Android 设备时，先查询设备编号，再指定目标：
 
