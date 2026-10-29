@@ -31,7 +31,6 @@ const sidebars: SidebarsConfig = {
     },
     'testing',
     'troubleshooting',
-    'migration',
   ],
 };
 
