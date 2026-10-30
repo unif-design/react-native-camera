@@ -77,7 +77,7 @@ function CameraScreen(): React.JSX.Element {
     <>
       <div className="hp-vf-top">
         <span className="hp-vf-flash">闪光 自动</span>
-        <span className="hp-vf-time">1080P · 60fps</span>
+        <span className="hp-vf-time">拍摄界面示意</span>
       </div>
       <div className="hp-vf-frame">
         <span className="hp-corner tl" />
@@ -166,6 +166,10 @@ export function HomepageCameraContract(
 
 const CODE_LINES: CodeLine[] = [
   <>
+    {K('import')} <span className="tok-id">{'{ Button }'}</span> {K('from')}{' '}
+    {ST("'react-native'")}
+  </>,
+  <>
     {K('import')} <span className="tok-id">{'{ useCamera }'}</span> {K('from')}{' '}
     {ST("'@unif/react-native-camera'")}
   </>,
@@ -204,8 +208,8 @@ const CODE_LINES: CodeLine[] = [
   <>
     {'  '}
     {K('return')} {DIM('<>')} {DIM('<')}
-    {FN('Pressable')} onPress={'{'}open{'}'} {DIM('/>')} {'{'}holder{'}'}{' '}
-    {DIM('</>')}
+    {FN('Button')} title={ST('"拍摄"')} onPress={'{'}open{'}'} {DIM('/>')} {'{'}
+    holder{'}'} {DIM('</>')}
   </>,
   <>{'}'}</>,
 ];
@@ -226,12 +230,12 @@ const FEATURES: Feature[] = [
   {
     Icon: IconVideo,
     title: '视频录制',
-    desc: '录制视频并内置预览页，可设录制时长上限，完成后直接拿到本地文件路径。',
+    desc: '录制、预览并选用视频，可设录制时长上限，结果包含本地文件 URI。',
   },
   {
     Icon: IconWatermark,
     title: '水印烧录',
-    desc: 'Skia 同步预览，iOS Core Image 与 Android Canvas 在文件边界低内存烧录成片。',
+    desc: '拍摄时预览文字位置，并将水印写入照片；水印不作用于视频。',
   },
   {
     Icon: IconSpark,
@@ -244,7 +248,7 @@ const FEATURES: Feature[] = [
 export default function Home(): React.JSX.Element {
   return (
     <Layout
-      title="Unif Camera — 一行 hook，唤起整套相机"
+      title="Unif Camera — 拍照、录像与照片水印"
       description="@unif/react-native-camera：拍照、连拍、录像、预览确认和照片水印。"
     >
       <main className="unif-home">
@@ -255,13 +259,13 @@ export default function Home(): React.JSX.Element {
             <div className="hp-hero-copy">
               <span className="hp-eyebrow">{PKG}</span>
               <h1 className="hp-title">
-                一行 hook，
+                拍照录像，
                 <br />
-                <span className="accent">唤起整套相机</span>
+                <span className="accent">按需调用</span>
               </h1>
               <p className="hp-tagline">
-                无需手写 Camera 组件和权限逻辑。调用 useCamera
-                即可弹出完整的模态相机界面，水印 WYSIWYG 预览并烧入成片。
+                用 useCamera 打开模态相机，完成拍摄、预览和选用。
+                照片可添加文字水印，临时媒体由应用保存或上传。
               </p>
               <div className="hp-cta-row">
                 <Link to="/docs/intro" className="hp-btn hp-btn-primary">
@@ -305,7 +309,7 @@ export default function Home(): React.JSX.Element {
               </div>
               <span className="hp-combo-badge">
                 <span className="dot" />
-                取景器实时预览
+                相机界面示意
               </span>
             </div>
           </div>

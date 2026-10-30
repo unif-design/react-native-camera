@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: CameraController
-description: '相机打开、关闭、配置与结果交接。'
+description: '相机打开、取消、替换调用与结果交接。'
 ---
 
 # CameraController
