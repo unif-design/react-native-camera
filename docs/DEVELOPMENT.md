@@ -4,7 +4,9 @@
 
 ## 库能力技能
 
-本库使用 unif-camera 定位当前版本的公开能力、接入与排障资料。修改源码时同时采用 code-development 的库开发规则；设计、测试、审查和交付按当前阶段取得依据。应用仅消费库时可直接查公开类型和文档，无需先取得维护工作区。
+使用 `unif-camera` 定位本库当前版本的公开能力、接入与排障资料。应用仅消费库时可直接查公开类型和文档。
+
+维护工程按职责采用独立的通用技能：`code-organization` 负责跨平台目录与文件组织，`react-native-development` 负责 React Native 实现，`react-native-library` 负责库工程和分发产物，`documentation` 负责文档与文档站。设计、测试、审查与交付继续从 [AGENTS.md](../AGENTS.md) 取得适用入口，本文只补充本库的契约和接线。
 
 ## 目标契约
 

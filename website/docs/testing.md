@@ -17,13 +17,14 @@ jest.mock('@unif/react-native-camera', () =>
 ## 默认与成功结果
 
 ```tsx
+import { isValidElement } from 'react';
 import { renderHook } from '@testing-library/react-native';
 import { useCamera, type CameraOutcome } from '@unif/react-native-camera';
 
 it('处理取消与成功', async () => {
   const { result } = renderHook(() => useCamera());
   const [camera, holder] = result.current;
-  expect(holder).toBeNull();
+  expect(isValidElement(holder)).toBe(true);
   const input = {
     modes: [{ mode: 'single' as const }],
     retention: 'clear' as const,
