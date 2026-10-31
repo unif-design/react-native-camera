@@ -21,5 +21,5 @@ yarn lint
 公开接口变化同步所属 API 文档、示例与生成的 llms 资料。提交说明写清变更和实际验证结果，保留工作区中其他任务的修改。
 
 - [AGENTS.md](AGENTS.md)：维护者与 Agent 的技能入口。
-- [组织协作流程](https://github.com/unif-design/.github/blob/main/AUTOMATION.md)：PR、CI、版本与发布。
+- [本库交付配置与检查](docs/DEVELOPMENT.md#交付配置与检查)：CI、版本、发布与组织配置。
 - [安全问题](SECURITY.md)：漏洞报告方式。
