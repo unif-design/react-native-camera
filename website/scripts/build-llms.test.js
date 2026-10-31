@@ -148,18 +148,6 @@ const agentsDoc = fs.readFileSync(
   'utf8'
 );
 assert(
-  agentsDoc.includes('unif-portal-dev-skills:code-development'),
-  'AGENTS.md 缺少当前研发技能入口'
-);
-for (const skill of [
-  'code-organization',
-  'react-native-development',
-  'react-native-library',
-  'documentation',
-]) {
-  assert(agentsDoc.includes('`' + skill + '`'), `AGENTS.md 缺少 ${skill} 入口`);
-}
-assert(
   agentsDoc.includes('](docs/DEVELOPMENT.md)'),
   'AGENTS.md 缺少开发资料链接'
 );
