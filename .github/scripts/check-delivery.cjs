@@ -55,6 +55,7 @@ function requiredFiles(root, adopted) {
   if (adopted.requiredChecks?.some(name => ['lint-cpp', 'lint-kotlin'].includes(name))) result.push('.github/workflows/native-lint.yml', '.github/workflows/nightly-build-check.yml', '.clang-format');
   if (state.website) {
     result.push('.github/workflows/deploy-docs.yml', 'website/scripts/build-llms-core.test.js',
+      'website/scripts/llms/.prettierrc.json',
       ...['bundle', 'markdown', 'routes', 'index'].map(name => `website/scripts/llms/${name}.js`));
     const entry = fs.readFileSync(inside(root, 'website/scripts/build-llms.js'), 'utf8');
     if (!customBuilder(entry)) result.push('website/scripts/build-llms.js', 'website/scripts/build-llms-site.test.js');
