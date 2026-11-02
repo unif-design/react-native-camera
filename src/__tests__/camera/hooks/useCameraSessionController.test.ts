@@ -1,3 +1,6 @@
+import { registerTestLogging } from '../../__helpers__/logging';
+
+registerTestLogging();
 import { StrictMode, createElement } from 'react';
 import { act, render, renderHook } from '@testing-library/react-native';
 import {
@@ -1103,8 +1106,7 @@ describe('retained controller boundaries', () => {
       await act(async () => h.result.current.requestUserCancel());
       expect(h.result.current.state.phase).toBe('settling');
       expect(warn).toHaveBeenCalledWith(
-        'camera user cancellation failed',
-        failure
+        expect.stringContaining('user_cancel.failed')
       );
       act(() => h.result.current.requestUserCancel());
       expect(h.onSettle).toHaveBeenCalledTimes(1);
@@ -1112,7 +1114,7 @@ describe('retained controller boundaries', () => {
   );
 });
 
-it('force teardown still consumes rejection when the cancellation diagnostic itself throws', async () => {
+it('force teardown preserves settlement when the real Logger console transport fails', async () => {
   const diagnosticFailure = new Error('diagnostic unavailable');
   const warn = jest
     .spyOn(console, 'warn')
@@ -1129,9 +1131,9 @@ it('force teardown still consumes rejection when the cancellation diagnostic its
   beginRecording(h.result);
   await act(async () => h.result.current.forceTeardown());
   expect(h.result.current.state.phase).toBe('settling');
-  expect(warn).toHaveBeenLastCalledWith(
-    'camera force teardown failed',
-    diagnosticFailure
+  expect(warn).toHaveBeenCalledTimes(1);
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('recording_cancel.failed')
   );
   warn.mockRestore();
 });

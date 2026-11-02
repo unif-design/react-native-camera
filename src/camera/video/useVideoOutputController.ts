@@ -139,7 +139,7 @@ export function useVideoOutputController(
   useEffect(() => {
     controller.activate();
     return () => {
-      controller.dispose().catch(() => {});
+      controller.dispose();
     };
   }, [controller]);
 

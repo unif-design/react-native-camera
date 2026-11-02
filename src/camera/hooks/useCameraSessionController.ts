@@ -1,3 +1,4 @@
+import { createLogger, getFailureDiagnostics } from '@unif/react-native-logger';
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { cancelledResult } from '../../utils';
 import type {
@@ -16,6 +17,8 @@ import type {
   CameraSessionState,
   ConfigurationChanges,
 } from '../session/types';
+
+const log = createLogger('camera.session');
 
 export type CameraOperationToken = Readonly<{
   sessionId: number;
@@ -408,7 +411,12 @@ export function useCameraSessionController({
     try {
       await cancelRecordingRef.current();
     } catch (error) {
-      console.warn('camera recording cancellation failed', error);
+      log.warn('recording_cancel.failed', {
+        phase: 'cancel',
+        outcome: 'failed',
+        code: 'camera.recording_cancel_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     }
   }, []);
 
@@ -437,7 +445,12 @@ export function useCameraSessionController({
       } catch (error) {
         if (cancelRequestIsCurrent(request)) {
           pendingCancelRef.current = null;
-          console.warn('camera cancel confirmation failed', error);
+          log.warn('cancel_confirmation.failed', {
+            phase: 'cancel',
+            outcome: 'failed',
+            code: 'camera.cancel_confirmation_failed',
+            fields: { ...getFailureDiagnostics(error) },
+          });
         }
         return;
       }
@@ -500,7 +513,12 @@ export function useCameraSessionController({
         },
         true
       ).catch((error) => {
-        console.warn('camera user cancellation failed', error);
+        log.warn('user_cancel.failed', {
+          phase: 'cancel',
+          outcome: 'failed',
+          code: 'camera.user_cancel_failed',
+          fields: { ...getFailureDiagnostics(error) },
+        });
       });
       return;
     }
@@ -524,7 +542,12 @@ export function useCameraSessionController({
       },
       false
     ).catch((error) => {
-      console.warn('camera user cancellation failed', error);
+      log.warn('user_cancel.failed', {
+        phase: 'cancel',
+        outcome: 'failed',
+        code: 'camera.user_cancel_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     });
   }, [confirmUserCancel, settle]);
 
@@ -538,9 +561,7 @@ export function useCameraSessionController({
     const cancelActiveRecording = ACTIVE_VIDEO_PHASES.has(current.phase);
     if (!apply({ type: 'SETTLING' })) return;
     if (cancelActiveRecording) {
-      cancelRecordingBestEffort().catch((error) => {
-        console.warn('camera force teardown failed', error);
-      });
+      cancelRecordingBestEffort();
     }
   }, [apply, cancelRecordingBestEffort]);
 

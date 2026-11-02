@@ -1,3 +1,6 @@
+import { registerTestLogging } from '../__helpers__/logging';
+
+const logRecords = registerTestLogging();
 import { captureToTempFile } from '../../camera/capturePhotoHelper';
 import type {
   CameraPhotoOutput,
@@ -77,7 +80,18 @@ it('cleanup failure does not replace the original metadata failure', async () =>
       captureToTempFile(makeStubs().photoOutput, settings)
     ).rejects.toBe(failure);
     expect(RNFS.unlink).toHaveBeenCalledWith('/tmp/captured.jpg');
-    expect(warn).toHaveBeenCalledWith('captured photo cleanup failed');
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('captured_photo_cleanup.failed')
+    );
+    expect(logRecords).toEqual([
+      expect.objectContaining({
+        event: 'captured_photo_cleanup.failed',
+        phase: 'cleanup',
+        outcome: 'failed',
+        fields: expect.objectContaining({ errorType: 'Error' }),
+      }),
+    ]);
+    expect(JSON.stringify(logRecords)).not.toContain('/tmp/captured.jpg');
   } finally {
     warn.mockRestore();
   }

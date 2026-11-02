@@ -1,3 +1,6 @@
+import { registerTestLogging } from '../../__helpers__/logging';
+
+registerTestLogging();
 import { act, renderHook } from '@testing-library/react-native';
 import { useVideoOutputController } from '../../../camera/video/useVideoOutputController';
 let mockOutput: { createRecorder: jest.Mock };
@@ -79,7 +82,7 @@ it('retry ignores an error from the prior configuration revision', async () => {
   await act(async () => expect(await retry).toBe('started'));
 });
 
-it('effect cleanup consumes a diagnostic failure from the real recorder teardown', async () => {
+it('effect cleanup survives a real Logger console transport failure during recorder teardown', async () => {
   const h = renderHook(() => useVideoOutputController(options));
   let start!: Promise<'started' | 'denied'>;
   act(() => {

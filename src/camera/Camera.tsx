@@ -1,3 +1,4 @@
+import { createLogger, getFailureDiagnostics } from '@unif/react-native-logger';
 import {
   forwardRef,
   useCallback,
@@ -43,6 +44,8 @@ export type { CameraHandle, VideoCallbacks } from './types';
 import { NEUTRAL_ZOOM } from './constants';
 import { FocusIndicator } from './FocusIndicator';
 import { useVideoOutputController } from './video/useVideoOutputController';
+
+const log = createLogger('camera.capture');
 
 export const Camera = forwardRef<CameraHandle, CameraViewProps>(
   function CameraView(
@@ -210,7 +213,12 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
             autoResetAfter: 3,
           } satisfies FocusOptions);
         } catch (e) {
-          console.warn('focusTo failed', e);
+          log.warn('focus.failed', {
+            phase: 'focus',
+            outcome: 'failed',
+            code: 'camera.focus_failed',
+            fields: { ...getFailureDiagnostics(e) },
+          });
         }
       },
       [device.supportsFocusMetering, enableFocus]
@@ -293,7 +301,12 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
               facing
             );
           } catch (e) {
-            console.warn('capturePhoto failed', e);
+            log.warn('photo_capture.failed', {
+              phase: 'capture',
+              outcome: 'failed',
+              code: 'camera.photo_capture_failed',
+              fields: { ...getFailureDiagnostics(e) },
+            });
             return null;
           }
         },
@@ -352,10 +365,20 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
                 }
                 try {
                   RNFS.unlink(path).catch((error) => {
-                    console.warn('discarded video cleanup failed', error);
+                    log.warn('video_cleanup.failed', {
+                      phase: 'cleanup',
+                      outcome: 'failed',
+                      code: 'camera.video_cleanup_failed',
+                      fields: { ...getFailureDiagnostics(error) },
+                    });
                   });
                 } catch (error) {
-                  console.warn('discarded video cleanup failed', error);
+                  log.warn('video_cleanup.failed', {
+                    phase: 'cleanup',
+                    outcome: 'failed',
+                    code: 'camera.video_cleanup_failed',
+                    fields: { ...getFailureDiagnostics(error) },
+                  });
                 }
               },
             },
@@ -427,7 +450,12 @@ export const Camera = forwardRef<CameraHandle, CameraViewProps>(
                 // 会自行恢复。故 warn 诊断 + 冒泡给 Container 弹**非阻塞**错误条(线上可见),
                 // 绝不据此关相机:早期无条件 settle(500) 会把重开时的瞬时 session 错误误当致命
                 // → 第二次打开即报错关闭(临时中断另走 onInterruptionStarted/Ended,不进这里)。
-                console.warn('camera session error', error);
+                log.warn('session.error', {
+                  phase: 'session',
+                  outcome: 'failed',
+                  code: 'camera.session_error',
+                  fields: { ...getFailureDiagnostics(error) },
+                });
                 video.onError(error);
                 onCameraError?.(error);
               }}

@@ -40,7 +40,8 @@ yarn add @unif/react-native-camera \
   @shopify/react-native-skia @dr.pogodin/react-native-fs react-native-video \
   react-native-reanimated react-native-worklets react-native-reanimated-carousel \
   react-native-gesture-handler react-native-safe-area-context react-native-svg \
-  @callstack/liquid-glass @unif/react-native-design @unif/react-native-icons
+  @callstack/liquid-glass @unif/react-native-design @unif/react-native-icons \
+  @unif/react-native-logger@^0.2.0
 ```
 
 :::
@@ -65,10 +66,13 @@ yarn add @unif/react-native-camera \
 | `@callstack/liquid-glass`             | `>=0.8.2 <0.9.0`   | Design 的 iOS 26 原生玻璃材质；其他平台使用 Design 回退表面        |
 | `@unif/react-native-icons`            | `>=0.1.0`          | 独立命名图标组件                                                   |
 | `@unif/react-native-design`           | `^1.7.0`           | 系统玻璃与回退表面、原位确认按钮、共享字体和相机调色板             |
+| `@unif/react-native-logger`           | `^0.2.0`           | 固定诊断事件和安全错误摘要，由应用统一安装日志运行时               |
 
 当前仓库、example 与网站使用 RN 0.88.0、React 19.3.0、Reanimated 4.7.1 与 Worklets 0.13.0 开发基线。以上 peer 范围是安装约束，拍摄、录像和预览仍需宿主真机验收。
 
 当前版本要求 Design `^1.7.0`，以使用共享字体和相机调色板，并支持预览删除的原位确认、系统材质及系统“减少透明度”实色回退。
+
+Camera 只通过 Logger 根入口记录诊断，不创建文件存储或安装运行时。应用按 Logger 的公开指南初始化一次；未安装时诊断静默返回，拍摄结果、取消、错误反馈和临时文件责任保持不变。日志不包含媒体路径、URI、水印或原始异常正文，仅记录固定事件及安全错误摘要。
 
 :::caution npm 需要 scoped override
 `react-native-reanimated-carousel@5.0.0` 的 peer 范围暂未包含 Gesture Handler 3,

@@ -1,3 +1,6 @@
+import { createLogger, getFailureDiagnostics } from '@unif/react-native-logger';
+
+const log = createLogger('camera.files');
 export type OwnedFileState = 'owned' | 'transferred' | 'deleted';
 
 export type UnlinkFile = (path: string) => Promise<void>;
@@ -18,14 +21,13 @@ export type FileRegistry = {
   drain: () => Promise<void>;
 };
 
-const reportCleanupFailureByDefault: ReportFileCleanupFailure = ({
-  path,
-  error,
-}) => {
-  console.warn(
-    `[react-native-camera] Failed to delete owned temporary file: ${path}`,
-    error
-  );
+const reportCleanupFailureByDefault: ReportFileCleanupFailure = ({ error }) => {
+  log.warn('owned_file_cleanup.failed', {
+    phase: 'cleanup',
+    outcome: 'failed',
+    code: 'camera.owned_file_cleanup_failed',
+    fields: { ...getFailureDiagnostics(error) },
+  });
 };
 
 export function createFileRegistry(
