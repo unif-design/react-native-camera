@@ -46,6 +46,10 @@
 
 字体、字重、字距以及固定媒体／品牌调色板统一来自 Design 1.7。取景文字、照片水印与第三方品牌颜色保持原值和语义，普通页面仍随系统明暗主题切换；玻璃材质和减少透明度由 Design 维护。
 
+## 诊断接入
+
+已有相机、录像、取消和文件清理诊断使用 `@unif/react-native-logger` 的 `createLogger` 与 `getFailureDiagnostics`。事件和阶段固定，不输出媒体路径、URI、水印或任意异常正文。日志运行时与文件存储由应用统一安装；记录失败不能改变取消、回调、原始异常和媒体所有权。回归使用真实 Logger 运行时并替换文件边界，分别核对安全诊断和原业务结果。
+
 ## 交付配置与检查
 
 共享 CI、发布配置和检查工具由 `github-delivery` 的模板与工具维护。Unif 组织值由 `code-delivery` 的 `assets/organization.json` 维护，接入时落实为本库 `.github/organization.json`，记录组织、包名规则、Pages 地址、发布 App 身份及远端设置。工具运行时读取项目文件，不依赖其他技能的安装目录；适用技能按当前任务独立选择。

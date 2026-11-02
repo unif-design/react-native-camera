@@ -1,3 +1,6 @@
+import { registerTestLogging } from './__helpers__/logging';
+
+const logRecords = registerTestLogging();
 import React from 'react';
 import { View } from 'react-native';
 import * as RNFS from '@dr.pogodin/react-native-fs';
@@ -471,9 +474,12 @@ it('unlink failure cannot change the exactly-once cancelled result', async () =>
   await expect(promise).resolves.toEqual(cancelledResult);
   await flushMicrotasks();
   expect(warn).toHaveBeenCalledWith(
-    expect.stringContaining('/cleanup-fails.jpg'),
-    unlinkError
+    expect.stringContaining('owned_file_cleanup.failed')
   );
+  expect(logRecords).toEqual([
+    expect.objectContaining({ event: 'owned_file_cleanup.failed' }),
+  ]);
+  expect(JSON.stringify(logRecords)).not.toContain('/cleanup-fails.jpg');
   expect(registry.stateOf('/cleanup-fails.jpg')).toBe('deleted');
 });
 

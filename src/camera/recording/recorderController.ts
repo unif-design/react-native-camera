@@ -1,7 +1,10 @@
+import { createLogger, getFailureDiagnostics } from '@unif/react-native-logger';
 import type {
   RecorderSettings,
   RecordingFinishedReason,
 } from 'react-native-vision-camera';
+
+const log = createLogger('camera.recorder');
 
 export type RecorderLike = {
   readonly filePath: string;
@@ -217,7 +220,12 @@ export function createRecorderController({
         try {
           clear();
         } catch (error) {
-          console.warn('recorder teardown timer clear failed', error);
+          log.warn('teardown_timer_clear.failed', {
+            phase: 'cleanup',
+            outcome: 'failed',
+            code: 'camera.teardown_timer_clear_failed',
+            fields: { ...getFailureDiagnostics(error) },
+          });
         }
       };
       const settle = (value: T) => {
@@ -226,11 +234,8 @@ export function createRecorderController({
         runClear();
         resolve(value);
       };
-      // Observe rejection before allocating a timer: a throwing scheduler must not orphan the signal.
-      signal.then(
-        (value) => settle(value),
-        () => settle(timeoutValue)
-      );
+      // 两类内部信号都以值交付结果；计时器创建前先订阅迟到完成。
+      signal.then((value) => settle(value));
       clearTimer = timerSource(() => settle(timeoutValue), ms);
       // 注入的 scheduleTimeout 若同步触发，上一行赋值发生在 settle 之后；这里补一次 clear。
       if (settled) runClear();
@@ -246,7 +251,12 @@ export function createRecorderController({
     recorder: RecorderLike
   ): Promise<NativeCancelOutcome> => {
     const rejected = (error: unknown) => {
-      console.warn('recorder cancel attempt failed', error);
+      log.warn('cancel_attempt.failed', {
+        phase: 'cancel',
+        outcome: 'failed',
+        code: 'camera.cancel_attempt_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
       return 'rejected' as const;
     };
     let request: Promise<'cancelled' | 'rejected'>;
@@ -276,7 +286,12 @@ export function createRecorderController({
     try {
       await cancelRecorderWithinTimeout(recorder);
     } catch (error) {
-      console.warn('recorder bounded teardown failed', error);
+      log.warn('bounded_teardown.failed', {
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.bounded_teardown_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     } finally {
       dispose();
     }
@@ -288,7 +303,12 @@ export function createRecorderController({
     try {
       operation.recorder.dispose();
     } catch (error) {
-      console.warn('recorder dispose failed', error);
+      log.warn('dispose.failed', {
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.dispose_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     } finally {
       liveOperations.delete(operation);
     }
@@ -345,7 +365,12 @@ export function createRecorderController({
     try {
       callbacks.onError(error);
     } catch (callbackError) {
-      console.warn('recorder error callback failed', callbackError);
+      log.warn('error_callback.failed', {
+        phase: 'callback',
+        outcome: 'failed',
+        code: 'camera.error_callback_failed',
+        fields: { ...getFailureDiagnostics(callbackError) },
+      });
     }
   };
 
@@ -353,7 +378,12 @@ export function createRecorderController({
     try {
       callbacks.onCancelled?.();
     } catch (callbackError) {
-      console.warn('recorder cancel callback failed', callbackError);
+      log.warn('cancel_callback.failed', {
+        phase: 'callback',
+        outcome: 'failed',
+        code: 'camera.cancel_callback_failed',
+        fields: { ...getFailureDiagnostics(callbackError) },
+      });
     }
   };
 
@@ -371,7 +401,12 @@ export function createRecorderController({
     try {
       callbacks.onDiscardedFile?.(path);
     } catch (callbackError) {
-      console.warn('recorder discarded-file callback failed', callbackError);
+      log.warn('discarded_file_callback.failed', {
+        phase: 'callback',
+        outcome: 'failed',
+        code: 'camera.discarded_file_callback_failed',
+        fields: { ...getFailureDiagnostics(callbackError) },
+      });
     }
   };
 
@@ -404,7 +439,12 @@ export function createRecorderController({
     try {
       operation.callbacks.onFinished(path, reason, duration);
     } catch (error) {
-      console.warn('recorder finished callback failed', error);
+      log.warn('finished_callback.failed', {
+        phase: 'callback',
+        outcome: 'failed',
+        code: 'camera.finished_callback_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     } finally {
       disposeRecorder(operation);
     }
@@ -470,7 +510,12 @@ export function createRecorderController({
           if (outcome !== 'rejected') return;
         }
       } catch (error) {
-        console.warn('recorder post-start teardown failed', error);
+        log.warn('post_start_teardown.failed', {
+          phase: 'cleanup',
+          outcome: 'failed',
+          code: 'camera.post_start_teardown_failed',
+          fields: { ...getFailureDiagnostics(error) },
+        });
       } finally {
         operation.postStartCancelRequired = false;
         disposeRecorder(operation);
@@ -523,7 +568,12 @@ export function createRecorderController({
     } catch (error) {
       // 无法确认 native cancel 结果时宁可保留 handle；迟到 start/callback 仍能完成最终收尾。
       if (!operation.disposed) operation.postStartCancelRequired = true;
-      console.warn('recorder teardown failed', error);
+      log.warn('teardown.failed', {
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.teardown_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     }
   };
 
@@ -537,13 +587,23 @@ export function createRecorderController({
     try {
       filePath = recorder.filePath;
     } catch (error) {
-      console.warn('unstarted recorder path unavailable', error);
+      log.warn('unstarted_path.unavailable', {
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.unstarted_path_unavailable',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     }
     // 该实例从未 start；iOS cancel 只看共享 AVCaptureMovieFileOutput，调用它可能误停新 owner。
     try {
       recorder.dispose();
     } catch (error) {
-      console.warn('recorder dispose failed', error);
+      log.warn('dispose.failed', {
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.dispose_failed',
+        fields: { ...getFailureDiagnostics(error) },
+      });
     }
     if (filePath) notifyDiscardedFile(callbacks, filePath);
   };

@@ -1,3 +1,4 @@
+import { createLogger, getFailureDiagnostics } from '@unif/react-native-logger';
 import type {
   CameraPhotoOutput,
   CapturePhotoSettings,
@@ -5,6 +6,8 @@ import type {
 } from 'react-native-vision-camera';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import { inspectPhotoFile } from './image/nativePhotoProcessor';
+
+const log = createLogger('camera.files');
 
 export type CapturedPhotoRaw = {
   path: string;
@@ -31,9 +34,14 @@ export async function captureToTempFile(
   } catch (error) {
     try {
       await RNFS.unlink(filePath);
-    } catch {
+    } catch (cleanupError) {
       // 文件尚未交给 session registry；清理失败只做无敏感信息诊断，不能遮蔽元数据错误。
-      console.warn('captured photo cleanup failed');
+      log.warn('captured_photo_cleanup.failed', {
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.captured_photo_cleanup_failed',
+        fields: { ...getFailureDiagnostics(cleanupError) },
+      });
     }
     throw error;
   }

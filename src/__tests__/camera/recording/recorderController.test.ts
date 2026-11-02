@@ -1,3 +1,6 @@
+import { registerTestLogging } from '../../__helpers__/logging';
+
+const logRecords = registerTestLogging();
 import {
   existsSync,
   mkdtempSync,
@@ -588,8 +591,7 @@ describe('recorderController', () => {
     expect(callbacks.onFinished).not.toHaveBeenCalled();
     expect(callbacks.onError).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
-      'recorder dispose failed',
-      expect.any(Error)
+      expect.stringContaining('dispose.failed')
     );
   });
 
@@ -1711,7 +1713,16 @@ describe('recorder external failures and reentrant cancellation', () => {
         if (kind === 'discarded') harness.finish('/late.mp4');
       }
       expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith(expect.any(String), failure);
+      expect(warn).toHaveBeenCalledWith(expect.any(String));
+      expect(logRecords).toEqual([
+        expect.objectContaining({
+          scope: 'camera.recorder',
+          event: `${kind === 'cancelled' ? 'cancel' : kind === 'discarded' ? 'discarded_file' : kind}_callback.failed`,
+          phase: 'callback',
+          fields: expect.objectContaining({ errorType: 'Error' }),
+        }),
+      ]);
+      expect(JSON.stringify(logRecords)).not.toContain(failure.message);
     }
   );
 
@@ -1734,7 +1745,9 @@ describe('recorder external failures and reentrant cancellation', () => {
       'started'
     );
     second.finish();
-    expect(warn).toHaveBeenCalledWith('recorder dispose failed', failure);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('dispose.failed')
+    );
   });
 
   it('abort listener reentry settles the same pending creation exactly once', async () => {
@@ -1782,8 +1795,7 @@ describe('recorder external failures and reentrant cancellation', () => {
     expect(native.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(callbacks.onDiscardedFile).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(
-      'unstarted recorder path unavailable',
-      expect.any(Error)
+      expect.stringContaining('unstarted_path.unavailable')
     );
   });
 
@@ -1825,8 +1837,7 @@ describe('recorder external failures and reentrant cancellation', () => {
     await expect(controller.cancel()).resolves.toBeUndefined();
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      'recorder teardown timer clear failed',
-      failure
+      expect.stringContaining('teardown_timer_clear.failed')
     );
   });
 
@@ -1846,8 +1857,7 @@ describe('recorder external failures and reentrant cancellation', () => {
     );
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      'recorder bounded teardown failed',
-      expect.any(Error)
+      expect.stringContaining('bounded_teardown.failed')
     );
   });
 });
@@ -1954,7 +1964,9 @@ describe('native termination during bounded cancellation', () => {
           .mocked(h.recorder.cancelRecording)
           .mockImplementationOnce(async () => h.finish());
       await controller.cancel();
-      expect(warn).toHaveBeenCalledWith('recorder teardown failed', failure);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('teardown.failed')
+      );
       if (!ended) {
         expect(h.recorder.dispose).not.toHaveBeenCalled();
         h.finish();
@@ -1987,12 +1999,11 @@ describe('native termination during bounded cancellation', () => {
     await cancel;
     await start;
     expect(warn).toHaveBeenCalledWith(
-      'recorder post-start teardown failed',
-      failure
+      expect.stringContaining('post_start_teardown.failed')
     );
     expect(h.recorder.dispose).toHaveBeenCalledTimes(1);
   });
-  it('a rejected cancellation diagnostic still settles the timer race', async () => {
+  it('a real Logger console failure still settles the cancellation timer race', async () => {
     const h = makeRecorder();
     const controller = createRecorderController({
       createRecorder: async () => h.recorder,

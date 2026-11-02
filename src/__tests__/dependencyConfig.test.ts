@@ -82,9 +82,13 @@ it('根、example 与 website 使用统一 RN 0.88.0 动画运行图且公共 pe
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
     '>=0.11.0 <0.14.0'
   );
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.7.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.7.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('^1.7.0');
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.14.0');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.14.0');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('^1.14.0');
+  expect(rootPkg.peerDependencies['@unif/react-native-logger']).toBe('^0.2.0');
+  expect(rootPkg.devDependencies['@unif/react-native-logger']).toBe('^0.2.0');
+  expect(examplePkg.dependencies['@unif/react-native-logger']).toBe('^0.2.0');
+  expect(websitePkg.dependencies['@unif/react-native-logger']).toBe('^0.2.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();

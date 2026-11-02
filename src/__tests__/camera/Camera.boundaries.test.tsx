@@ -1,3 +1,6 @@
+import { registerTestLogging } from '../__helpers__/logging';
+
+registerTestLogging();
 import { createRef } from 'react';
 import { act } from '@testing-library/react-native';
 import * as RNFS from '@dr.pogodin/react-native-fs';
@@ -160,7 +163,7 @@ it('focus failure is diagnosed and subject changes reset native focus', async ()
     { x: 10, y: 20 },
     { responsiveness: 'snappy', adaptiveness: 'continuous', autoResetAfter: 3 }
   );
-  expect(warn).toHaveBeenCalledWith('focusTo failed', failure);
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('focus.failed'));
   act(() => mockNativeProps.onSubjectAreaChanged());
   expect(mockResetFocus).toHaveBeenCalledTimes(1);
 });
@@ -185,7 +188,9 @@ it('capture failure is local and default flash remains auto', async () => {
     { flashMode: 'auto', enableShutterSound: true },
     {}
   );
-  expect(warn).toHaveBeenCalledWith('capturePhoto failed', failure);
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('photo_capture.failed')
+  );
 });
 
 it('video completion uses actual metadata and falls back to recorder duration when absent', async () => {
@@ -263,8 +268,7 @@ it.each(['resolve', 'reject', 'throw'] as const)(
     expect(events.onError).not.toHaveBeenCalled();
     if (outcome !== 'resolve')
       expect(warn).toHaveBeenCalledWith(
-        'discarded video cleanup failed',
-        expect.any(Error)
+        expect.stringContaining('video_cleanup.failed')
       );
   }
 );

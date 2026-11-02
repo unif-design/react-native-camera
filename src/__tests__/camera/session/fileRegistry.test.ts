@@ -1,3 +1,6 @@
+import { registerTestLogging } from '../../__helpers__/logging';
+
+const logRecords = registerTestLogging();
 import {
   createFileRegistry,
   discardOwnedFiles,
@@ -139,9 +142,21 @@ describe('FileRegistry', () => {
     await expect(registry.delete('/bad.jpg')).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('/bad.jpg'),
-      unlinkError
+      expect.stringContaining('owned_file_cleanup.failed')
     );
+    expect(logRecords).toEqual([
+      expect.objectContaining({
+        scope: 'camera.files',
+        event: 'owned_file_cleanup.failed',
+        phase: 'cleanup',
+        outcome: 'failed',
+        code: 'camera.owned_file_cleanup_failed',
+        fields: expect.objectContaining({ errorType: 'Error' }),
+      }),
+    ]);
+    expect(JSON.stringify(logRecords)).not.toContain('/bad.jpg');
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('/bad.jpg');
+    expect(JSON.stringify(logRecords)).not.toContain('disk busy');
     warn.mockRestore();
   });
 
