@@ -190,7 +190,7 @@
   },
   "release-it": {
     "git": {
-      "commitMessage": "chore: release ${version} [skip ci]",
+      "commitMessage": "chore: 发布 ${version} [skip ci]",
       "tagName": "v${version}",
       "requireCommits": true
     },
