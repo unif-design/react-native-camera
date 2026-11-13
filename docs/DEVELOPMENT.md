@@ -6,7 +6,7 @@
 
 使用 `unif-camera` 定位本库当前版本的公开能力、接入与排障资料。应用仅消费库时可直接查公开类型和文档。
 
-维护工程按职责采用独立的通用技能：`code-organization` 负责跨平台目录与文件组织，`react-native-development` 负责 React Native 实现，`react-native-library` 负责库工程和分发产物，`documentation` 负责文档与文档站。维护入口见 [AGENTS.md](../AGENTS.md)，适用技能按当前任务独立选择，本文只补充本库的契约和接线。
+维护工程按职责采用独立的通用技能：`uni-code-organization` 负责跨平台目录与文件组织，`uni-rn-dev` 负责 React Native 实现，`uni-rn-library` 负责库工程和分发产物，`uni-documentation` 负责文档与文档站。维护入口见 [AGENTS.md](../AGENTS.md)，适用技能按当前任务独立选择，本文只补充本库的契约和接线。
 
 ## 目标契约
 
@@ -34,7 +34,7 @@
 
 ## LLM 文档生成
 
-`website/docs` 是使用文档源；运行 `node website/scripts/build-llms.js` 可单独生成。共同实现由 `github-delivery` 的 `templates/llms` 维护，通过该技能提供的同步工具更新本库脚本，不手改共享副本。
+`website/docs` 是使用文档源；运行 `node website/scripts/build-llms.js` 可单独生成。共同实现由 `uni-github-delivery` 的 `templates/llms` 维护，通过该技能提供的同步工具更新本库脚本，不手改共享副本。
 
 索引按任务列出单页，全文位于 Optional；包版本取当前 package.json。`node website/scripts/build-llms.test.js` 验证公共生成契约与本库资料，文档站构建沿既有 CI 运行。
 
@@ -52,7 +52,7 @@
 
 ## 交付配置与检查
 
-共享 CI、发布配置和检查工具由 `github-delivery` 的模板与工具维护。Unif 组织值由 `code-delivery` 的 `assets/organization.json` 维护，接入时落实为本库 `.github/organization.json`，记录组织、包名规则、Pages 地址、发布 App 身份及远端设置。工具运行时读取项目文件，不依赖其他技能的安装目录；适用技能按当前任务独立选择。
+共享 CI、发布配置和检查工具由 `uni-github-delivery` 的模板与工具维护。Unif 组织值由 `unif-code-delivery` 的 `assets/organization.json` 维护，接入时落实为本库 `.github/organization.json`，记录组织、包名规则、Pages 地址、发布 App 身份及远端设置。工具运行时读取项目文件，不依赖其他技能的安装目录；适用技能按当前任务独立选择。
 
 在仓库根目录按阶段执行：
 
