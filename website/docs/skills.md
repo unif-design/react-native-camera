@@ -5,21 +5,9 @@ description: 'Unif Camera 的公开使用、源码维护与按需资料入口。
 
 # 库能力与研发技能
 
-`unif-camera` 可单独安装，用于本库能力的使用、维护和排障。安装 npm 包无需安装技能；技能也不进入产品运行时模型上下文。
+`unif-camera` 用于本库的使用、维护和排障。技能在开发工具中使用，应用通过 npm 接入本库。
 
-按需选择一种分发方式：
-
-1. **单个技能**：准备符合 [Skills CLI 要求](https://github.com/vercel-labs/skills#readme)的 Node.js 和 Git，在目标项目目录运行：
-
-   ```sh
-   npx skills add unif-skill/unif-portal-dev-skills --skill unif-camera
-   ```
-
-   按提示选择目标工具。也可将获授权分发的 `skills/unif-camera/` 完整复制到目标工具的技能目录，保留 `SKILL.md`、`references/`、`agents/` 及已有文件，不要只复制入口文件。
-
-2. 在 Codex 中同时使用多个库能力时，从 `unif-portal-dev-skills` 市场安装 `unif-library-skills` 插件。阶段技能按任务另选。[技能仓安装说明](https://github.com/unif-skill/unif-portal-dev-skills#安装与使用)
-
-技能源仓目前为私有仓库；直接从源仓获取技能需要访问权限及 Git 认证。已获授权分发的完整单技能目录可以独立使用；安装位置与识别方式以目标工具文档为准。
+在 Codex 的 `unif-portal-dev-skills` 市场，安装公共规范插件 `unif-platform-rules` 和提供 `unif-camera` 的库能力插件 `unif-library-skills`。需要 Unif 的 React Native 开发、测试或审查规则时，再安装 `unif-react-native-skills`。读取私有技能仓需要相应权限和 Git 认证。[技能仓安装说明](https://github.com/unif-skill/unif-portal-dev-skills#安装与使用)
 
 - **使用本库**：从 `unif-camera` 定位公开 API、示例和必要的接入/生命周期约束，核对应用实际采用版本。
 - **维护库工程**：目录与文件组织采用 `uni-code-organization`，RN 实现采用 `uni-rn-dev`，库工程与分发采用 `uni-rn-library`，文档采用 `uni-documentation`。这些通用工程技能与本库能力技能分别维护；按仓库开发资料定位契约和真实消费者。
