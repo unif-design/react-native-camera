@@ -1,4 +1,7 @@
-import { registerTestLogging } from '../../__helpers__/logging';
+import {
+  registerTestLogging,
+  flushTestLogging,
+} from '../../__helpers__/logging';
 
 const logRecords = registerTestLogging();
 import {
@@ -590,6 +593,7 @@ describe('recorderController', () => {
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(callbacks.onFinished).not.toHaveBeenCalled();
     expect(callbacks.onError).not.toHaveBeenCalled();
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('dispose.failed')
     );
@@ -750,6 +754,7 @@ describe('recorderController', () => {
     expect(callbacks.onError).toHaveBeenCalledWith(nativeError);
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(harness.recorder.cancelRecording).not.toHaveBeenCalled();
+    await flushTestLogging();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -1584,6 +1589,7 @@ describe('recorderController', () => {
 
     expect(callbacks.onCancelled).toHaveBeenCalledTimes(1);
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    await flushTestLogging();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -1713,7 +1719,9 @@ describe('recorder external failures and reentrant cancellation', () => {
         if (kind === 'discarded') harness.finish('/late.mp4');
       }
       expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+      await flushTestLogging();
       expect(warn).toHaveBeenCalledWith(expect.any(String));
+      await flushTestLogging();
       expect(logRecords).toEqual([
         expect.objectContaining({
           scope: 'camera.recorder',
@@ -1745,6 +1753,7 @@ describe('recorder external failures and reentrant cancellation', () => {
       'started'
     );
     second.finish();
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('dispose.failed')
     );
@@ -1794,6 +1803,7 @@ describe('recorder external failures and reentrant cancellation', () => {
     await flushMicrotasks();
     expect(native.recorder.dispose).toHaveBeenCalledTimes(1);
     expect(callbacks.onDiscardedFile).not.toHaveBeenCalled();
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('unstarted_path.unavailable')
     );
@@ -1836,6 +1846,7 @@ describe('recorder external failures and reentrant cancellation', () => {
     await controller.start(startOptions(makeCallbacks()));
     await expect(controller.cancel()).resolves.toBeUndefined();
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('teardown_timer_clear.failed')
     );
@@ -1856,6 +1867,7 @@ describe('recorder external failures and reentrant cancellation', () => {
       failure
     );
     expect(harness.recorder.dispose).toHaveBeenCalledTimes(1);
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('bounded_teardown.failed')
     );
@@ -1964,6 +1976,7 @@ describe('native termination during bounded cancellation', () => {
           .mocked(h.recorder.cancelRecording)
           .mockImplementationOnce(async () => h.finish());
       await controller.cancel();
+      await flushTestLogging();
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('teardown.failed')
       );
@@ -1998,6 +2011,7 @@ describe('native termination during bounded cancellation', () => {
     h.startDeferred!.resolve();
     await cancel;
     await start;
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('post_start_teardown.failed')
     );

@@ -1,6 +1,6 @@
-import { registerTestLogging } from '../__helpers__/logging';
+import { registerTestLogging, flushTestLogging } from '../__helpers__/logging';
 
-registerTestLogging();
+const records = registerTestLogging();
 import { createRef } from 'react';
 import { act } from '@testing-library/react-native';
 import * as RNFS from '@dr.pogodin/react-native-fs';
@@ -119,6 +119,40 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it('session errors reach the original callback before asynchronous diagnostics without closing the camera', async () => {
+  const onCameraError = jest.fn();
+  const failure = Object.assign(new Error('PRIVATE_CAMERA_PATH'), {
+    code: 'EACCES',
+  });
+  const view = mount({ onCameraError });
+
+  act(() => mockNativeProps.onError(failure));
+
+  expect(onCameraError).toHaveBeenCalledTimes(1);
+  expect(onCameraError).toHaveBeenCalledWith(failure);
+  expect(view.getByTestId('native-camera-boundary')).toBeTruthy();
+  expect(mockNativeProps.isActive).toBe(true);
+  expect(records.filter((record) => record.event === 'session.error')).toEqual(
+    []
+  );
+
+  await flushTestLogging();
+
+  expect(records.filter((record) => record.event === 'session.error')).toEqual([
+    expect.objectContaining({
+      phase: 'session',
+      outcome: 'failed',
+      code: 'camera.session_error',
+      fields: expect.objectContaining({
+        errorType: 'Error',
+        sourceCode: 'EACCES',
+      }),
+    }),
+  ]);
+  expect(JSON.stringify(records)).not.toContain('PRIVATE_CAMERA_PATH');
+  expect(onCameraError).toHaveBeenCalledTimes(1);
+});
+
 it('pinch clamps zoom and forwards the settled value only when a callback exists', async () => {
   const zoom = { value: 2 };
   const onZoomEnd = jest.fn();
@@ -163,6 +197,7 @@ it('focus failure is diagnosed and subject changes reset native focus', async ()
     { x: 10, y: 20 },
     { responsiveness: 'snappy', adaptiveness: 'continuous', autoResetAfter: 3 }
   );
+  await flushTestLogging();
   expect(warn).toHaveBeenCalledWith(expect.stringContaining('focus.failed'));
   act(() => mockNativeProps.onSubjectAreaChanged());
   expect(mockResetFocus).toHaveBeenCalledTimes(1);
@@ -188,6 +223,7 @@ it('capture failure is local and default flash remains auto', async () => {
     { flashMode: 'auto', enableShutterSound: true },
     {}
   );
+  await flushTestLogging();
   expect(warn).toHaveBeenCalledWith(
     expect.stringContaining('photo_capture.failed')
   );
@@ -266,10 +302,12 @@ it.each(['resolve', 'reject', 'throw'] as const)(
     expect(RNFS.unlink).toHaveBeenCalledWith('/late.mp4');
     expect(events.onFinished).not.toHaveBeenCalled();
     expect(events.onError).not.toHaveBeenCalled();
-    if (outcome !== 'resolve')
+    if (outcome !== 'resolve') {
+      await flushTestLogging();
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('video_cleanup.failed')
       );
+    }
   }
 );
 

@@ -6334,9 +6334,9 @@ __metadata:
     "@shopify/react-native-skia": "npm:^2.14.0"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:^1.14.0"
+    "@unif/react-native-design": "npm:^1.20.0"
     "@unif/react-native-icons": "npm:^0.4.1"
-    "@unif/react-native-logger": "npm:^0.2.0"
+    "@unif/react-native-logger": "npm:^0.3.0"
     react: "npm:19.3.0"
     react-native: "npm:0.88.0"
     react-native-builder-bob: "npm:^0.41.0"
@@ -6373,9 +6373,9 @@ __metadata:
     "@react-native/metro-config": "npm:0.88.0"
     "@types/react": "npm:^19.2.0"
     "@unif/react-native-camera": "workspace:*"
-    "@unif/react-native-design": "npm:^1.14.0"
+    "@unif/react-native-design": "npm:^1.20.0"
     "@unif/react-native-icons": "npm:^0.4.1"
-    "@unif/react-native-logger": "npm:^0.2.0"
+    "@unif/react-native-logger": "npm:^0.3.0"
     clsx: "npm:^2.0.0"
     prism-react-renderer: "npm:^2.3.0"
     react: "npm:19.3.0"
@@ -6414,9 +6414,9 @@ __metadata:
     "@types/jest": "npm:^29.5.0"
     "@types/react": "npm:^19.2.0"
     "@types/react-test-renderer": "npm:^19"
-    "@unif/react-native-design": "npm:^1.14.0"
+    "@unif/react-native-design": "npm:^1.20.0"
     "@unif/react-native-icons": "npm:^0.4.1"
-    "@unif/react-native-logger": "npm:^0.2.0"
+    "@unif/react-native-logger": "npm:^0.3.0"
     commitlint: "npm:^20.5.0"
     del-cli: "npm:^7.0.0"
     eslint: "npm:^8.57.1"
@@ -6452,7 +6452,7 @@ __metadata:
     "@shopify/react-native-skia": ">=2"
     "@unif/react-native-design": ^1.7.0
     "@unif/react-native-icons": ">=0.1.0"
-    "@unif/react-native-logger": ^0.2.0
+    "@unif/react-native-logger": ^0.3.0
     react: ">=19.2.3 <20.0.0"
     react-native: ">=0.86.0"
     react-native-gesture-handler: ">=3.0.0 <4.0.0"
@@ -6470,15 +6470,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@unif/react-native-design@npm:^1.14.0":
-  version: 1.14.0
-  resolution: "@unif/react-native-design@npm:1.14.0"
+"@unif/react-native-design@npm:^1.20.0":
+  version: 1.20.0
+  resolution: "@unif/react-native-design@npm:1.20.0"
   dependencies:
     react-is: "npm:^19.2.8"
   peerDependencies:
     "@callstack/liquid-glass": ">=0.8.2 <0.9.0"
     "@unif/react-native-icons": ">=0.1.0"
-    "@unif/react-native-logger": ^0.2.0
+    "@unif/react-native-logger": ^0.2.0 || ^0.3.0
     react: ">=19.2.3 <20.0.0"
     react-native: ">=0.86.0"
     react-native-gesture-handler: ">=3.0.0 <4.0.0"
@@ -6487,7 +6487,7 @@ __metadata:
     react-native-safe-area-context: ">=5"
     react-native-svg: ">=15"
     react-native-worklets: ">=0.11.0 <0.14.0"
-  checksum: 10c0/d0ca3d58ffbd12400ccb93b2b74fce8fbe3497366e0fcdc81ffcbf7451d89922394f621164a9b0afe1ad71826e20dd1fdc9575aa5e660d1b9f102b4c5522b9bd
+  checksum: 10c0/7c185d990358f74112ba40c6430a46a54139ed5bb6170e74ae9d7dff1c8a796839dd111e6c9bcea55929f5e73c84df7112e8248ada8d640a3fdf325b4d611115
   languageName: node
   linkType: hard
 
@@ -6502,21 +6502,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@unif/react-native-logger@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "@unif/react-native-logger@npm:0.2.0"
+"@unif/react-native-logger@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "@unif/react-native-logger@npm:0.3.0"
   dependencies:
     crypto-js: "npm:^4.2.0"
     lodash: "npm:^4.18.1"
   peerDependencies:
     react-native: ">=0.86.0"
-    react-native-blob-util: ^0.25.1
+    react-native-blob-util: 1.1.1
   peerDependenciesMeta:
     react-native:
       optional: true
     react-native-blob-util:
       optional: true
-  checksum: 10c0/05df736ef7bbc4faf5472f38bdbbf1a7db1fe3f370adbc2abe02bbf77bf7c579425f4f237993e52fb1b3cdae1c620864827b25427fc5d71ff5e2d4521a83f347
+  checksum: 10c0/286ecd97099382796a11cbac8d1f4dc437003350d41dbd49e7f79d7391ff160e9c5af2a272a827bc306abcd79cdaf7397b6d681e670868772a787bf4522097cb
   languageName: node
   linkType: hard
 

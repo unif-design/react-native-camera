@@ -1,4 +1,7 @@
-import { registerTestLogging } from '../../__helpers__/logging';
+import {
+  registerTestLogging,
+  flushTestLogging,
+} from '../../__helpers__/logging';
 
 registerTestLogging();
 import { StrictMode, createElement } from 'react';
@@ -635,6 +638,7 @@ describe('useCameraSessionController', () => {
       harness.result.current.requestUserCancel();
       await Promise.resolve();
     });
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(harness.result.current.state.phase).toBe('ready');
 
@@ -822,6 +826,7 @@ describe('useCameraSessionController', () => {
       }
     });
 
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(cancelRecording).toHaveBeenCalledTimes(1);
     expect(harness.onSettle).not.toHaveBeenCalled();
@@ -874,6 +879,7 @@ describe('useCameraSessionController', () => {
       harness.result.current.requestUserCancel();
       await Promise.resolve();
     });
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(harness.result.current.state.phase).toBe('recording');
     expect(harness.cancelRecording).not.toHaveBeenCalled();
@@ -903,12 +909,13 @@ describe('useCameraSessionController', () => {
       await Promise.resolve();
     });
 
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(harness.result.current.state.phase).toBe('settling');
     expect(harness.onSettle).toHaveBeenCalledTimes(1);
   });
 
-  it('warns when force cancellation throws synchronously and never restores state', () => {
+  it('warns when force cancellation throws synchronously and never restores state', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const harness = setup({
       cancelRecording: jest.fn(() => {
@@ -922,6 +929,7 @@ describe('useCameraSessionController', () => {
       harness.result.current.forceTeardown();
     });
 
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(harness.result.current.state.phase).toBe('settling');
     expect(harness.onSettle).not.toHaveBeenCalled();
@@ -942,6 +950,7 @@ describe('useCameraSessionController', () => {
       await Promise.resolve();
     });
 
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(harness.result.current.state.phase).toBe('settling');
     expect(harness.onSettle).not.toHaveBeenCalled();
@@ -1087,6 +1096,7 @@ describe('retained controller boundaries', () => {
     act(() => h.result.current.requestUserCancel());
     act(() => h.result.current.forceTeardown());
     await act(async () => pending.reject(new Error('old host ended')));
+    await flushTestLogging();
     expect(warn).not.toHaveBeenCalled();
     expect(h.onSettle).not.toHaveBeenCalled();
   });
@@ -1105,6 +1115,7 @@ describe('retained controller boundaries', () => {
       if (recording) beginRecording(h.result);
       await act(async () => h.result.current.requestUserCancel());
       expect(h.result.current.state.phase).toBe('settling');
+      await flushTestLogging();
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('user_cancel.failed')
       );
@@ -1131,7 +1142,9 @@ it('force teardown preserves settlement when the real Logger console transport f
   beginRecording(h.result);
   await act(async () => h.result.current.forceTeardown());
   expect(h.result.current.state.phase).toBe('settling');
+  await flushTestLogging();
   expect(warn).toHaveBeenCalledTimes(1);
+  await flushTestLogging();
   expect(warn).toHaveBeenCalledWith(
     expect.stringContaining('recording_cancel.failed')
   );

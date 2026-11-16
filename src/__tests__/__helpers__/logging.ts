@@ -5,6 +5,14 @@ import type {
   LoggingHandle,
 } from '@unif/react-native-logger';
 
+let currentHandle: LoggingHandle | undefined;
+
+/** 仅诊断断言等待Logger，不让测试中的拍摄／取消流程等待日志。 */
+export async function flushTestLogging(): Promise<void> {
+  if (!currentHandle) throw new Error('test logger is not installed');
+  await currentHandle.flush();
+}
+
 /** 使用真实日志运行时，只替换本地文件边界。 */
 export function registerTestLogging(): DiagnosticRecord[] {
   const records: DiagnosticRecord[] = [];
@@ -58,8 +66,16 @@ export function registerTestLogging(): DiagnosticRecord[] {
       files,
       createId: () => 'camera-test-run',
     });
+    currentHandle = handle;
     await handle.setOwner(null);
   });
-  afterEach(() => handle.dispose());
+  afterEach(async () => {
+    try {
+      await flushTestLogging();
+    } finally {
+      currentHandle = undefined;
+      handle.dispose();
+    }
+  });
   return records;
 }

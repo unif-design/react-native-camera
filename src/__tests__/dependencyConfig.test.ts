@@ -66,7 +66,7 @@ it('根、example 与 website 使用统一 RN 0.88.0 动画运行图且公共 pe
     expect(pkg['react-native-reanimated']).toBe('4.7.1');
     expect(pkg['react-native-worklets']).toBe('0.13.0');
   }
-  // 共享媒体调色板需要 Design 1.7，RN 支持下限保持 0.86。
+  // 共享媒体调色板接口保持 Design 1.7；开发图采用兼容 Logger 0.3 的 Design 1.20。
   expect(rootPkg.peerDependencies.react).toBe('>=19.2.3 <20.0.0');
   expect(rootPkg.peerDependencies['react-native']).toBe('>=0.86.0');
   expect(rootPkg.peerDependencies['@callstack/liquid-glass']).toBe(
@@ -82,13 +82,13 @@ it('根、example 与 website 使用统一 RN 0.88.0 动画运行图且公共 pe
   expect(rootPkg.peerDependencies['react-native-worklets']).toBe(
     '>=0.11.0 <0.14.0'
   );
-  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.14.0');
-  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.14.0');
-  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('^1.14.0');
-  expect(rootPkg.peerDependencies['@unif/react-native-logger']).toBe('^0.2.0');
-  expect(rootPkg.devDependencies['@unif/react-native-logger']).toBe('^0.2.0');
-  expect(examplePkg.dependencies['@unif/react-native-logger']).toBe('^0.2.0');
-  expect(websitePkg.dependencies['@unif/react-native-logger']).toBe('^0.2.0');
+  expect(rootPkg.devDependencies['@unif/react-native-design']).toBe('^1.20.0');
+  expect(examplePkg.dependencies['@unif/react-native-design']).toBe('^1.20.0');
+  expect(websitePkg.dependencies['@unif/react-native-design']).toBe('^1.20.0');
+  expect(rootPkg.peerDependencies['@unif/react-native-logger']).toBe('^0.3.0');
+  expect(rootPkg.devDependencies['@unif/react-native-logger']).toBe('^0.3.0');
+  expect(examplePkg.dependencies['@unif/react-native-logger']).toBe('^0.3.0');
+  expect(websitePkg.dependencies['@unif/react-native-logger']).toBe('^0.3.0');
   expect(
     rootPkg.resolutions?.['@react-native/gradle-plugin@npm:0.85.0']
   ).toBeUndefined();

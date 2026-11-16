@@ -36,12 +36,12 @@ export async function captureToTempFile(
       await RNFS.unlink(filePath);
     } catch (cleanupError) {
       // 文件尚未交给 session registry；清理失败只做无敏感信息诊断，不能遮蔽元数据错误。
-      log.warn('captured_photo_cleanup.failed', {
+      log.warn('captured_photo_cleanup.failed', () => ({
         phase: 'cleanup',
         outcome: 'failed',
         code: 'camera.captured_photo_cleanup_failed',
         fields: { ...getFailureDiagnostics(cleanupError) },
-      });
+      }));
     }
     throw error;
   }
