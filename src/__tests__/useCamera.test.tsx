@@ -1,4 +1,4 @@
-import { registerTestLogging } from './__helpers__/logging';
+import { registerTestLogging, flushTestLogging } from './__helpers__/logging';
 
 const logRecords = registerTestLogging();
 import React from 'react';
@@ -473,9 +473,11 @@ it('unlink failure cannot change the exactly-once cancelled result', async () =>
 
   await expect(promise).resolves.toEqual(cancelledResult);
   await flushMicrotasks();
+  await flushTestLogging();
   expect(warn).toHaveBeenCalledWith(
     expect.stringContaining('owned_file_cleanup.failed')
   );
+  await flushTestLogging();
   expect(logRecords).toEqual([
     expect.objectContaining({ event: 'owned_file_cleanup.failed' }),
   ]);

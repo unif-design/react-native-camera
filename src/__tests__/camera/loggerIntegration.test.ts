@@ -4,7 +4,7 @@ import {
 } from '@unif/react-native-design';
 import { defaultLogBackend } from '@unif/react-native-logger';
 import { createFileRegistry } from '../../camera/session/fileRegistry';
-import { registerTestLogging } from '../__helpers__/logging';
+import { registerTestLogging, flushTestLogging } from '../__helpers__/logging';
 
 const records = registerTestLogging();
 
@@ -23,6 +23,7 @@ it('Camera 与真实 Design 消费同一 Logger，每个诊断只分发一次且
   createDesignLogger('DesignIntegration').warn('固定组件诊断');
 
   expect(consoleTransport).toBe(defaultLogBackend.consoleTransport);
+  await flushTestLogging();
   expect(records).toEqual([
     expect.objectContaining({
       scope: 'camera.files',
@@ -37,6 +38,7 @@ it('Camera 与真实 Design 消费同一 Logger，每个诊断只分发一次且
       event: 'sdk.warning',
     }),
   ]);
+  await flushTestLogging();
   expect(warn).toHaveBeenCalledTimes(2);
   expect(JSON.stringify([records, warn.mock.calls])).not.toMatch(
     /用户正文|customer-photo|PRIVATE/

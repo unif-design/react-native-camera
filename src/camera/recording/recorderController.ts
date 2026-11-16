@@ -220,12 +220,12 @@ export function createRecorderController({
         try {
           clear();
         } catch (error) {
-          log.warn('teardown_timer_clear.failed', {
+          log.warn('teardown_timer_clear.failed', () => ({
             phase: 'cleanup',
             outcome: 'failed',
             code: 'camera.teardown_timer_clear_failed',
             fields: { ...getFailureDiagnostics(error) },
-          });
+          }));
         }
       };
       const settle = (value: T) => {
@@ -251,12 +251,12 @@ export function createRecorderController({
     recorder: RecorderLike
   ): Promise<NativeCancelOutcome> => {
     const rejected = (error: unknown) => {
-      log.warn('cancel_attempt.failed', {
+      log.warn('cancel_attempt.failed', () => ({
         phase: 'cancel',
         outcome: 'failed',
         code: 'camera.cancel_attempt_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
       return 'rejected' as const;
     };
     let request: Promise<'cancelled' | 'rejected'>;
@@ -286,12 +286,12 @@ export function createRecorderController({
     try {
       await cancelRecorderWithinTimeout(recorder);
     } catch (error) {
-      log.warn('bounded_teardown.failed', {
+      log.warn('bounded_teardown.failed', () => ({
         phase: 'cleanup',
         outcome: 'failed',
         code: 'camera.bounded_teardown_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     } finally {
       dispose();
     }
@@ -303,12 +303,12 @@ export function createRecorderController({
     try {
       operation.recorder.dispose();
     } catch (error) {
-      log.warn('dispose.failed', {
+      log.warn('dispose.failed', () => ({
         phase: 'cleanup',
         outcome: 'failed',
         code: 'camera.dispose_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     } finally {
       liveOperations.delete(operation);
     }
@@ -365,12 +365,12 @@ export function createRecorderController({
     try {
       callbacks.onError(error);
     } catch (callbackError) {
-      log.warn('error_callback.failed', {
+      log.warn('error_callback.failed', () => ({
         phase: 'callback',
         outcome: 'failed',
         code: 'camera.error_callback_failed',
         fields: { ...getFailureDiagnostics(callbackError) },
-      });
+      }));
     }
   };
 
@@ -378,12 +378,12 @@ export function createRecorderController({
     try {
       callbacks.onCancelled?.();
     } catch (callbackError) {
-      log.warn('cancel_callback.failed', {
+      log.warn('cancel_callback.failed', () => ({
         phase: 'callback',
         outcome: 'failed',
         code: 'camera.cancel_callback_failed',
         fields: { ...getFailureDiagnostics(callbackError) },
-      });
+      }));
     }
   };
 
@@ -401,12 +401,12 @@ export function createRecorderController({
     try {
       callbacks.onDiscardedFile?.(path);
     } catch (callbackError) {
-      log.warn('discarded_file_callback.failed', {
+      log.warn('discarded_file_callback.failed', () => ({
         phase: 'callback',
         outcome: 'failed',
         code: 'camera.discarded_file_callback_failed',
         fields: { ...getFailureDiagnostics(callbackError) },
-      });
+      }));
     }
   };
 
@@ -439,12 +439,12 @@ export function createRecorderController({
     try {
       operation.callbacks.onFinished(path, reason, duration);
     } catch (error) {
-      log.warn('finished_callback.failed', {
+      log.warn('finished_callback.failed', () => ({
         phase: 'callback',
         outcome: 'failed',
         code: 'camera.finished_callback_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     } finally {
       disposeRecorder(operation);
     }
@@ -510,12 +510,12 @@ export function createRecorderController({
           if (outcome !== 'rejected') return;
         }
       } catch (error) {
-        log.warn('post_start_teardown.failed', {
+        log.warn('post_start_teardown.failed', () => ({
           phase: 'cleanup',
           outcome: 'failed',
           code: 'camera.post_start_teardown_failed',
           fields: { ...getFailureDiagnostics(error) },
-        });
+        }));
       } finally {
         operation.postStartCancelRequired = false;
         disposeRecorder(operation);
@@ -568,12 +568,12 @@ export function createRecorderController({
     } catch (error) {
       // 无法确认 native cancel 结果时宁可保留 handle；迟到 start/callback 仍能完成最终收尾。
       if (!operation.disposed) operation.postStartCancelRequired = true;
-      log.warn('teardown.failed', {
+      log.warn('teardown.failed', () => ({
         phase: 'cleanup',
         outcome: 'failed',
         code: 'camera.teardown_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     }
   };
 
@@ -587,23 +587,23 @@ export function createRecorderController({
     try {
       filePath = recorder.filePath;
     } catch (error) {
-      log.warn('unstarted_path.unavailable', {
+      log.warn('unstarted_path.unavailable', () => ({
         phase: 'cleanup',
         outcome: 'failed',
         code: 'camera.unstarted_path_unavailable',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     }
     // 该实例从未 start；iOS cancel 只看共享 AVCaptureMovieFileOutput，调用它可能误停新 owner。
     try {
       recorder.dispose();
     } catch (error) {
-      log.warn('dispose.failed', {
+      log.warn('dispose.failed', () => ({
         phase: 'cleanup',
         outcome: 'failed',
         code: 'camera.dispose_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     }
     if (filePath) notifyDiscardedFile(callbacks, filePath);
   };

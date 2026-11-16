@@ -1,4 +1,7 @@
-import { registerTestLogging } from '../../__helpers__/logging';
+import {
+  registerTestLogging,
+  flushTestLogging,
+} from '../../__helpers__/logging';
 
 const logRecords = registerTestLogging();
 import {
@@ -141,9 +144,11 @@ describe('FileRegistry', () => {
 
     await expect(registry.delete('/bad.jpg')).resolves.toBeUndefined();
 
+    await flushTestLogging();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('owned_file_cleanup.failed')
     );
+    await flushTestLogging();
     expect(logRecords).toEqual([
       expect.objectContaining({
         scope: 'camera.files',

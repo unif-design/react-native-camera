@@ -411,12 +411,12 @@ export function useCameraSessionController({
     try {
       await cancelRecordingRef.current();
     } catch (error) {
-      log.warn('recording_cancel.failed', {
+      log.warn('recording_cancel.failed', () => ({
         phase: 'cancel',
         outcome: 'failed',
         code: 'camera.recording_cancel_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     }
   }, []);
 
@@ -445,12 +445,12 @@ export function useCameraSessionController({
       } catch (error) {
         if (cancelRequestIsCurrent(request)) {
           pendingCancelRef.current = null;
-          log.warn('cancel_confirmation.failed', {
+          log.warn('cancel_confirmation.failed', () => ({
             phase: 'cancel',
             outcome: 'failed',
             code: 'camera.cancel_confirmation_failed',
             fields: { ...getFailureDiagnostics(error) },
-          });
+          }));
         }
         return;
       }
@@ -513,12 +513,12 @@ export function useCameraSessionController({
         },
         true
       ).catch((error) => {
-        log.warn('user_cancel.failed', {
+        log.warn('user_cancel.failed', () => ({
           phase: 'cancel',
           outcome: 'failed',
           code: 'camera.user_cancel_failed',
           fields: { ...getFailureDiagnostics(error) },
-        });
+        }));
       });
       return;
     }
@@ -542,12 +542,12 @@ export function useCameraSessionController({
       },
       false
     ).catch((error) => {
-      log.warn('user_cancel.failed', {
+      log.warn('user_cancel.failed', () => ({
         phase: 'cancel',
         outcome: 'failed',
         code: 'camera.user_cancel_failed',
         fields: { ...getFailureDiagnostics(error) },
-      });
+      }));
     });
   }, [confirmUserCancel, settle]);
 

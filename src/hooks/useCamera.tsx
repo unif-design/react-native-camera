@@ -106,12 +106,12 @@ export function useCamera(): readonly [CameraController, React.ReactElement] {
           controller?.bridge.forceTeardown();
         } catch (error) {
           try {
-            log.warn('force_teardown.failed', {
+            log.warn('force_teardown.failed', () => ({
               phase: 'cleanup',
               outcome: 'failed',
               code: 'camera.force_teardown_failed',
               fields: { ...getFailureDiagnostics(error) },
-            });
+            }));
           } catch {
             // 诊断失败也不能吞掉 terminal settle。
           }
@@ -263,12 +263,12 @@ export function useCamera(): readonly [CameraController, React.ReactElement] {
             return;
           }
         } catch (error) {
-          log.warn('user_cancel.failed', {
+          log.warn('user_cancel.failed', () => ({
             phase: 'cancel',
             outcome: 'failed',
             code: 'camera.user_cancel_failed',
             fields: { ...getFailureDiagnostics(error) },
-          });
+          }));
         }
       }
 

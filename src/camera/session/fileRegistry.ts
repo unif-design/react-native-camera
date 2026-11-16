@@ -22,12 +22,12 @@ export type FileRegistry = {
 };
 
 const reportCleanupFailureByDefault: ReportFileCleanupFailure = ({ error }) => {
-  log.warn('owned_file_cleanup.failed', {
+  log.warn('owned_file_cleanup.failed', () => ({
     phase: 'cleanup',
     outcome: 'failed',
     code: 'camera.owned_file_cleanup_failed',
     fields: { ...getFailureDiagnostics(error) },
-  });
+  }));
 };
 
 export function createFileRegistry(

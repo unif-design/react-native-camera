@@ -48,7 +48,7 @@
 
 ## 诊断接入
 
-已有相机、录像、取消和文件清理诊断使用 `@unif/react-native-logger` 的 `createLogger` 与 `getFailureDiagnostics`。事件和阶段固定，不输出媒体路径、URI、水印或任意异常正文。日志运行时与文件存储由应用统一安装；记录失败不能改变取消、回调、原始异常和媒体所有权。回归使用真实 Logger 运行时并替换文件边界，分别核对安全诊断和原业务结果。
+已有相机、录像、取消和文件清理诊断使用 `@unif/react-native-logger` 的 `createLogger` 与 `getFailureDiagnostics`。事件和阶段固定，不输出媒体路径、URI、水印或任意异常正文。日志运行时与文件存储由应用统一安装；记录失败不能改变取消、回调、原始异常和媒体所有权。回归使用真实 Logger 运行时并替换文件边界，分别核对安全诊断和原业务结果。Logger 最低版本为 0.3；日志专用错误投影通过现有记录方法的元数据生产器交给统一异步任务处理。拍照、录像、回调、取消和文件清理不等待日志；阶段等事实在提交时固定，不在后台读取后来状态。
 
 ## 交付配置与检查
 
@@ -56,11 +56,11 @@
 
 在仓库根目录按阶段执行：
 
-| 命令 | 检查范围 |
-| --- | --- |
-| `node .github/scripts/check-delivery.cjs` | 离线检查受管文件、组织配置与 source 元数据。 |
-| `node .github/scripts/check-library.cjs pack` | 完成库构建后，检查当前 tarball 的导出、声明与文件清单。 |
-| `node .github/scripts/check-library.cjs release` | 发行前校验 README、许可和发布配置，不执行发布。 |
+| 命令                                               | 检查范围                                                  |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `node .github/scripts/check-delivery.cjs`          | 离线检查受管文件、组织配置与 source 元数据。              |
+| `node .github/scripts/check-library.cjs pack`      | 完成库构建后，检查当前 tarball 的导出、声明与文件清单。   |
+| `node .github/scripts/check-library.cjs release`   | 发行前校验 README、许可和发布配置，不执行发布。           |
 | `node .github/scripts/check-library.cjs published` | 联网核验 npm 当前版本的元数据、下载完整性与实际 tarball。 |
 
 CI 与发布步骤见本库 `.github/workflows/`，组织配置调整以项目文件及当前授权为准。本地检查、远端 CI、npm 发布、文档部署和设备验收分别报告。

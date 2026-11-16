@@ -1,4 +1,7 @@
-import { registerTestLogging } from '../../__helpers__/logging';
+import {
+  registerTestLogging,
+  flushTestLogging,
+} from '../../__helpers__/logging';
 
 registerTestLogging();
 import { act, renderHook } from '@testing-library/react-native';
@@ -108,6 +111,7 @@ it('effect cleanup survives a real Logger console transport failure during recor
     throw new Error('diagnostic unavailable');
   });
   await act(async () => h.unmount());
+  await flushTestLogging();
   expect(warn).toHaveBeenCalled();
   warn.mockRestore();
   timer.mockRestore();
