@@ -1,5 +1,12 @@
 # Changelog
 
+# [6.2.0](https://github.com/unif-design/react-native-camera/compare/v6.1.6...v6.2.0) (2026-11-16)
+
+
+### Features
+
+* **camera:** 采用 Logger 0.3 异步诊断 ([#157](https://github.com/unif-design/react-native-camera/issues/157)) ([f5910e5](https://github.com/unif-design/react-native-camera/commit/f5910e58b15cba5059c975ecba7150cf9e1b5ddd))
+
 ## [6.1.6](https://github.com/unif-design/react-native-camera/compare/v6.1.5...v6.1.6) (2026-11-02)
 
 
