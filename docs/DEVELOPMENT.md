@@ -17,7 +17,7 @@
 
 ## 目标契约
 
-[本库新版本设计](../../unif-platform-architecture/libraries/react-native-camera.md)定义职责、公共输入输出、状态和验证边界；[库版本原则](../../unif-platform-architecture/libraries/README.md)明确新旧版本独立。规范根默认是并列的 `unif-platform-architecture` 工作区，其他目录布局由任务提供实际位置。
+[本库新版本设计](https://github.com/unif-design/unif-platform-architecture/blob/main/libraries/react-native-camera.md)定义职责、公共输入输出、状态和验证边界；[库版本原则](https://github.com/unif-design/unif-platform-architecture/blob/main/libraries/README.md)明确新旧版本独立。本地可在同级的 `unif-platform-architecture` 仓库查阅这些文件。
 
 目标契约用于新版本开发；当前可用接口以实际源码和发布版本为准。版本采用原则在上述库设计索引维护。
 
